@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      target: development
+    container_name: ${COMPOSE_PROJECT_NAME:-riot_api}_frontend_dev
+    environment:
+      - NODE_ENV=development
+      - API_URL=${API_URL:-http://localhost:8000}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/dist
+    ports:
+      - "3000:3000"
+    command: ["npm", "run", "dev"]
+
+  backend:
+    build:
+      target: development
+    container_name: ${COMPOSE_PROJECT_NAME:-riot_api}_backend_dev
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - RIOT_API_KEY=${RIOT_API_KEY}
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/dev-data.sql:/docker-entrypoint-initdb.d/dev-data.sql:ro
+
+  
+  

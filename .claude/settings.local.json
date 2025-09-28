@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__context7__resolve-library-id",
+      "WebFetch(domain:docs.astral.sh)",
+      "mcp__context7__get-library-docs",
+      "WebFetch(domain:sqlmodel.tiangolo.com)",
+      "WebFetch(domain:www.psycopg.org)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "outputStyle": "Sr. Software Developer"
+}
