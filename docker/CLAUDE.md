@@ -150,19 +150,16 @@ docker history riot-api-project_backend:latest
 - Backend available at `http://localhost:8000`
 - Frontend available at `http://localhost:3000`
 - Database accessible internally at `postgres:5432`
-- Redis accessible internally at `redis:6379`
 
 ### Port Configuration
 - Backend: 8000 (host) → 8000 (container)
 - Frontend: 3000 (host) → 3000 (container)
 - Database: 5432 (host) → 5432 (container)
-- Redis: 6379 (host) → 6379 (container)
 
 ## Volume Management
 
 ### Data Persistence
 - Database data persisted in `postgres_data` volume
-- Redis data persisted in `redis_data` volume
 - Source code mounted for development hot reload
 
 ### Volume Commands
@@ -197,7 +194,6 @@ docker-compose exec backend curl -f http://localhost:8000/health || exit 1
 ### Custom Health Checks
 - Backend: HTTP health check endpoint
 - Database: PostgreSQL connection test
-- Redis: Redis ping command
 - Frontend: Application readiness check
 
 ## Environment Configuration

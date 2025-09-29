@@ -10,7 +10,7 @@ This file provides guidance for working with the Python FastAPI backend.
 - **Riot API Client**: HTTP client with rate limiting in `app/riot_api/`
 - **Algorithms**: Smurf detection algorithms in `app/algorithms/` (win_rate, rank_progression, performance)
 - **Background Tasks**: Async task processing in `app/tasks/`
-- **Caching**: Redis and local caching strategies in `app/cache/`
+- **Caching**: In-memory caching with TTL support in `app/riot_api/cache.py`
 
 ## Core Data Flow
 
@@ -74,8 +74,8 @@ The system uses multiple heuristics:
 ## Performance Considerations
 
 ### Caching Strategy
-- Redis for distributed caching
-- Local memory cache for frequently accessed data
+- In-memory TTL cache for Riot API responses
+- Configurable cache sizes and TTLs per data type
 - Cache Riot API responses with TTL
 - Implement cache invalidation for player data updates
 

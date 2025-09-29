@@ -38,7 +38,7 @@ docker-compose down
 
 ## Core Technologies
 
-- **Backend**: Python, FastAPI, SQLAlchemy, Alembic, Redis
+- **Backend**: Python, FastAPI, SQLAlchemy, Alembic
 - **Frontend**: React, TypeScript, Tailwind CSS, Vite
 - **Database**: PostgreSQL with connection pooling
 - **Containerization**: Docker & Docker Compose

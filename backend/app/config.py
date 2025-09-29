@@ -26,11 +26,10 @@ class Settings(BaseSettings):
     postgres_password: str = Field(..., env="POSTGRES_PASSWORD")
     database_url: str = Field(..., env="DATABASE_URL")
 
-    
+
     # Application Configuration
     debug: bool = Field(default=False, env="DEBUG")
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    secret_key: str = Field(..., env="SECRET_KEY")
 
     # Frontend Configuration
     api_url: str = Field(default="http://localhost:8000", env="API_URL")
