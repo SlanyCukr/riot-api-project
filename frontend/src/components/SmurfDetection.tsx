@@ -19,7 +19,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
       force_reanalyze: true
     };
 
-    await post('/detection/analyze', request, {
+    await post('/analyze', request, {
       onSuccess: (data) => {
         if (data) {
           setDetection(data);

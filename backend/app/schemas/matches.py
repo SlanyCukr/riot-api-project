@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class MatchBase(BaseModel):
@@ -52,8 +52,7 @@ class MatchResponse(MatchBase):
     is_ranked_match: bool = Field(..., description="Whether this is a ranked match")
     is_normal_match: bool = Field(..., description="Whether this is a normal match")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchListResponse(BaseModel):
@@ -63,8 +62,7 @@ class MatchListResponse(BaseModel):
     start: int = Field(..., description="Start index")
     count: int = Field(..., description="Number of matches returned")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchStatsResponse(BaseModel):
@@ -81,8 +79,7 @@ class MatchStatsResponse(BaseModel):
     avg_cs: float = Field(..., ge=0.0, description="Average CS per match")
     avg_vision_score: float = Field(..., ge=0.0, description="Average vision score")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchSearchRequest(BaseModel):
@@ -99,7 +96,7 @@ class MatchSearchRequest(BaseModel):
 
 class MatchBulkRequest(BaseModel):
     """Schema for bulk match operations."""
-    match_ids: list[str] = Field(..., min_items=1, max_items=100, description="List of match IDs")
+    match_ids: list[str] = Field(..., min_length=1, max_length=100, description="List of match IDs")
 
 
 class MatchBulkResponse(BaseModel):
@@ -107,13 +104,12 @@ class MatchBulkResponse(BaseModel):
     matches: list[MatchResponse]
     not_found: list[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchProcessingRequest(BaseModel):
     """Schema for match processing requests."""
-    match_ids: list[str] = Field(..., min_items=1, max_items=50, description="List of match IDs to process")
+    match_ids: list[str] = Field(..., min_length=1, max_length=50, description="List of match IDs to process")
     force_reprocess: bool = Field(False, description="Whether to reprocess already processed matches")
 
 
@@ -123,5 +119,4 @@ class MatchProcessingResponse(BaseModel):
     failed_count: int
     errors: list[dict] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

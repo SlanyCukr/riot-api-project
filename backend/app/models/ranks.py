@@ -8,7 +8,6 @@ from enum import Enum
 from typing import Optional
 
 from sqlalchemy import (
-    UUID,
     Boolean,
     Column,
     DateTime,
@@ -66,7 +65,7 @@ class PlayerRank(Base):
 
     # Foreign key
     puuid = Column(
-        UUID(as_uuid=True),
+        String(78),
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,

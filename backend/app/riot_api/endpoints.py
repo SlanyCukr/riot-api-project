@@ -92,18 +92,18 @@ class RiotAPIEndpoints:
         Platform.LA1: Region.AMERICAS,
         Platform.LA2: Region.AMERICAS,
         Platform.NA1: Region.AMERICAS,
-        Platform.OC1: Region.AMERICAS,
         Platform.EUN1: Region.EUROPE,
         Platform.EUW1: Region.EUROPE,
         Platform.RU: Region.EUROPE,
         Platform.TR1: Region.EUROPE,
         Platform.JP1: Region.ASIA,
         Platform.KR: Region.ASIA,
-        Platform.PH2: Region.ASIA,
-        Platform.SG2: Region.ASIA,
-        Platform.TH2: Region.ASIA,
-        Platform.TW2: Region.ASIA,
-        Platform.VN2: Region.ASIA,
+        Platform.OC1: Region.SEA,
+        Platform.PH2: Region.SEA,
+        Platform.SG2: Region.SEA,
+        Platform.TH2: Region.SEA,
+        Platform.TW2: Region.SEA,
+        Platform.VN2: Region.SEA,
     }
 
     def __init__(self, region: Region = Region.EUROPE, platform: Platform = Platform.EUN1):
@@ -192,7 +192,7 @@ class RiotAPIEndpoints:
         if end_time:
             params.append(f"endTime={end_time}")
 
-        return f"{url}?{'&'.join(params)}" if len(params) > 2 else url
+        return f"{url}?{'&'.join(params)}"
 
     def match_by_id(self, match_id: str, region: Optional[Region] = None) -> str:
         """Get match by ID endpoint."""

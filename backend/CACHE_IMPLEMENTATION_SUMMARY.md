@@ -79,14 +79,16 @@ This document summarizes the Redis integration and caching strategies implementa
 
 ## Cache TTL Strategy
 
+**Updated to follow Riot API best practices (docs/riot-api-reference.md)**
+
 | Data Type | TTL | Rationale |
 |-----------|-----|-----------|
-| Account Data | 1 hour | Changes infrequently |
-| Summoner Data | 30 minutes | Changes occasionally |
-| Match Data | 7 days | Immutable once created |
-| Match Lists | 10 minutes | Changes frequently |
-| League Entries | 15 minutes | Changes during active play |
-| Active Games | 1 minute | Real-time data |
+| Account Data | 24 hours | Rarely changes (Riot API best practice) |
+| Summoner Data | 24 hours | Rarely changes (Riot API best practice) |
+| Match Data | 7 days | Immutable after completion (Riot API best practice) |
+| Match Lists | 5 minutes | Changes as new games are played |
+| League Entries | 1 hour | Changes as players play ranked (Riot API best practice) |
+| Active Games | 1 minute | Live game state (Riot API best practice) |
 | Detection Results | 30 minutes | Analysis results |
 | Statistics | 10 minutes | Aggregated data |
 

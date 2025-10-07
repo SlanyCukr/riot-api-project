@@ -7,7 +7,15 @@ including proper rate limiting, error handling, authentication, and caching.
 
 from .client import RiotAPIClient
 from .rate_limiter import RateLimiter
-from .errors import RiotAPIError, RateLimitError, AuthenticationError
+from .errors import (
+    RiotAPIError,
+    RateLimitError,
+    AuthenticationError,
+    ForbiddenError,
+    NotFoundError,
+    BadRequestError,
+    ServiceUnavailableError
+)
 from .models import (
     AccountDTO,
     SummonerDTO,
@@ -25,6 +33,10 @@ __all__ = [
     "RiotAPIError",
     "RateLimitError",
     "AuthenticationError",
+    "ForbiddenError",
+    "NotFoundError",
+    "BadRequestError",
+    "ServiceUnavailableError",
     "AccountDTO",
     "SummonerDTO",
     "MatchListDTO",

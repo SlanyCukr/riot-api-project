@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class PlayerBase(BaseModel):
@@ -36,8 +36,7 @@ class PlayerResponse(PlayerBase):
     updated_at: datetime
     last_seen: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerSearchRequest(BaseModel):
@@ -46,14 +45,15 @@ class PlayerSearchRequest(BaseModel):
     platform: str = Field("eun1", description="Platform region")
     size: int = Field(10, ge=1, le=100, description="Maximum number of results to return")
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "riot_id": "DangerousDan#EUW",
                 "platform": "eun1",
                 "size": 10
             }
         }
+    )
 
 
 class PlayerListResponse(BaseModel):
@@ -64,13 +64,12 @@ class PlayerListResponse(BaseModel):
     size: int
     pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerBulkRequest(BaseModel):
     """Schema for bulk player operations."""
-    puuids: list[uuid.UUID] = Field(..., min_items=1, max_items=100, description="List of player PUUIDs")
+    puuids: list[uuid.UUID] = Field(..., min_length=1, max_length=100, description="List of player PUUIDs")
 
 
 class PlayerBulkResponse(BaseModel):
@@ -78,5 +77,4 @@ class PlayerBulkResponse(BaseModel):
     players: list[PlayerResponse]
     not_found: list[uuid.UUID]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

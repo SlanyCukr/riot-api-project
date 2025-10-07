@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class Tier(str, Enum):
@@ -93,8 +93,7 @@ class PlayerRankResponse(PlayerRankBase):
     is_diamond_plus: bool = Field(..., description="Whether this is diamond or above")
     is_platinum_plus: bool = Field(..., description="Whether this is platinum or above")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerRankListResponse(BaseModel):
@@ -105,8 +104,7 @@ class PlayerRankListResponse(BaseModel):
     size: int
     pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerRankSearchRequest(BaseModel):
@@ -129,8 +127,7 @@ class RankDistributionResponse(BaseModel):
     percentage: float
     average_league_points: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlayerRankHistoryResponse(BaseModel):
@@ -141,5 +138,4 @@ class PlayerRankHistoryResponse(BaseModel):
     current_rank: Optional[PlayerRankResponse]
     peak_rank: Optional[PlayerRankResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

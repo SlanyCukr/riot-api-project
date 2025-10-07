@@ -14,26 +14,17 @@ from ..schemas.detection import (
     DetectionConfigResponse, DetectionHistoryRequest, BulkDetectionRequest,
     BulkDetectionResponse, DetailedDetectionResponse
 )
-from ..services.detection import SmurfDetectionService
-from ..api.dependencies import get_db_session, RiotClient
+from ..api.dependencies import DetectionServiceDep
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/detection", tags=["smurf-detection"])
 
 
-async def get_detection_service(
-    db=Depends(get_db_session),
-    riot_client=Depends(RiotClient)
-) -> SmurfDetectionService:
-    """Get smurf detection service instance."""
-    return SmurfDetectionService(db, riot_client)
-
-
 @router.post("/analyze", response_model=DetectionResponse)
 async def analyze_player(
     request: DetectionRequest,
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep
 ):
     """
     Analyze a player for smurf behavior.
@@ -93,8 +84,8 @@ async def analyze_player(
 @router.get("/player/{puuid}/latest", response_model=DetectionResponse)
 async def get_latest_detection(
     puuid: str,
-    force_refresh: bool = Query(False, description="Force new analysis"),
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep,
+    force_refresh: bool = Query(False, description="Force new analysis")
 ):
     """
     Get the latest smurf detection result for a player.
@@ -138,9 +129,9 @@ async def get_latest_detection(
 @router.get("/player/{puuid}/history", response_model=List[DetectionResponse])
 async def get_detection_history(
     puuid: str,
+    detection_service: DetectionServiceDep,
     limit: int = Query(10, ge=1, le=50, description="Number of historical results"),
-    include_factors: bool = Query(True, description="Include detailed factor analysis"),
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    include_factors: bool = Query(True, description="Include detailed factor analysis")
 ):
     """
     Get historical smurf detection results for a player.
@@ -183,7 +174,7 @@ async def get_detection_history(
 
 @router.get("/stats", response_model=DetectionStatsResponse)
 async def get_detection_stats(
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep
 ):
     """
     Get overall smurf detection statistics.
@@ -218,7 +209,7 @@ async def get_detection_stats(
 
 @router.get("/config", response_model=DetectionConfigResponse)
 async def get_detection_config(
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep
 ):
     """
     Get current detection configuration.
@@ -255,7 +246,7 @@ async def get_detection_config(
 async def bulk_analyze_players(
     request: BulkDetectionRequest,
     background_tasks: BackgroundTasks,
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep
 ):
     """
     Perform bulk smurf detection analysis on multiple players.
@@ -313,9 +304,9 @@ async def bulk_analyze_players(
 @router.get("/player/{puuid}/detailed", response_model=DetailedDetectionResponse)
 async def get_detailed_detection(
     puuid: str,
+    detection_service: DetectionServiceDep,
     include_trends: bool = Query(True, description="Include trend analysis"),
-    include_recommendations: bool = Query(True, description="Include recommendations"),
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    include_recommendations: bool = Query(True, description="Include recommendations")
 ):
     """
     Get detailed smurf detection analysis with additional insights.
@@ -386,7 +377,7 @@ async def detection_health_check():
 @router.get("/player/{puuid}/exists")
 async def check_player_analysis_exists(
     puuid: str,
-    detection_service: SmurfDetectionService = Depends(get_detection_service)
+    detection_service: DetectionServiceDep
 ):
     """
     Check if a player has existing smurf detection analysis.

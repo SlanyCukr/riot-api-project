@@ -30,16 +30,20 @@ This file provides guidance for working with the Python FastAPI backend.
 ## Riot API Integration
 
 ### Authentication
-- Uses `X-Riot-Token` header with API key from environment
-- Rate limiting: 20 requests/second, 100 requests/2 minutes
+- Uses `X-Riot-Token` header with API key from environment (`RIOT_API_KEY`)
+- **Development keys expire every 24 hours** - regenerate daily at https://developer.riotgames.com
+- Rate limiting: 20 requests/second, 100 requests/2 minutes (development keys)
 - Automatic backoff and retry on 429 responses
+- Platform/Region parameters automatically converted from strings to enums internally
 
 ### Key Endpoints Used
-- Account v1: Riot ID ↔ PUUID resolution
-- Summoner v4: Summoner name ↔ PUUID/encrypted ID
+- Account v1: Riot ID ↔ PUUID resolution (recommended)
+- Summoner v4: Summoner name ↔ PUUID/encrypted ID (**deprecated** - may return 403 with dev keys)
 - Match v5: Match history and details
 - League v4: Rank and tier information
 - Spectator v4: Live game data
+
+**Important**: The `/lol/summoner/v4/summoners/by-name/{summonerName}` endpoint is deprecated. Use Riot ID search instead via `/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}`.
 
 ### Regional Routing
 - Regional routes (AMERICAS, ASIA, EUROPE, SEA) for Match/Account APIs
@@ -88,15 +92,25 @@ The system uses multiple heuristics:
 ## Database Operations
 
 ### Migrations (via Docker)
-```bash
-# Create database migrations
-docker-compose exec backend alembic revision --autogenerate -m "description"
 
-# Apply migrations
-docker-compose exec backend alembic upgrade head
+**Automatic Migration**: Migrations are automatically applied on backend container startup via `entrypoint.sh`. No manual intervention needed.
+
+```bash
+# Migrations run automatically on 'docker compose up backend'
+# The entrypoint script executes: alembic upgrade head
+
+# Manual migration commands (if needed):
+# Create new migration
+docker compose exec backend alembic revision --autogenerate -m "description"
+
+# Manually apply migrations (usually not needed)
+docker compose exec backend alembic upgrade head
 
 # Rollback migrations
-docker-compose exec backend alembic downgrade -1
+docker compose exec backend alembic downgrade -1
+
+# View current migration version
+docker compose exec backend alembic current
 ```
 
 ### Database Schema

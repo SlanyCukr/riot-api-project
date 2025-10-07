@@ -12,6 +12,9 @@ COPY package*.json ./
 # Development stage
 FROM base AS development
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 # Install dependencies
 RUN npm ci
 

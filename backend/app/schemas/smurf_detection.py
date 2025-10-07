@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SmurfSignalType(str, Enum):
@@ -99,8 +99,7 @@ class SmurfDetectionResponse(SmurfDetectionBase):
     risk_level: str = Field(..., description="Risk level based on smurf score")
     top_signals: List[str] = Field(..., description="Top contributing signals")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmurfDetectionListResponse(BaseModel):
@@ -111,8 +110,7 @@ class SmurfDetectionListResponse(BaseModel):
     size: int
     pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmurfDetectionSearchRequest(BaseModel):
@@ -150,8 +148,7 @@ class SmurfDetectionAnalysisResponse(BaseModel):
     signals_found: List[str]
     recommendations: List[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmurfDetectionStatsResponse(BaseModel):
@@ -164,13 +161,12 @@ class SmurfDetectionStatsResponse(BaseModel):
     signal_frequency: dict
     queue_type_distribution: dict
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmurfDetectionBulkRequest(BaseModel):
     """Schema for bulk smurf detection analysis."""
-    puuids: List[uuid.UUID] = Field(..., min_items=1, max_items=50, description="List of player PUUIDs to analyze")
+    puuids: List[uuid.UUID] = Field(..., min_length=1, max_length=50, description="List of player PUUIDs to analyze")
     analysis_config: SmurfDetectionAnalysis
 
 
@@ -180,5 +176,4 @@ class SmurfDetectionBulkResponse(BaseModel):
     summary: dict
     processing_time_seconds: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

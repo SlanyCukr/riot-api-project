@@ -8,37 +8,22 @@ from uuid import UUID
 
 from ..schemas.matches import (
     MatchResponse, MatchListResponse, MatchStatsResponse,
-    MatchSearchRequest, MatchEncounterResponse
+    MatchSearchRequest
 )
-from ..services.matches import MatchService
-from ..services.stats import StatsService
-from ..api.dependencies import get_db_session, get_riot_client
+from ..api.dependencies import MatchServiceDep, StatsServiceDep
 
 router = APIRouter(prefix="/matches", tags=["matches"])
-
-
-async def get_match_service(
-    db=Depends(get_db_session),
-    riot_client=Depends(get_riot_client)
-) -> MatchService:
-    """Get match service instance."""
-    return MatchService(db, riot_client)
-
-
-async def get_stats_service(db=Depends(get_db_session)) -> StatsService:
-    """Get stats service instance."""
-    return StatsService(db)
 
 
 @router.get("/player/{puuid}", response_model=MatchListResponse)
 async def get_player_matches(
     puuid: str,
+    match_service: MatchServiceDep,
     start: int = Query(0, ge=0, description="Start index for pagination"),
     count: int = Query(20, ge=1, le=100, description="Number of matches to return"),
     queue: Optional[int] = Query(None, description="Filter by queue ID (420=ranked solo)"),
     start_time: Optional[int] = Query(None, description="Start timestamp"),
-    end_time: Optional[int] = Query(None, description="End timestamp"),
-    match_service: MatchService = Depends(get_match_service)
+    end_time: Optional[int] = Query(None, description="End timestamp")
 ):
     """
     Get match history for a player.
@@ -66,7 +51,7 @@ async def get_player_matches(
 @router.get("/{match_id}", response_model=MatchResponse)
 async def get_match_details(
     match_id: str,
-    match_service: MatchService = Depends(get_match_service)
+    match_service: MatchServiceDep
 ):
     """Get detailed match information"""
     try:
@@ -81,9 +66,9 @@ async def get_match_details(
 @router.get("/player/{puuid}/stats", response_model=MatchStatsResponse)
 async def get_player_match_stats(
     puuid: str,
+    match_service: MatchServiceDep,
     queue: Optional[int] = Query(None, description="Filter by queue ID"),
-    limit: int = Query(50, ge=1, le=200, description="Number of matches to analyze"),
-    match_service: MatchService = Depends(get_match_service)
+    limit: int = Query(50, ge=1, le=200, description="Number of matches to analyze")
 ):
     """Get player statistics from recent matches"""
     try:
@@ -96,8 +81,8 @@ async def get_player_match_stats(
 @router.get("/player/{puuid}/encounters", response_model=List[str])
 async def get_player_encounters(
     puuid: str,
-    limit: int = Query(20, ge=1, le=100, description="Number of matches to check"),
-    match_service: MatchService = Depends(get_match_service)
+    match_service: MatchServiceDep,
+    limit: int = Query(20, ge=1, le=100, description="Number of matches to check")
 ):
     """Get players encountered with/against in recent matches"""
     try:
@@ -110,11 +95,11 @@ async def get_player_encounters(
 @router.get("/player/{puuid}/detailed-stats")
 async def get_player_detailed_stats(
     puuid: str,
+    stats_service: StatsServiceDep,
     queue: Optional[int] = Query(None, description="Filter by queue ID"),
     start_time: Optional[int] = Query(None, description="Start timestamp"),
     end_time: Optional[int] = Query(None, description="End timestamp"),
-    limit: int = Query(100, ge=1, le=200, description="Number of matches to analyze"),
-    stats_service: StatsService = Depends(get_stats_service)
+    limit: int = Query(100, ge=1, le=200, description="Number of matches to analyze")
 ):
     """Get comprehensive player statistics including champion and position stats"""
     try:
@@ -133,9 +118,9 @@ async def get_player_detailed_stats(
 @router.get("/player/{puuid}/encounter-stats")
 async def get_player_encounter_stats(
     puuid: str,
+    stats_service: StatsServiceDep,
     limit: int = Query(50, ge=1, le=100, description="Number of matches to analyze"),
-    min_encounters: int = Query(3, ge=1, le=10, description="Minimum encounters to include"),
-    stats_service: StatsService = Depends(get_stats_service)
+    min_encounters: int = Query(3, ge=1, le=10, description="Minimum encounters to include")
 ):
     """Get detailed encounter statistics with win rates and performance metrics"""
     try:
@@ -152,7 +137,7 @@ async def get_player_encounter_stats(
 @router.get("/{match_id}/stats")
 async def get_match_stats(
     match_id: str,
-    stats_service: StatsService = Depends(get_stats_service)
+    stats_service: StatsServiceDep
 ):
     """Get detailed statistics for a specific match"""
     try:
@@ -167,7 +152,7 @@ async def get_match_stats(
 @router.post("/search")
 async def search_matches(
     search_request: MatchSearchRequest,
-    match_service: MatchService = Depends(get_match_service)
+    match_service: MatchServiceDep
 ):
     """Search matches with various filters"""
     try:
@@ -190,7 +175,7 @@ async def search_matches(
 @router.get("/{match_id}/participants")
 async def get_match_participants(
     match_id: str,
-    match_service: MatchService = Depends(get_match_service)
+    match_service: MatchServiceDep
 ):
     """Get all participants in a match with their details"""
     try:
@@ -205,9 +190,9 @@ async def get_match_participants(
 @router.get("/player/{puuid}/recent-form")
 async def get_player_recent_form(
     puuid: str,
+    stats_service: StatsServiceDep,
     queue: Optional[int] = Query(None, description="Filter by queue ID"),
-    matches: int = Query(10, ge=5, le=20, description="Number of recent matches to analyze"),
-    stats_service: StatsService = Depends(get_stats_service)
+    matches: int = Query(10, ge=5, le=20, description="Number of recent matches to analyze")
 ):
     """Get player's recent form and performance trends"""
     try:

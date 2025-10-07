@@ -15,10 +15,10 @@ router = APIRouter(prefix="/players", tags=["players"])
 
 @router.get("/search", response_model=PlayerResponse)
 async def search_player(
+    player_service: PlayerServiceDep,
     riot_id: Optional[str] = Query(None, description="Riot ID in format name#tag"),
     summoner_name: Optional[str] = Query(None, description="Summoner name"),
-    platform: str = Query("eun1", description="Platform region"),
-    player_service: PlayerService = Depends()
+    platform: str = Query("eun1", description="Platform region")
 ):
     """
     Search for a player by Riot ID or summoner name.
@@ -59,7 +59,7 @@ async def search_player(
 @router.get("/{puuid}", response_model=PlayerResponse)
 async def get_player_by_puuid(
     puuid: UUID,
-    player_service: PlayerService = Depends()
+    player_service: PlayerServiceDep
 ):
     """Get player information by PUUID"""
     player = await player_service.get_player_by_puuid(str(puuid))
@@ -71,8 +71,8 @@ async def get_player_by_puuid(
 @router.get("/{puuid}/recent", response_model=List[str])
 async def get_player_recent_opponents(
     puuid: UUID,
-    limit: int = Query(10, ge=1, le=50, description="Number of recent opponents"),
-    player_service: PlayerService = Depends()
+    player_service: PlayerServiceDep,
+    limit: int = Query(10, ge=1, le=50, description="Number of recent opponents")
 ):
     """Get recent opponents for a player"""
     opponents = await player_service.get_recent_opponents(str(puuid), limit)
@@ -82,7 +82,7 @@ async def get_player_recent_opponents(
 @router.post("/search", response_model=List[PlayerResponse])
 async def search_players_advanced(
     search_request: PlayerSearchRequest,
-    player_service: PlayerService = Depends()
+    player_service: PlayerServiceDep
 ):
     """Advanced player search with multiple criteria."""
     players = await player_service.search_players(
@@ -97,7 +97,7 @@ async def search_players_advanced(
 @router.post("/bulk", response_model=PlayerBulkResponse)
 async def get_players_bulk(
     bulk_request: PlayerBulkRequest,
-    player_service: PlayerService = Depends()
+    player_service: PlayerServiceDep
 ):
     """Get multiple players by PUUIDs."""
     puuids = [str(puuid) for puuid in bulk_request.puuids]
@@ -115,9 +115,9 @@ async def get_players_bulk(
 
 @router.get("/", response_model=List[PlayerResponse])
 async def get_players(
+    player_service: PlayerServiceDep,
     platform: Optional[str] = Query(None, description="Filter by platform"),
-    limit: int = Query(20, ge=1, le=100, description="Number of players to return"),
-    player_service: PlayerService = Depends()
+    limit: int = Query(20, ge=1, le=100, description="Number of players to return")
 ):
     """Get players with optional filtering."""
     players = await player_service.search_players(

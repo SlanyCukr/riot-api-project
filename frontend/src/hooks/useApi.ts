@@ -10,15 +10,16 @@ export function useApi<T = any>() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const request = useCallback(async (
+  const get = useCallback(async (
     endpoint: string,
+    params?: Record<string, any>,
     options: UseApiOptions = {}
   ): Promise<T | null> => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await api.get(endpoint);
+      const response = await api.get(endpoint, { params });
       const data = response.data;
 
       if (options.onSuccess) {
@@ -71,5 +72,5 @@ export function useApi<T = any>() {
     }
   }, []);
 
-  return { loading, error, request, post, setError };
+  return { loading, error, get, post, setError };
 }

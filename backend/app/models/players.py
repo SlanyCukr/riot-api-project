@@ -2,12 +2,10 @@
 Player data model for storing player information.
 """
 
-import uuid
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    UUID,
     Boolean,
     Column,
     DateTime,
@@ -28,7 +26,7 @@ class Player(Base):
 
     # Primary key - PUUID is the unique identifier from Riot API
     puuid = Column(
-        UUID(as_uuid=True),
+        String(78),
         primary_key=True,
         index=True,
         comment="Player's universally unique identifier from Riot API"

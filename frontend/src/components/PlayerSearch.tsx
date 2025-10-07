@@ -11,7 +11,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   const [searchType, setSearchType] = useState<'riot_id' | 'summoner_name'>('riot_id');
   const [searchValue, setSearchValue] = useState('');
   const [platform, setPlatform] = useState('eun1');
-  const { loading, error, post } = useApi<Player>();
+  const { loading, error, get } = useApi<Player>();
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +23,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       platform,
     };
 
-    await post('/players/search', searchParams, {
+    await get('/players/search', searchParams, {
       onSuccess: (data) => {
         if (data) {
           onPlayerFound(data);

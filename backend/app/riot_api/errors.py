@@ -88,6 +88,22 @@ class AuthenticationError(RiotAPIError):
         return base_dict
 
 
+class ForbiddenError(RiotAPIError):
+    """Exception raised when access is forbidden (e.g., deprecated endpoint or insufficient permissions)."""
+
+    def __init__(self, message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions"):
+        super().__init__(message=message, status_code=403)
+
+    def __str__(self) -> str:
+        return f"ForbiddenError: {self.message}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert error to dictionary for JSON serialization."""
+        base_dict = super().to_dict()
+        base_dict["error"] = "ForbiddenError"
+        return base_dict
+
+
 class NotFoundError(RiotAPIError):
     """Exception raised when requested resource is not found."""
 
@@ -174,6 +190,8 @@ def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
         return BadRequestError(message)
     elif status_code == 401:
         return AuthenticationError(message)
+    elif status_code == 403:
+        return ForbiddenError(message)
     elif status_code == 404:
         return NotFoundError(message)
     elif status_code == 429:

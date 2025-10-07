@@ -1,8 +1,8 @@
-"""Initial schema
+"""initial_schema_with_string_puuid
 
-Revision ID: ad5ad0661dc8
+Revision ID: 81596165fa0c
 Revises: 
-Create Date: 2025-09-29 19:53:28.799120
+Create Date: 2025-10-05 08:46:47.690171
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'ad5ad0661dc8'
+revision = '81596165fa0c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -50,7 +50,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_matches_queue_id'), 'matches', ['queue_id'], unique=False)
     op.create_index(op.f('ix_matches_tournament_id'), 'matches', ['tournament_id'], unique=False)
     op.create_table('players',
-    sa.Column('puuid', sa.UUID(), nullable=False, comment="Player's universally unique identifier from Riot API"),
+    sa.Column('puuid', sa.String(length=78), nullable=False, comment="Player's universally unique identifier from Riot API"),
     sa.Column('riot_id', sa.String(length=128), nullable=True, comment="Player's Riot ID (game name)"),
     sa.Column('tag_line', sa.String(length=8), nullable=True, comment="Player's tag line (region identifier)"),
     sa.Column('summoner_name', sa.String(length=32), nullable=True, comment='Current summoner name (can change)'),
@@ -77,7 +77,7 @@ def upgrade() -> None:
     op.create_table('match_participants',
     sa.Column('id', sa.BigInteger(), nullable=False, comment='Auto-incrementing primary key'),
     sa.Column('match_id', sa.String(length=64), nullable=False, comment='Reference to the match this participant belongs to'),
-    sa.Column('puuid', sa.UUID(), nullable=False, comment='Reference to the player'),
+    sa.Column('puuid', sa.String(length=78), nullable=False, comment='Reference to the player'),
     sa.Column('summoner_name', sa.String(length=32), nullable=False, comment='Summoner name at the time of the match'),
     sa.Column('team_id', sa.Integer(), nullable=False, comment='Team ID (100 for blue side, 200 for red side)'),
     sa.Column('champion_id', sa.Integer(), nullable=False, comment='Champion ID played by the participant'),
@@ -119,7 +119,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_match_participants_team_position'), 'match_participants', ['team_position'], unique=False)
     op.create_table('player_ranks',
     sa.Column('id', sa.Integer(), nullable=False, comment='Auto-incrementing primary key'),
-    sa.Column('puuid', sa.UUID(), nullable=False, comment='Reference to the player'),
+    sa.Column('puuid', sa.String(length=78), nullable=False, comment='Reference to the player'),
     sa.Column('queue_type', sa.String(length=32), nullable=False, comment='Queue type (e.g., RANKED_SOLO_5x5, RANKED_FLEX_SR)'),
     sa.Column('tier', sa.String(length=16), nullable=False, comment='Rank tier (e.g., GOLD, PLATINUM, DIAMOND)'),
     sa.Column('rank', sa.String(length=4), nullable=True, comment='Rank division (I, II, III, IV)'),
@@ -153,7 +153,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_player_ranks_tier'), 'player_ranks', ['tier'], unique=False)
     op.create_table('smurf_detections',
     sa.Column('id', sa.Integer(), nullable=False, comment='Auto-incrementing primary key'),
-    sa.Column('puuid', sa.UUID(), nullable=False, comment='Reference to the player being analyzed'),
+    sa.Column('puuid', sa.String(length=78), nullable=False, comment='Reference to the player being analyzed'),
     sa.Column('is_smurf', sa.Boolean(), nullable=False, comment='Whether the player is detected as a smurf'),
     sa.Column('confidence', sa.String(length=16), nullable=True, comment='Confidence level in the smurf detection'),
     sa.Column('smurf_score', sa.Numeric(precision=5, scale=3), nullable=False, comment='Overall smurf score (0.0-1.0)'),

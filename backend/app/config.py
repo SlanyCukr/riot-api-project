@@ -5,7 +5,7 @@ Configuration settings for the Riot API application.
 import os
 from typing import Optional
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -46,10 +46,11 @@ class Settings(BaseSettings):
     db_pool_timeout: int = Field(default=30, env="DB_POOL_TIMEOUT")
     db_pool_recycle: int = Field(default=1800, env="DB_POOL_RECYCLE")
 
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False
+    )
 
 
 def get_settings() -> Settings:

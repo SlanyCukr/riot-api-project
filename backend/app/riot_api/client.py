@@ -16,6 +16,7 @@ from .errors import (
     RiotAPIError,
     RateLimitError,
     AuthenticationError,
+    ForbiddenError,
     NotFoundError,
     ServiceUnavailableError,
     BadRequestError,
@@ -216,20 +217,32 @@ class RiotAPIClient:
                     )
 
                     # Handle response
-                    if response.status == 429:
-                        retry_after = await self.rate_limiter.handle_429(dict(response.headers), endpoint_path)
+                    if response.status == 400:
+                        raise BadRequestError("Invalid request parameters")
+
+                    elif response.status == 401:
+                        raise AuthenticationError("Invalid API key")
+
+                    elif response.status == 403:
+                        raise ForbiddenError("Access forbidden - may be deprecated endpoint or insufficient API key permissions")
+
+                    elif response.status == 404:
+                        raise NotFoundError("Resource not found")
+
+                    elif response.status == 429:
+                        # Extract Retry-After header first, fallback to rate_limiter calculation
+                        retry_after_header = response.headers.get("Retry-After")
+                        if retry_after_header:
+                            retry_after = int(retry_after_header)
+                        else:
+                            retry_after = await self.rate_limiter.handle_429(dict(response.headers), endpoint_path)
+
                         if attempt < max_retries:
                             await asyncio.sleep(retry_after)
                             self.stats["retries"] += 1
                             continue
                         else:
                             raise RateLimitError("Rate limit exceeded and retries exhausted", retry_after=retry_after)
-
-                    elif response.status == 401:
-                        raise AuthenticationError("Invalid API key")
-
-                    elif response.status == 404:
-                        raise NotFoundError("Resource not found")
 
                     elif response.status >= 500:
                         if attempt < max_retries:

@@ -26,15 +26,21 @@ For detailed guidance on specific areas, refer to the specialized CLAUDE.md file
 
 ```bash
 # Start all services with hot reload
-docker-compose up --build
+docker compose up --build
 
 # Start specific service
-docker-compose up backend
-docker-compose up frontend
+docker compose up backend
+docker compose up frontend
 
 # Stop all services
-docker-compose down
+docker compose down
 ```
+
+**Important Notes:**
+- Database migrations run automatically on backend startup
+- Development API keys expire every 24 hours - regenerate at https://developer.riotgames.com
+- After updating `.env`, restart containers to load new values
+- Use `docker compose` (v2) not `docker-compose` (v1)
 
 ## Core Technologies
 
@@ -46,19 +52,22 @@ docker-compose down
 
 ## Key Features
 
-- Player search by Riot ID or summoner name
+- Player search by Riot ID (recommended) or summoner name (deprecated endpoint)
 - Match history retrieval and analysis
 - Smurf detection using multiple algorithms
 - Encounter tracking between players
 - Cached responses for performance
 - Docker-only development environment
+- Automatic database migrations on startup
+- Hot reload for backend and frontend
 
 ## Environment Variables
 
 ### Required
-- `RIOT_API_KEY`: Riot Games API key
+- `RIOT_API_KEY`: Riot Games API key (development keys expire every 24 hours)
 - `POSTGRES_PASSWORD`: Database password
-- `SECRET_KEY`: Application secret key
+- `POSTGRES_DB`: Database name
+- `POSTGRES_USER`: Database user
 
 ### Optional
 - `RIOT_REGION`: Regional routing (default: europe)

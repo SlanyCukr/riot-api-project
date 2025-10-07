@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from ..riot_api.client import RiotAPIClient
+from ..riot_api.endpoints import Platform, Region
 from ..models.players import Player
 from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
 import structlog
@@ -28,6 +29,12 @@ class PlayerService:
         self, game_name: str, tag_line: str, platform: str
     ) -> PlayerResponse:
         """Get player by Riot ID (name#tag)."""
+        # Convert platform string to Platform enum
+        try:
+            platform_enum = Platform(platform) if isinstance(platform, str) else platform
+        except ValueError:
+            raise ValueError(f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}")
+
         # First try to get from database
         riot_id = f"{game_name}#{tag_line}"
         player = await self._get_player_from_db(riot_id=riot_id)
@@ -36,14 +43,14 @@ class PlayerService:
             # Fetch from Riot API
             try:
                 account = await self.riot_client.get_account_by_riot_id(game_name, tag_line)
-                summoner = await self.riot_client.get_summoner_by_puuid(account.puuid)
+                summoner = await self.riot_client.get_summoner_by_puuid(account.puuid, platform_enum)
 
                 # Create player record
                 player_data = PlayerCreate(
                     puuid=account.puuid,
                     riot_id=game_name,
                     tag_line=tag_line,
-                    summoner_name=summoner.name,
+                    summoner_name=account.game_name,
                     platform=platform,
                     account_level=summoner.summoner_level,
                     profile_icon_id=summoner.profile_icon_id,
@@ -63,6 +70,12 @@ class PlayerService:
         self, summoner_name: str, platform: str
     ) -> PlayerResponse:
         """Get player by summoner name."""
+        # Convert platform string to Platform enum
+        try:
+            platform_enum = Platform(platform) if isinstance(platform, str) else platform
+        except ValueError:
+            raise ValueError(f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}")
+
         # Try database first - look for exact match or partial match
         result = await self.db.execute(
             select(Player).where(
@@ -84,30 +97,27 @@ class PlayerService:
 
         # If multiple matches or no matches, fetch from Riot API
         try:
-            summoner = await self.riot_client.get_summoner_by_name(summoner_name, platform)
+            summoner = await self.riot_client.get_summoner_by_name(summoner_name, platform_enum)
 
             # Check if we already have this player by PUUID
             existing_player = await self._get_player_from_db(puuid=summoner.puuid)
             if existing_player:
-                # Update the summoner name if it changed
-                if existing_player.summoner_name != summoner.name:
-                    await self._update_player(existing_player.puuid, PlayerUpdate(
-                        summoner_name=summoner.name,
-                        account_level=summoner.summoner_level,
-                        profile_icon_id=summoner.profile_icon_id,
-                        summoner_id=summoner.id
-                    ))
-                    existing_player.summoner_name = summoner.name
-                    existing_player.account_level = summoner.summoner_level
-                    existing_player.profile_icon_id = summoner.profile_icon_id
-                    existing_player.summoner_id = summoner.id
+                # Update player info
+                await self._update_player(existing_player.puuid, PlayerUpdate(
+                    summoner_name=summoner_name,
+                    account_level=summoner.summoner_level
+                ))
+                existing_player.summoner_name = summoner_name
+                existing_player.account_level = summoner.summoner_level
+                existing_player.profile_icon_id = summoner.profile_icon_id
+                existing_player.summoner_id = summoner.id
 
                 return PlayerResponse.from_orm(existing_player)
 
             # Create new player record
             player_data = PlayerCreate(
                 puuid=summoner.puuid,
-                summoner_name=summoner.name,
+                summoner_name=summoner_name,
                 platform=platform,
                 account_level=summoner.summoner_level,
                 profile_icon_id=summoner.profile_icon_id,

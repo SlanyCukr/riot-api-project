@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class MatchParticipantBase(BaseModel):
@@ -73,8 +73,7 @@ class MatchParticipantResponse(MatchParticipantBase):
     kdr: Optional[float] = Field(None, description="Kill-death ratio")
     total_kills_participation: int = Field(..., description="Total kills participated in")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchParticipantListResponse(BaseModel):
@@ -85,8 +84,7 @@ class MatchParticipantListResponse(BaseModel):
     size: int
     pages: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ParticipantSearchRequest(BaseModel):
@@ -105,7 +103,7 @@ class ParticipantSearchRequest(BaseModel):
 class MatchParticipantsBulkCreate(BaseModel):
     """Schema for bulk creating match participants."""
     match_id: str = Field(..., max_length=64, description="Match ID")
-    participants: list[MatchParticipantCreate] = Field(..., min_items=1, max_items=10, description="List of participants")
+    participants: list[MatchParticipantCreate] = Field(..., min_length=1, max_length=10, description="List of participants")
 
 
 class ParticipantStatsResponse(BaseModel):
@@ -125,5 +123,4 @@ class ParticipantStatsResponse(BaseModel):
     most_played_champions: list[dict]
     performance_by_position: dict
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

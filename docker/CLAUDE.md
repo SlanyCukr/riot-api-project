@@ -6,12 +6,20 @@ This file provides guidance for Docker-based development and deployment.
 
 This project is designed to run exclusively through Docker containers. All development, testing, and deployment operations should be performed using Docker Compose.
 
+### Important Notes
+- **Database Migrations**: Automatically applied on backend container startup via `entrypoint.sh`
+- **Hot Reload**: Both backend and frontend support hot reload in development mode
+- **Health Checks**: All containers have health checks configured (backend, frontend, postgres)
+- **Environment Variables**: Loaded from `.env` file - restart containers after updating `.env`
+
 ## Development Environment
 
 ### Basic Commands
 ```bash
 # Start all services with hot reload
-docker-compose up --build
+docker compose up --build
+
+# Note: Use 'docker compose' (v2) not 'docker-compose' (v1)
 
 # Start specific service
 docker-compose up backend

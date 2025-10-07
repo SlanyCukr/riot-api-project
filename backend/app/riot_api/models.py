@@ -3,7 +3,7 @@ Pydantic models for Riot API response data.
 """
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 
 
@@ -13,20 +13,20 @@ class AccountDTO(BaseModel):
     game_name: str = Field(..., alias="gameName")
     tag_line: str = Field(..., alias="tagLine")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class SummonerDTO(BaseModel):
     """League of Legends Summoner information."""
-    id: str
+    id: Optional[str] = None
     puuid: str
-    name: str
+    name: Optional[str] = None
     profile_icon_id: int = Field(..., alias="profileIconId")
     summoner_level: int = Field(..., alias="summonerLevel")
     revision_date: Optional[datetime] = Field(None, alias="revisionDate")
 
-    @validator('revision_date', pre=True)
+    @field_validator('revision_date', mode='before')
+    @classmethod
     def parse_timestamp(cls, v):
         if v is None:
             return None
@@ -34,8 +34,7 @@ class SummonerDTO(BaseModel):
             return datetime.fromtimestamp(v / 1000)
         return v
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MatchListDTO(BaseModel):
@@ -46,8 +45,7 @@ class MatchListDTO(BaseModel):
     total: Optional[int] = None
     puuid: Optional[str] = None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ParticipantDTO(BaseModel):
@@ -88,8 +86,7 @@ class ParticipantDTO(BaseModel):
         total_cs = self.total_minions_killed + self.neutral_minions_killed
         return (total_cs * 60) / self._game_duration
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class TeamDTO(BaseModel):
@@ -99,8 +96,7 @@ class TeamDTO(BaseModel):
     bans: Optional[List[Dict[str, Any]]] = None
     objectives: Optional[Dict[str, Any]] = None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MatchInfoDTO(BaseModel):
@@ -122,8 +118,7 @@ class MatchInfoDTO(BaseModel):
         """Get game creation as datetime."""
         return datetime.fromtimestamp(self.game_creation / 1000)
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MatchMetadataDTO(BaseModel):
@@ -132,8 +127,7 @@ class MatchMetadataDTO(BaseModel):
     data_version: str = Field(..., alias="dataVersion")
     participants: List[str]
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MatchDTO(BaseModel):
@@ -169,8 +163,7 @@ class MatchDTO(BaseModel):
                 return team
         return None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class LeagueEntryDTO(BaseModel):
@@ -202,8 +195,7 @@ class LeagueEntryDTO(BaseModel):
         """Get full rank string (e.g., 'Gold II')."""
         return f"{self.tier.capitalize()} {self.rank}"
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CurrentGameParticipantDTO(BaseModel):
@@ -219,16 +211,14 @@ class CurrentGameParticipantDTO(BaseModel):
     bot: bool = Field(..., alias="bot")
     perks: Optional[Dict[str, Any]] = None
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ObserverDTO(BaseModel):
     """Observer information for current game."""
     encryption_key: Optional[str] = Field(None, alias="encryptionKey")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CurrentGameInfoDTO(BaseModel):
@@ -252,8 +242,7 @@ class CurrentGameInfoDTO(BaseModel):
             return None
         return datetime.fromtimestamp(self.game_start_time / 1000)
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FeaturedGameParticipantDTO(BaseModel):
@@ -262,8 +251,7 @@ class FeaturedGameParticipantDTO(BaseModel):
     summoner_name: str = Field(..., alias="summonerName")
     team_id: int = Field(..., alias="teamId")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FeaturedGameInfoDTO(BaseModel):
@@ -280,8 +268,7 @@ class FeaturedGameInfoDTO(BaseModel):
     game_start_time: Optional[int] = Field(None, alias="gameStartTime")
     game_length: Optional[int] = Field(None, alias="gameLength")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class FeaturedGamesDTO(BaseModel):
@@ -289,8 +276,7 @@ class FeaturedGamesDTO(BaseModel):
     game_list: List[FeaturedGameInfoDTO] = Field(..., alias="gameList")
     client_refresh_interval: int = Field(..., alias="clientRefreshInterval")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ActiveShardDTO(BaseModel):
@@ -299,5 +285,4 @@ class ActiveShardDTO(BaseModel):
     game: str
     active_shard: str = Field(..., alias="activeShard")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)

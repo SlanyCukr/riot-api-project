@@ -8,6 +8,7 @@ from typing import Annotated
 
 from ..database import get_db
 from ..riot_api.client import RiotAPIClient
+from ..riot_api.endpoints import Platform, Region
 from ..services.players import PlayerService
 from ..services.matches import MatchService
 from ..services.stats import StatsService
@@ -20,10 +21,14 @@ async def get_riot_client() -> RiotAPIClient:
     if not settings.riot_api_key:
         raise HTTPException(status_code=500, detail="Riot API key not configured")
 
+    # Convert string settings to enums
+    region = Region(settings.riot_region.lower())
+    platform = Platform(settings.riot_platform.lower())
+
     client = RiotAPIClient(
         api_key=settings.riot_api_key,
-        region=settings.riot_region,
-        platform=settings.riot_platform
+        region=region,
+        platform=platform
     )
     try:
         yield client
