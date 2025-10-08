@@ -83,3 +83,55 @@ docker compose down
 3. Follow code style guidelines in specialized docs
 4. Run tests and linting in containers
 5. Commit changes with proper messages
+
+## Code Quality and Pre-commit Hooks
+
+### Pre-commit Hook Setup
+
+Pre-commit hooks automatically check code quality before commits. They run linters, formatters, and other checks to ensure consistent code style.
+
+```bash
+# Install pre-commit (one-time setup)
+pip install pre-commit
+
+# Install git hooks
+pre-commit install
+
+# Run hooks manually on all files
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+pre-commit run ruff-format --all-files
+```
+
+### Configured Hooks
+
+- **ruff**: Fast Python linter (replaces flake8, isort, pylint)
+- **ruff-format**: Python code formatter (replaces black)
+- **bandit**: Security vulnerability scanner
+- **pydocstyle**: Docstring style checker
+- **pyright**: Static type checker
+- **eslint**: JavaScript/TypeScript linter
+- **prettier**: Frontend code formatter
+- **trailing-whitespace**: Removes trailing whitespace
+- **end-of-file-fixer**: Ensures files end with newline
+- **check-yaml**: Validates YAML syntax
+
+### Common Issues and Fixes
+
+**Ruff linting errors:**
+```bash
+# Auto-fix most issues
+pre-commit run ruff --all-files
+
+# Format code
+pre-commit run ruff-format --all-files
+```
+
+**Pre-commit config issues:**
+- Ensure npm package names with `@` are quoted in `.pre-commit-config.yaml`
+- Use valid git tags for tool versions
+
+**Running in Docker vs Host:**
+Pre-commit hooks can run on the host system (recommended for speed) or inside Docker containers. Most hooks work better on the host as they have direct filesystem access.
