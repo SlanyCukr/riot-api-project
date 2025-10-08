@@ -9,8 +9,4 @@ from .win_rate import WinRateAnalyzer
 from .rank_progression import RankProgressionAnalyzer
 from .performance import PerformanceAnalyzer
 
-__all__ = [
-    "WinRateAnalyzer",
-    "RankProgressionAnalyzer",
-    "PerformanceAnalyzer"
-]
+__all__ = ["WinRateAnalyzer", "RankProgressionAnalyzer", "PerformanceAnalyzer"]

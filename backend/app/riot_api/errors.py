@@ -14,7 +14,7 @@ class RiotAPIError(Exception):
         message: str,
         status_code: Optional[int] = None,
         response_data: Optional[Dict[str, Any]] = None,
-        retry_after: Optional[float] = None
+        retry_after: Optional[float] = None,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -34,7 +34,7 @@ class RiotAPIError(Exception):
             "message": self.message,
             "status_code": self.status_code,
             "retry_after": self.retry_after,
-            "response_data": self.response_data
+            "response_data": self.response_data,
         }
 
 
@@ -46,13 +46,9 @@ class RateLimitError(RiotAPIError):
         message: str,
         retry_after: Optional[float] = None,
         app_rate_limit: Optional[str] = None,
-        method_rate_limit: Optional[str] = None
+        method_rate_limit: Optional[str] = None,
     ):
-        super().__init__(
-            message=message,
-            status_code=429,
-            retry_after=retry_after
-        )
+        super().__init__(message=message, status_code=429, retry_after=retry_after)
         self.app_rate_limit = app_rate_limit
         self.method_rate_limit = method_rate_limit
 
@@ -64,11 +60,13 @@ class RateLimitError(RiotAPIError):
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
         base_dict = super().to_dict()
-        base_dict.update({
-            "error": "RateLimitError",
-            "app_rate_limit": self.app_rate_limit,
-            "method_rate_limit": self.method_rate_limit
-        })
+        base_dict.update(
+            {
+                "error": "RateLimitError",
+                "app_rate_limit": self.app_rate_limit,
+                "method_rate_limit": self.method_rate_limit,
+            }
+        )
         return base_dict
 
 
@@ -91,7 +89,10 @@ class AuthenticationError(RiotAPIError):
 class ForbiddenError(RiotAPIError):
     """Exception raised when access is forbidden (e.g., deprecated endpoint or insufficient permissions)."""
 
-    def __init__(self, message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions"):
+    def __init__(
+        self,
+        message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions",
+    ):
         super().__init__(message=message, status_code=403)
 
     def __str__(self) -> str:
@@ -195,7 +196,11 @@ def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
     elif status_code == 404:
         return NotFoundError(message)
     elif status_code == 429:
-        retry_after = response_data.get("status", {}).get("retry_after") if isinstance(response_data, dict) else None
+        retry_after = (
+            response_data.get("status", {}).get("retry_after")
+            if isinstance(response_data, dict)
+            else None
+        )
         return RateLimitError(message, retry_after=retry_after)
     elif status_code == 503:
         return ServiceUnavailableError(message)

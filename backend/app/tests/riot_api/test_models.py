@@ -2,9 +2,7 @@
 Tests for data models.
 """
 
-import pytest
 from datetime import datetime
-from pydantic import ValidationError
 
 from backend.app.riot_api.models import (
     AccountDTO,
@@ -18,7 +16,7 @@ from backend.app.riot_api.models import (
     LeagueEntryDTO,
     CurrentGameInfoDTO,
     FeaturedGamesDTO,
-    ActiveShardDTO
+    ActiveShardDTO,
 )
 
 
@@ -28,9 +26,7 @@ class TestAccountDTO:
     def test_valid_account(self):
         """Test creating valid account."""
         account = AccountDTO(
-            puuid="test-puuid-123",
-            gameName="TestPlayer",
-            tagLine="EUW"
+            puuid="test-puuid-123", gameName="TestPlayer", tagLine="EUW"
         )
 
         assert account.puuid == "test-puuid-123"
@@ -39,11 +35,7 @@ class TestAccountDTO:
 
     def test_account_field_alias(self):
         """Test field alias works correctly."""
-        data = {
-            "puuid": "test-puuid-123",
-            "gameName": "TestPlayer",
-            "tagLine": "EUW"
-        }
+        data = {"puuid": "test-puuid-123", "gameName": "TestPlayer", "tagLine": "EUW"}
 
         account = AccountDTO(**data)
         assert account.game_name == "TestPlayer"
@@ -61,7 +53,7 @@ class TestSummonerDTO:
             name="TestPlayer",
             profileIconId=1234,
             summonerLevel=100,
-            revisionDate=1234567890000
+            revisionDate=1234567890000,
         )
 
         assert summoner.id == "test-summoner-id"
@@ -82,7 +74,7 @@ class TestSummonerDTO:
             name="TestPlayer",
             profileIconId=1234,
             summonerLevel=100,
-            revisionDate=timestamp_ms
+            revisionDate=timestamp_ms,
         )
 
         assert summoner.revision_date == expected_dt
@@ -95,7 +87,7 @@ class TestSummonerDTO:
             name="TestPlayer",
             profileIconId=1234,
             summonerLevel=100,
-            revisionDate=None
+            revisionDate=None,
         )
 
         assert summoner.revision_date is None
@@ -107,7 +99,7 @@ class TestSummonerDTO:
             "puuid": "test-puuid-123",
             "name": "TestPlayer",
             "profileIconId": 1234,
-            "summonerLevel": 100
+            "summonerLevel": 100,
         }
 
         summoner = SummonerDTO(**data)
@@ -123,11 +115,7 @@ class TestMatchListDTO:
         match_ids = ["EUW1_123", "EUW1_456", "EUW1_789"]
 
         match_list = MatchListDTO(
-            matchIds=match_ids,
-            start=0,
-            count=3,
-            total=100,
-            puuid="test-puuid"
+            matchIds=match_ids, start=0, count=3, total=100, puuid="test-puuid"
         )
 
         assert match_list.match_ids == match_ids
@@ -138,11 +126,7 @@ class TestMatchListDTO:
 
     def test_match_list_field_alias(self):
         """Test field alias works correctly."""
-        data = {
-            "matchIds": ["EUW1_123"],
-            "start": 0,
-            "count": 1
-        }
+        data = {"matchIds": ["EUW1_123"], "start": 0, "count": 1}
 
         match_list = MatchListDTO(**data)
         assert match_list.match_ids == ["EUW1_123"]
@@ -175,7 +159,7 @@ class TestParticipantDTO:
             individualPosition="MIDDLE",
             teamPosition="MIDDLE",
             challenges={"kda": 9.0},
-            perks={"styles": []}
+            perks={"styles": []},
         )
 
         assert participant.puuid == "test-puuid"
@@ -188,17 +172,35 @@ class TestParticipantDTO:
         """Test KDA calculation."""
         # Test with deaths
         participant1 = ParticipantDTO(
-            puuid="test", summonerName="test", teamId=100, win=True,
-            championName="Zed", kills=10, deaths=2, assists=5, champLevel=18,
-            goldEarned=1000, totalMinionsKilled=100, neutralMinionsKilled=0
+            puuid="test",
+            summonerName="test",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=10,
+            deaths=2,
+            assists=5,
+            champLevel=18,
+            goldEarned=1000,
+            totalMinionsKilled=100,
+            neutralMinionsKilled=0,
         )
         assert participant1.kda == 7.5  # (10 + 5) / 2
 
         # Test without deaths
         participant2 = ParticipantDTO(
-            puuid="test", summonerName="test", teamId=100, win=True,
-            championName="Zed", kills=10, deaths=0, assists=5, champLevel=18,
-            goldEarned=1000, totalMinionsKilled=100, neutralMinionsKilled=0
+            puuid="test",
+            summonerName="test",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=10,
+            deaths=0,
+            assists=5,
+            champLevel=18,
+            goldEarned=1000,
+            totalMinionsKilled=100,
+            neutralMinionsKilled=0,
         )
         assert participant2.kda == 15  # 10 + 5
 
@@ -216,7 +218,7 @@ class TestParticipantDTO:
             "champLevel": 18,
             "goldEarned": 15000,
             "totalMinionsKilled": 200,
-            "neutralMinionsKilled": 50
+            "neutralMinionsKilled": 50,
         }
 
         participant = ParticipantDTO(**data)
@@ -235,7 +237,7 @@ class TestTeamDTO:
             teamId=100,
             win=True,
             bans=[{"championId": 1, "pickTurn": 1}],
-            objectives={"baron": {"first": True, "kills": 1}}
+            objectives={"baron": {"first": True, "kills": 1}},
         )
 
         assert team.team_id == 100
@@ -245,10 +247,7 @@ class TestTeamDTO:
 
     def test_team_field_alias(self):
         """Test field alias works correctly."""
-        data = {
-            "teamId": 100,
-            "win": True
-        }
+        data = {"teamId": 100, "win": True}
 
         team = TeamDTO(**data)
         assert team.team_id == 100
@@ -263,7 +262,7 @@ class TestMatchMetadataDTO:
         metadata = MatchMetadataDTO(
             matchId="EUW1_1234567890",
             dataVersion="14.20.555.5555",
-            participants=["puuid1", "puuid2", "puuid3"]
+            participants=["puuid1", "puuid2", "puuid3"],
         )
 
         assert metadata.match_id == "EUW1_1234567890"
@@ -275,7 +274,7 @@ class TestMatchMetadataDTO:
         data = {
             "matchId": "EUW1_123",
             "dataVersion": "14.20",
-            "participants": ["puuid1"]
+            "participants": ["puuid1"],
         }
 
         metadata = MatchMetadataDTO(**data)
@@ -289,9 +288,18 @@ class TestMatchInfoDTO:
     def test_valid_match_info(self):
         """Test creating valid match info."""
         participant = ParticipantDTO(
-            puuid="test-puuid", summonerName="TestPlayer", teamId=100, win=True,
-            championName="Zed", kills=5, deaths=3, assists=7, champLevel=15,
-            goldEarned=10000, totalMinionsKilled=150, neutralMinionsKilled=30
+            puuid="test-puuid",
+            summonerName="TestPlayer",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=5,
+            deaths=3,
+            assists=7,
+            champLevel=15,
+            goldEarned=10000,
+            totalMinionsKilled=150,
+            neutralMinionsKilled=30,
         )
 
         team = TeamDTO(teamId=100, win=True)
@@ -307,7 +315,7 @@ class TestMatchInfoDTO:
             gameType="MATCHED_GAME",
             participants=[participant],
             teams=[team],
-            platformId="EUW1"
+            platformId="EUW1",
         )
 
         assert match_info.queue_id == 420
@@ -327,7 +335,7 @@ class TestMatchInfoDTO:
             "gameType": "MATCHED_GAME",
             "participants": [],
             "teams": [],
-            "platformId": "EUW1"
+            "platformId": "EUW1",
         }
 
         match_info = MatchInfoDTO(**data)
@@ -350,7 +358,7 @@ class TestMatchInfoDTO:
             "gameType": "MATCHED_GAME",
             "participants": [],
             "teams": [],
-            "platformId": "EUW1"
+            "platformId": "EUW1",
         }
 
         match_info = MatchInfoDTO(**data)
@@ -365,13 +373,22 @@ class TestMatchDTO:
         metadata = MatchMetadataDTO(
             matchId="EUW1_1234567890",
             dataVersion="14.20.555.5555",
-            participants=["puuid1", "puuid2"]
+            participants=["puuid1", "puuid2"],
         )
 
         participant = ParticipantDTO(
-            puuid="puuid1", summonerName="Player1", teamId=100, win=True,
-            championName="Zed", kills=5, deaths=3, assists=7, champLevel=15,
-            goldEarned=10000, totalMinionsKilled=150, neutralMinionsKilled=30
+            puuid="puuid1",
+            summonerName="Player1",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=5,
+            deaths=3,
+            assists=7,
+            champLevel=15,
+            goldEarned=10000,
+            totalMinionsKilled=150,
+            neutralMinionsKilled=30,
         )
 
         team = TeamDTO(teamId=100, win=True)
@@ -386,7 +403,7 @@ class TestMatchDTO:
             gameType="MATCHED_GAME",
             participants=[participant],
             teams=[team],
-            platformId="EUW1"
+            platformId="EUW1",
         )
 
         match = MatchDTO(metadata=metadata, info=info)
@@ -398,27 +415,53 @@ class TestMatchDTO:
     def test_get_participant_by_puuid(self):
         """Test getting participant by PUUID."""
         participant1 = ParticipantDTO(
-            puuid="puuid1", summonerName="Player1", teamId=100, win=True,
-            championName="Zed", kills=5, deaths=3, assists=7, champLevel=15,
-            goldEarned=10000, totalMinionsKilled=150, neutralMinionsKilled=30
+            puuid="puuid1",
+            summonerName="Player1",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=5,
+            deaths=3,
+            assists=7,
+            champLevel=15,
+            goldEarned=10000,
+            totalMinionsKilled=150,
+            neutralMinionsKilled=30,
         )
 
         participant2 = ParticipantDTO(
-            puuid="puuid2", summonerName="Player2", teamId=200, win=False,
-            championName="Yasuo", kills=3, deaths=5, assists=2, champLevel=14,
-            goldEarned=8000, totalMinionsKilled=120, neutralMinionsKilled=25
+            puuid="puuid2",
+            summonerName="Player2",
+            teamId=200,
+            win=False,
+            championName="Yasuo",
+            kills=3,
+            deaths=5,
+            assists=2,
+            champLevel=14,
+            goldEarned=8000,
+            totalMinionsKilled=120,
+            neutralMinionsKilled=25,
         )
 
         match = MatchDTO(
             metadata=MatchMetadataDTO(
-                matchId="EUW1_123", dataVersion="14.20", participants=["puuid1", "puuid2"]
+                matchId="EUW1_123",
+                dataVersion="14.20",
+                participants=["puuid1", "puuid2"],
             ),
             info=MatchInfoDTO(
-                gameCreation=1710000000000, gameDuration=1800, queueId=420, mapId=11,
-                gameVersion="14.20", gameMode="CLASSIC", gameType="MATCHED_GAME",
-                participants=[participant1, participant2], teams=[],
-                platformId="EUW1"
-            )
+                gameCreation=1710000000000,
+                gameDuration=1800,
+                queueId=420,
+                mapId=11,
+                gameVersion="14.20",
+                gameMode="CLASSIC",
+                gameType="MATCHED_GAME",
+                participants=[participant1, participant2],
+                teams=[],
+                platformId="EUW1",
+            ),
         )
 
         found = match.get_participant_by_puuid("puuid1")
@@ -432,27 +475,53 @@ class TestMatchDTO:
     def test_get_participants_by_team(self):
         """Test getting participants by team."""
         participant1 = ParticipantDTO(
-            puuid="puuid1", summonerName="Player1", teamId=100, win=True,
-            championName="Zed", kills=5, deaths=3, assists=7, champLevel=15,
-            goldEarned=10000, totalMinionsKilled=150, neutralMinionsKilled=30
+            puuid="puuid1",
+            summonerName="Player1",
+            teamId=100,
+            win=True,
+            championName="Zed",
+            kills=5,
+            deaths=3,
+            assists=7,
+            champLevel=15,
+            goldEarned=10000,
+            totalMinionsKilled=150,
+            neutralMinionsKilled=30,
         )
 
         participant2 = ParticipantDTO(
-            puuid="puuid2", summonerName="Player2", teamId=200, win=False,
-            championName="Yasuo", kills=3, deaths=5, assists=2, champLevel=14,
-            goldEarned=8000, totalMinionsKilled=120, neutralMinionsKilled=25
+            puuid="puuid2",
+            summonerName="Player2",
+            teamId=200,
+            win=False,
+            championName="Yasuo",
+            kills=3,
+            deaths=5,
+            assists=2,
+            champLevel=14,
+            goldEarned=8000,
+            totalMinionsKilled=120,
+            neutralMinionsKilled=25,
         )
 
         match = MatchDTO(
             metadata=MatchMetadataDTO(
-                matchId="EUW1_123", dataVersion="14.20", participants=["puuid1", "puuid2"]
+                matchId="EUW1_123",
+                dataVersion="14.20",
+                participants=["puuid1", "puuid2"],
             ),
             info=MatchInfoDTO(
-                gameCreation=1710000000000, gameDuration=1800, queueId=420, mapId=11,
-                gameVersion="14.20", gameMode="CLASSIC", gameType="MATCHED_GAME",
-                participants=[participant1, participant2], teams=[],
-                platformId="EUW1"
-            )
+                gameCreation=1710000000000,
+                gameDuration=1800,
+                queueId=420,
+                mapId=11,
+                gameVersion="14.20",
+                gameMode="CLASSIC",
+                gameType="MATCHED_GAME",
+                participants=[participant1, participant2],
+                teams=[],
+                platformId="EUW1",
+            ),
         )
 
         team100 = match.get_participants_by_team(100)
@@ -473,10 +542,17 @@ class TestMatchDTO:
                 matchId="EUW1_123", dataVersion="14.20", participants=[]
             ),
             info=MatchInfoDTO(
-                gameCreation=1710000000000, gameDuration=1800, queueId=420, mapId=11,
-                gameVersion="14.20", gameMode="CLASSIC", gameType="MATCHED_GAME",
-                participants=[], teams=[team1, team2], platformId="EUW1"
-            )
+                gameCreation=1710000000000,
+                gameDuration=1800,
+                queueId=420,
+                mapId=11,
+                gameVersion="14.20",
+                gameMode="CLASSIC",
+                gameType="MATCHED_GAME",
+                participants=[],
+                teams=[team1, team2],
+                platformId="EUW1",
+            ),
         )
 
         winner = match.get_winning_team()
@@ -503,7 +579,7 @@ class TestLeagueEntryDTO:
             veteran=False,
             inactive=False,
             freshBlood=False,
-            hotStreak=False
+            hotStreak=False,
         )
 
         assert entry.league_id == "test-league"
@@ -516,10 +592,19 @@ class TestLeagueEntryDTO:
     def test_league_entry_win_rate(self):
         """Test win rate calculation."""
         entry = LeagueEntryDTO(
-            leagueId="test", summonerId="test", summonerName="test",
-            queueType="RANKED_SOLO_5x5", tier="GOLD", rank="II",
-            leaguePoints=50, wins=25, losses=15, veteran=False,
-            inactive=False, freshBlood=False, hotStreak=False
+            leagueId="test",
+            summonerId="test",
+            summonerName="test",
+            queueType="RANKED_SOLO_5x5",
+            tier="GOLD",
+            rank="II",
+            leaguePoints=50,
+            wins=25,
+            losses=15,
+            veteran=False,
+            inactive=False,
+            freshBlood=False,
+            hotStreak=False,
         )
 
         # 25 wins out of 40 total games = 62.5%
@@ -528,10 +613,19 @@ class TestLeagueEntryDTO:
     def test_league_entry_full_rank(self):
         """Test full rank string."""
         entry = LeagueEntryDTO(
-            leagueId="test", summonerId="test", summonerName="test",
-            queueType="RANKED_SOLO_5x5", tier="GOLD", rank="II",
-            leaguePoints=50, wins=25, losses=15, veteran=False,
-            inactive=False, freshBlood=False, hotStreak=False
+            leagueId="test",
+            summonerId="test",
+            summonerName="test",
+            queueType="RANKED_SOLO_5x5",
+            tier="GOLD",
+            rank="II",
+            leaguePoints=50,
+            wins=25,
+            losses=15,
+            veteran=False,
+            inactive=False,
+            freshBlood=False,
+            hotStreak=False,
         )
 
         assert entry.full_rank == "Gold II"
@@ -551,7 +645,7 @@ class TestLeagueEntryDTO:
             "veteran": False,
             "inactive": False,
             "freshBlood": False,
-            "hotStreak": False
+            "hotStreak": False,
         }
 
         entry = LeagueEntryDTO(**data)
@@ -577,7 +671,7 @@ class TestCurrentGameInfoDTO:
             profileIconId=1234,
             spell1Id=4,
             spell2Id=14,
-            bot=False
+            bot=False,
         )
 
         observer = ObserverDTO(encryptionKey="test-key")
@@ -592,7 +686,7 @@ class TestCurrentGameInfoDTO:
             observers=observer,
             platformId="EUW1",
             gameStartTime=1710000000000,
-            gameLength=300
+            gameLength=300,
         )
 
         assert game.game_id == 123456789
@@ -610,7 +704,7 @@ class TestCurrentGameInfoDTO:
             "gameQueueConfigId": 420,
             "participants": [],
             "observers": {"encryptionKey": "test"},
-            "platformId": "EUW1"
+            "platformId": "EUW1",
         }
 
         game = CurrentGameInfoDTO(**data)
@@ -634,23 +728,17 @@ class TestFeaturedGamesDTO:
             gameQueueConfigId=420,
             participants=[],
             observers={"encryptionKey": "test"},
-            platformId="EUW1"
+            platformId="EUW1",
         )
 
-        featured = FeaturedGamesDTO(
-            gameList=[game],
-            clientRefreshInterval=300
-        )
+        featured = FeaturedGamesDTO(gameList=[game], clientRefreshInterval=300)
 
         assert len(featured.game_list) == 1
         assert featured.client_refresh_interval == 300
 
     def test_featured_games_field_alias(self):
         """Test field alias works correctly."""
-        data = {
-            "gameList": [],
-            "clientRefreshInterval": 300
-        }
+        data = {"gameList": [], "clientRefreshInterval": 300}
 
         featured = FeaturedGamesDTO(**data)
         assert featured.game_list == []
@@ -662,11 +750,7 @@ class TestActiveShardDTO:
 
     def test_valid_active_shard(self):
         """Test creating valid active shard."""
-        shard = ActiveShardDTO(
-            puuid="test-puuid",
-            game="lol",
-            activeShard="europe"
-        )
+        shard = ActiveShardDTO(puuid="test-puuid", game="lol", activeShard="europe")
 
         assert shard.puuid == "test-puuid"
         assert shard.game == "lol"
@@ -674,11 +758,7 @@ class TestActiveShardDTO:
 
     def test_active_shard_field_alias(self):
         """Test field alias works correctly."""
-        data = {
-            "puuid": "test-puuid",
-            "game": "lol",
-            "activeShard": "europe"
-        }
+        data = {"puuid": "test-puuid", "game": "lol", "activeShard": "europe"}
 
         shard = ActiveShardDTO(**data)
         assert shard.puuid == "test-puuid"

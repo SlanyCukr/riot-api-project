@@ -5,14 +5,18 @@ This module provides REST API endpoints for smurf detection analysis,
 including player analysis, detection history, statistics, and configuration.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from typing import Optional, List
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
+from typing import List
 import structlog
 
 from ..schemas.detection import (
-    DetectionResponse, DetectionRequest, DetectionStatsResponse,
-    DetectionConfigResponse, DetectionHistoryRequest, BulkDetectionRequest,
-    BulkDetectionResponse, DetailedDetectionResponse
+    DetectionResponse,
+    DetectionRequest,
+    DetectionStatsResponse,
+    DetectionConfigResponse,
+    BulkDetectionRequest,
+    BulkDetectionResponse,
+    DetailedDetectionResponse,
 )
 from ..api.dependencies import DetectionServiceDep
 
@@ -23,8 +27,7 @@ router = APIRouter(prefix="/detection", tags=["smurf-detection"])
 
 @router.post("/analyze", response_model=DetectionResponse)
 async def analyze_player(
-    request: DetectionRequest,
-    detection_service: DetectionServiceDep
+    request: DetectionRequest, detection_service: DetectionServiceDep
 ):
     """
     Analyze a player for smurf behavior.
@@ -52,7 +55,7 @@ async def analyze_player(
             "Starting smurf detection analysis",
             puuid=request.puuid,
             min_games=request.min_games,
-            queue_filter=request.queue_filter
+            queue_filter=request.queue_filter,
         )
 
         result = await detection_service.analyze_player(
@@ -60,7 +63,7 @@ async def analyze_player(
             min_games=request.min_games,
             queue_filter=request.queue_filter,
             time_period_days=request.time_period_days,
-            force_reanalyze=request.force_reanalyze
+            force_reanalyze=request.force_reanalyze,
         )
 
         logger.info(
@@ -68,7 +71,7 @@ async def analyze_player(
             puuid=request.puuid,
             is_smurf=result.is_smurf,
             detection_score=result.detection_score,
-            confidence_level=result.confidence_level
+            confidence_level=result.confidence_level,
         )
 
         return result
@@ -85,7 +88,7 @@ async def analyze_player(
 async def get_latest_detection(
     puuid: str,
     detection_service: DetectionServiceDep,
-    force_refresh: bool = Query(False, description="Force new analysis")
+    force_refresh: bool = Query(False, description="Force new analysis"),
 ):
     """
     Get the latest smurf detection result for a player.
@@ -108,7 +111,9 @@ async def get_latest_detection(
             result = await detection_service.analyze_player(puuid=puuid)
         else:
             # Try to get recent analysis first
-            recent_result = await detection_service._get_recent_detection(puuid, hours=24)
+            recent_result = await detection_service._get_recent_detection(
+                puuid, hours=24
+            )
             if recent_result:
                 result = detection_service._convert_to_response(recent_result)
                 logger.info("Returning cached detection result", puuid=puuid)
@@ -131,7 +136,7 @@ async def get_detection_history(
     puuid: str,
     detection_service: DetectionServiceDep,
     limit: int = Query(10, ge=1, le=50, description="Number of historical results"),
-    include_factors: bool = Query(True, description="Include detailed factor analysis")
+    include_factors: bool = Query(True, description="Include detailed factor analysis"),
 ):
     """
     Get historical smurf detection results for a player.
@@ -154,15 +159,11 @@ async def get_detection_history(
         logger.info("Retrieving detection history", puuid=puuid, limit=limit)
 
         history = await detection_service.get_detection_history(
-            puuid=puuid,
-            limit=limit,
-            include_factors=include_factors
+            puuid=puuid, limit=limit, include_factors=include_factors
         )
 
         logger.info(
-            "Detection history retrieved",
-            puuid=puuid,
-            results_count=len(history)
+            "Detection history retrieved", puuid=puuid, results_count=len(history)
         )
 
         return history
@@ -173,9 +174,7 @@ async def get_detection_history(
 
 
 @router.get("/stats", response_model=DetectionStatsResponse)
-async def get_detection_stats(
-    detection_service: DetectionServiceDep
-):
+async def get_detection_stats(detection_service: DetectionServiceDep):
     """
     Get overall smurf detection statistics.
 
@@ -197,20 +196,20 @@ async def get_detection_stats(
             "Detection statistics retrieved",
             total_analyses=stats.total_analyses,
             smurf_count=stats.smurf_count,
-            detection_rate=stats.smurf_detection_rate
+            detection_rate=stats.smurf_detection_rate,
         )
 
         return stats
 
     except Exception as e:
         logger.error("Failed to get detection stats", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to get detection statistics")
+        raise HTTPException(
+            status_code=500, detail="Failed to get detection statistics"
+        )
 
 
 @router.get("/config", response_model=DetectionConfigResponse)
-async def get_detection_config(
-    detection_service: DetectionServiceDep
-):
+async def get_detection_config(detection_service: DetectionServiceDep):
     """
     Get current detection configuration.
 
@@ -232,21 +231,23 @@ async def get_detection_config(
             "Detection configuration retrieved",
             version=config.analysis_version,
             thresholds_count=len(config.thresholds),
-            weights_count=len(config.weights)
+            weights_count=len(config.weights),
         )
 
         return config
 
     except Exception as e:
         logger.error("Failed to get detection config", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to get detection configuration")
+        raise HTTPException(
+            status_code=500, detail="Failed to get detection configuration"
+        )
 
 
 @router.post("/bulk-analyze", response_model=BulkDetectionResponse)
 async def bulk_analyze_players(
     request: BulkDetectionRequest,
     background_tasks: BackgroundTasks,
-    detection_service: DetectionServiceDep
+    detection_service: DetectionServiceDep,
 ):
     """
     Perform bulk smurf detection analysis on multiple players.
@@ -268,19 +269,17 @@ async def bulk_analyze_players(
         logger.info(
             "Starting bulk smurf detection analysis",
             players_count=len(request.puuids),
-            max_concurrent=request.max_concurrent
+            max_concurrent=request.max_concurrent,
         )
 
         # Validate player count
         if len(request.puuids) > 50:
             raise HTTPException(
-                status_code=400,
-                detail="Maximum 50 players allowed per bulk request"
+                status_code=400, detail="Maximum 50 players allowed per bulk request"
             )
 
         result = await detection_service.analyze_bulk_players(
-            puuids=request.puuids,
-            analysis_config=request.analysis_config
+            puuids=request.puuids, analysis_config=request.analysis_config
         )
 
         logger.info(
@@ -288,7 +287,7 @@ async def bulk_analyze_players(
             total_players=len(request.puuids),
             successful=result.successful_analyses,
             failed=result.failed_analyses,
-            processing_time=result.processing_time_seconds
+            processing_time=result.processing_time_seconds,
         )
 
         return result
@@ -306,7 +305,7 @@ async def get_detailed_detection(
     puuid: str,
     detection_service: DetectionServiceDep,
     include_trends: bool = Query(True, description="Include trend analysis"),
-    include_recommendations: bool = Query(True, description="Include recommendations")
+    include_recommendations: bool = Query(True, description="Include recommendations"),
 ):
     """
     Get detailed smurf detection analysis with additional insights.
@@ -338,20 +337,22 @@ async def get_detailed_detection(
             signals=[],  # Would be populated with detailed signal analysis
             recommendations=[],  # Would be populated with AI recommendations
             trend_analysis=None,  # Would be populated with trend analysis
-            player_context={}  # Would be populated with additional context
+            player_context={},  # Would be populated with additional context
         )
 
         logger.info(
             "Detailed detection analysis completed",
             puuid=puuid,
             is_smurf=detailed_result.is_smurf,
-            detection_score=detailed_result.detection_score
+            detection_score=detailed_result.detection_score,
         )
 
         return detailed_result
 
     except ValueError as e:
-        logger.error("Player not found for detailed analysis", puuid=puuid, error=str(e))
+        logger.error(
+            "Player not found for detailed analysis", puuid=puuid, error=str(e)
+        )
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("Detailed analysis failed", puuid=puuid, error=str(e))
@@ -370,14 +371,13 @@ async def detection_health_check():
         "status": "healthy",
         "service": "smurf-detection",
         "version": "1.0.0",
-        "timestamp": "2025-01-01T00:00:00Z"
+        "timestamp": "2025-01-01T00:00:00Z",
     }
 
 
 @router.get("/player/{puuid}/exists")
 async def check_player_analysis_exists(
-    puuid: str,
-    detection_service: DetectionServiceDep
+    puuid: str, detection_service: DetectionServiceDep
 ):
     """
     Check if a player has existing smurf detection analysis.
@@ -397,15 +397,19 @@ async def check_player_analysis_exists(
                 "last_analysis": recent_analysis.last_analysis.isoformat(),
                 "is_smurf": recent_analysis.is_smurf,
                 "detection_score": float(recent_analysis.smurf_score),
-                "confidence_level": recent_analysis.confidence
+                "confidence_level": recent_analysis.confidence,
             }
         else:
             return {
                 "exists": False,
                 "last_analysis": None,
-                "message": "No recent analysis found for player"
+                "message": "No recent analysis found for player",
             }
 
     except Exception as e:
-        logger.error("Failed to check player analysis existence", puuid=puuid, error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to check analysis existence")
+        logger.error(
+            "Failed to check player analysis existence", puuid=puuid, error=str(e)
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to check analysis existence"
+        )

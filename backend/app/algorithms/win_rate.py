@@ -15,6 +15,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class WinRateResult:
     """Result of win rate analysis."""
+
     win_rate: float
     wins: int
     total_games: int
@@ -54,10 +55,10 @@ class WinRateAnalyzer:
                 total_games=0,
                 meets_threshold=False,
                 confidence=0.0,
-                description="No match data available"
+                description="No match data available",
             )
 
-        wins = sum(1 for match in recent_matches if match.get('win', False))
+        wins = sum(1 for match in recent_matches if match.get("win", False))
         total_games = len(recent_matches)
         win_rate = wins / total_games if total_games > 0 else 0.0
 
@@ -65,12 +66,11 @@ class WinRateAnalyzer:
         confidence = self._calculate_confidence(total_games)
 
         # Determine if threshold is met (only with sufficient games)
-        meets_threshold = (
-            win_rate >= self.threshold and
-            total_games >= self.min_games
-        )
+        meets_threshold = win_rate >= self.threshold and total_games >= self.min_games
 
-        description = self._generate_description(win_rate, wins, total_games, meets_threshold)
+        description = self._generate_description(
+            win_rate, wins, total_games, meets_threshold
+        )
 
         logger.info(
             "Win rate analysis completed",
@@ -78,7 +78,7 @@ class WinRateAnalyzer:
             wins=wins,
             total_games=total_games,
             meets_threshold=meets_threshold,
-            confidence=confidence
+            confidence=confidence,
         )
 
         return WinRateResult(
@@ -87,7 +87,7 @@ class WinRateAnalyzer:
             total_games=total_games,
             meets_threshold=meets_threshold,
             confidence=confidence,
-            description=description
+            description=description,
         )
 
     def _calculate_confidence(self, sample_size: int) -> float:
@@ -105,11 +105,7 @@ class WinRateAnalyzer:
         return 1.0
 
     def _generate_description(
-        self,
-        win_rate: float,
-        wins: int,
-        total_games: int,
-        meets_threshold: bool
+        self, win_rate: float, wins: int, total_games: int, meets_threshold: bool
     ) -> str:
         """
         Generate human-readable description of win rate analysis.
@@ -152,7 +148,9 @@ class WinRateAnalyzer:
         else:
             return 0.0
 
-    def analyze_win_rate_trend(self, recent_matches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def analyze_win_rate_trend(
+        self, recent_matches: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """
         Analyze win rate trend over time for additional smurf signals.
 
@@ -170,8 +168,8 @@ class WinRateAnalyzer:
         older_matches = recent_matches[mid_point:]
         recent_half = recent_matches[:mid_point]
 
-        older_wins = sum(1 for m in older_matches if m.get('win', False))
-        recent_wins = sum(1 for m in recent_half if m.get('win', False))
+        older_wins = sum(1 for m in older_matches if m.get("win", False))
+        recent_wins = sum(1 for m in recent_half if m.get("win", False))
 
         older_rate = older_wins / len(older_matches) if older_matches else 0.0
         recent_rate = recent_wins / len(recent_half) if recent_half else 0.0
@@ -194,5 +192,5 @@ class WinRateAnalyzer:
             "score": trend_score,
             "older_win_rate": older_rate,
             "recent_win_rate": recent_rate,
-            "improvement": trend_improvement
+            "improvement": trend_improvement,
         }

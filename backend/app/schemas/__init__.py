@@ -30,43 +30,25 @@ from .ranks import (
     PlayerRankListResponse,
 )
 
-from .smurf_detection import (
-    SmurfDetectionCreate,
-    SmurfDetectionUpdate,
-    SmurfDetectionResponse,
-    SmurfDetectionListResponse,
-    SmurfDetectionAnalysis,
-)
-
 __all__ = [
     # Player schemas
     "PlayerCreate",
     "PlayerUpdate",
     "PlayerResponse",
     "PlayerListResponse",
-
     # Match schemas
     "MatchCreate",
     "MatchUpdate",
     "MatchResponse",
     "MatchListResponse",
-
     # Participant schemas
     "MatchParticipantCreate",
     "MatchParticipantUpdate",
     "MatchParticipantResponse",
     "MatchParticipantListResponse",
-
     # Rank schemas
     "PlayerRankCreate",
     "PlayerRankUpdate",
     "PlayerRankResponse",
     "PlayerRankListResponse",
-
-    # Smurf detection schemas
-    "SmurfDetectionCreate",
-    "SmurfDetectionUpdate",
-    "SmurfDetectionResponse",
-    "SmurfDetectionListResponse",
-    "SmurfDetectionAnalysis",
 ]

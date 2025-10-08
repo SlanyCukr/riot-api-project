@@ -90,7 +90,7 @@ class TTLCache:
                 "maxsize": self.maxsize,
                 "hits": self._hits,
                 "misses": self._misses,
-                "hit_rate": self._hits / total if total > 0 else 0.0
+                "hit_rate": self._hits / total if total > 0 else 0.0,
             }
 
     def __len__(self) -> int:
@@ -100,14 +100,26 @@ class TTLCache:
 
 # Cache instances with appropriate TTLs based on data type
 # TTL values follow Riot API best practices (docs/riot-api-reference.md lines 775-790)
-account_cache = TTLCache(maxsize=1000, ttl=86400)      # 24 hours - account data rarely changes
-summoner_cache = TTLCache(maxsize=1000, ttl=86400)     # 24 hours - summoner data rarely changes
-match_cache = TTLCache(maxsize=5000, ttl=604800)       # 7 days - match data is immutable
-match_list_cache = TTLCache(maxsize=500, ttl=300)      # 5 minutes - match lists change frequently
-league_cache = TTLCache(maxsize=1000, ttl=3600)        # 1 hour - league entries change regularly
-active_game_cache = TTLCache(maxsize=100, ttl=60)      # 1 minute - live game state changes rapidly
-featured_games_cache = TTLCache(maxsize=10, ttl=120)   # 2 minutes - featured games change frequently
-shard_cache = TTLCache(maxsize=100, ttl=3600)          # 1 hour - shards rarely change
+account_cache = TTLCache(
+    maxsize=1000, ttl=86400
+)  # 24 hours - account data rarely changes
+summoner_cache = TTLCache(
+    maxsize=1000, ttl=86400
+)  # 24 hours - summoner data rarely changes
+match_cache = TTLCache(maxsize=5000, ttl=604800)  # 7 days - match data is immutable
+match_list_cache = TTLCache(
+    maxsize=500, ttl=300
+)  # 5 minutes - match lists change frequently
+league_cache = TTLCache(
+    maxsize=1000, ttl=3600
+)  # 1 hour - league entries change regularly
+active_game_cache = TTLCache(
+    maxsize=100, ttl=60
+)  # 1 minute - live game state changes rapidly
+featured_games_cache = TTLCache(
+    maxsize=10, ttl=120
+)  # 2 minutes - featured games change frequently
+shard_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour - shards rarely change
 
 
 class RiotAPICache:
@@ -116,13 +128,17 @@ class RiotAPICache:
     """
 
     @staticmethod
-    def get_account_by_riot_id(game_name: str, tag_line: str) -> Optional[Dict[str, Any]]:
+    def get_account_by_riot_id(
+        game_name: str, tag_line: str
+    ) -> Optional[Dict[str, Any]]:
         """Get cached account by Riot ID."""
         key = f"account:{game_name}:{tag_line}"
         return account_cache.get(key)
 
     @staticmethod
-    def set_account_by_riot_id(game_name: str, tag_line: str, data: Dict[str, Any]) -> None:
+    def set_account_by_riot_id(
+        game_name: str, tag_line: str, data: Dict[str, Any]
+    ) -> None:
         """Cache account data by Riot ID."""
         key = f"account:{game_name}:{tag_line}"
         account_cache.set(key, data)
@@ -182,7 +198,7 @@ class RiotAPICache:
         count: int = 20,
         queue: Optional[int] = None,
         start_time: Optional[int] = None,
-        end_time: Optional[int] = None
+        end_time: Optional[int] = None,
     ) -> Optional[List[str]]:
         """Get cached match list by PUUID and parameters."""
         key = f"match_list:{puuid}:{start}:{count}:{queue}:{start_time}:{end_time}"
@@ -196,7 +212,7 @@ class RiotAPICache:
         data: List[str],
         queue: Optional[int] = None,
         start_time: Optional[int] = None,
-        end_time: Optional[int] = None
+        end_time: Optional[int] = None,
     ) -> None:
         """Cache match list data."""
         key = f"match_list:{puuid}:{start}:{count}:{queue}:{start_time}:{end_time}"
@@ -237,13 +253,17 @@ class RiotAPICache:
         featured_games_cache.set("featured_games", data)
 
     @staticmethod
-    def get_active_shard(summoner_id: str, game: str = "lol") -> Optional[Dict[str, Any]]:
+    def get_active_shard(
+        summoner_id: str, game: str = "lol"
+    ) -> Optional[Dict[str, Any]]:
         """Get cached active shard."""
         key = f"shard:{game}:{summoner_id}"
         return shard_cache.get(key)
 
     @staticmethod
-    def set_active_shard(summoner_id: str, data: Dict[str, Any], game: str = "lol") -> None:
+    def set_active_shard(
+        summoner_id: str, data: Dict[str, Any], game: str = "lol"
+    ) -> None:
         """Cache active shard data."""
         key = f"shard:{game}:{summoner_id}"
         shard_cache.set(key, data)

@@ -4,8 +4,7 @@ Performance monitoring middleware for API response tracking and metrics collecti
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
-from typing import Optional, Callable, Dict, Any, List
+from typing import Callable, Dict, Any, List
 import time
 import threading
 import structlog
@@ -64,7 +63,7 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
                 endpoint=request.url.path,
                 method=request.method,
                 status_code=response.status_code,
-                duration=duration
+                duration=duration,
             )
 
             # Log performance metrics
@@ -73,7 +72,7 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
                 status_code=response.status_code,
                 duration_seconds=round(duration, 3),
                 duration_ms=round(duration * 1000),
-                request_id=request_id
+                request_id=request_id,
             )
 
             # Log slow requests
@@ -83,7 +82,7 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
                     duration_seconds=round(duration, 3),
                     threshold=self.slow_request_threshold,
                     endpoint=request.url.path,
-                    request_id=request_id
+                    request_id=request_id,
                 )
 
             # Add performance headers
@@ -98,7 +97,7 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
                 "Request failed",
                 duration_seconds=round(duration, 3),
                 error=str(e),
-                request_id=request_id
+                request_id=request_id,
             )
             raise
 
@@ -111,15 +110,19 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
                 "cache_metrics": self.cache_metrics.get_metrics(),
                 "thresholds": {
                     "slow_request_threshold": self.slow_request_threshold,
-                    "db_query_threshold": self.db_query_threshold
-                }
+                    "db_query_threshold": self.db_query_threshold,
+                },
             }
 
-    def log_database_query(self, query: str, duration: float, params: Dict[str, Any] = None):
+    def log_database_query(
+        self, query: str, duration: float, params: Dict[str, Any] = None
+    ):
         """Log a database query with performance metrics"""
         self.db_monitor.log_query(query, duration, params)
 
-    def record_cache_operation(self, operation: str, cache_type: str, hit: bool, duration: float):
+    def record_cache_operation(
+        self, operation: str, cache_type: str, hit: bool, duration: float
+    ):
         """Record cache operation metrics"""
         self.cache_metrics.record_operation(operation, cache_type, hit, duration)
 
@@ -142,7 +145,9 @@ class RequestMetricsCollector:
         self.total_duration = 0.0
         self._lock = threading.Lock()
 
-    def record_request(self, endpoint: str, method: str, status_code: int, duration: float):
+    def record_request(
+        self, endpoint: str, method: str, status_code: int, duration: float
+    ):
         """Record a request for metrics collection"""
         with self._lock:
             self.total_requests += 1
@@ -156,10 +161,10 @@ class RequestMetricsCollector:
                     "count": 0,
                     "total_duration": 0.0,
                     "avg_duration": 0.0,
-                    "min_duration": float('inf'),
+                    "min_duration": float("inf"),
                     "max_duration": 0.0,
                     "p95_duration": 0.0,
-                    "durations": []
+                    "durations": [],
                 }
 
             stats = self.endpoint_stats[key]
@@ -177,7 +182,9 @@ class RequestMetricsCollector:
             # Calculate p95
             if stats["durations"]:
                 sorted_durations = sorted(stats["durations"])
-                stats["p95_duration"] = sorted_durations[int(len(sorted_durations) * 0.95)]
+                stats["p95_duration"] = sorted_durations[
+                    int(len(sorted_durations) * 0.95)
+                ]
 
             # Track error rates
             if status_code >= 400:
@@ -193,7 +200,11 @@ class RequestMetricsCollector:
     def get_metrics(self) -> Dict[str, Any]:
         """Get current request metrics"""
         with self._lock:
-            avg_response_time = self.total_duration / self.total_requests if self.total_requests > 0 else 0
+            avg_response_time = (
+                self.total_duration / self.total_requests
+                if self.total_requests > 0
+                else 0
+            )
 
             return {
                 "total_requests": self.total_requests,
@@ -203,13 +214,15 @@ class RequestMetricsCollector:
                 "endpoint_stats": self.endpoint_stats,
                 "error_rates": {
                     endpoint: {
-                        "error_rate": (stats["errors"] / stats["total"]) * 100 if stats["total"] > 0 else 0,
+                        "error_rate": (stats["errors"] / stats["total"]) * 100
+                        if stats["total"] > 0
+                        else 0,
                         "errors": stats["errors"],
-                        "total": stats["total"]
+                        "total": stats["total"],
                     }
                     for endpoint, stats in self.error_rates.items()
                 },
-                "slow_endpoints": self._get_slow_endpoints()
+                "slow_endpoints": self._get_slow_endpoints(),
             }
 
     def _calculate_rps(self) -> float:
@@ -225,14 +238,18 @@ class RequestMetricsCollector:
         slow_endpoints = []
         for endpoint, stats in self.endpoint_stats.items():
             if stats["avg_duration"] > 1.0:  # Slower than 1 second
-                slow_endpoints.append({
-                    "endpoint": endpoint,
-                    "avg_duration": round(stats["avg_duration"], 3),
-                    "count": stats["count"],
-                    "p95_duration": round(stats["p95_duration"], 3)
-                })
+                slow_endpoints.append(
+                    {
+                        "endpoint": endpoint,
+                        "avg_duration": round(stats["avg_duration"], 3),
+                        "count": stats["count"],
+                        "p95_duration": round(stats["p95_duration"], 3),
+                    }
+                )
 
-        return sorted(slow_endpoints, key=lambda x: x["avg_duration"], reverse=True)[:10]
+        return sorted(slow_endpoints, key=lambda x: x["avg_duration"], reverse=True)[
+            :10
+        ]
 
     def reset(self):
         """Reset all metrics"""
@@ -252,7 +269,7 @@ class DatabaseQueryMonitor:
             "total": 0,
             "slow": 0,
             "avg_duration": 0.0,
-            "total_duration": 0.0
+            "total_duration": 0.0,
         }
         self._lock = threading.Lock()
 
@@ -261,16 +278,20 @@ class DatabaseQueryMonitor:
         with self._lock:
             self.query_stats["total"] += 1
             self.query_stats["total_duration"] += duration
-            self.query_stats["avg_duration"] = self.query_stats["total_duration"] / self.query_stats["total"]
+            self.query_stats["avg_duration"] = (
+                self.query_stats["total_duration"] / self.query_stats["total"]
+            )
 
             if duration > 0.5:  # Slow query threshold
                 self.query_stats["slow"] += 1
-                self.slow_queries.append({
-                    "query": query[:200],  # Truncate long queries
-                    "duration": round(duration, 3),
-                    "timestamp": time.time(),
-                    "params": params
-                })
+                self.slow_queries.append(
+                    {
+                        "query": query[:200],  # Truncate long queries
+                        "duration": round(duration, 3),
+                        "timestamp": time.time(),
+                        "params": params,
+                    }
+                )
 
                 # Keep only last 50 slow queries
                 if len(self.slow_queries) > 50:
@@ -279,7 +300,7 @@ class DatabaseQueryMonitor:
                 logger.warning(
                     "Slow database query",
                     query_duration=round(duration, 3),
-                    query=query[:100]
+                    query=query[:100],
                 )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -291,14 +312,15 @@ class DatabaseQueryMonitor:
                     {
                         "query": q["query"],
                         "duration": q["duration"],
-                        "timestamp": q["timestamp"]
+                        "timestamp": q["timestamp"],
                     }
                     for q in self.slow_queries[-10:]  # Last 10 slow queries
                 ],
                 "slow_query_rate": (
                     (self.query_stats["slow"] / self.query_stats["total"]) * 100
-                    if self.query_stats["total"] > 0 else 0
-                )
+                    if self.query_stats["total"] > 0
+                    else 0
+                ),
             }
 
     def reset(self):
@@ -309,7 +331,7 @@ class DatabaseQueryMonitor:
                 "total": 0,
                 "slow": 0,
                 "avg_duration": 0.0,
-                "total_duration": 0.0
+                "total_duration": 0.0,
             }
 
 
@@ -318,13 +340,24 @@ class CacheMetricsCollector:
 
     def __init__(self):
         self.operations = {
-            "get": {"local": {"hits": 0, "misses": 0, "total_time": 0.0}, "redis": {"hits": 0, "misses": 0, "total_time": 0.0}},
-            "set": {"local": {"count": 0, "total_time": 0.0}, "redis": {"count": 0, "total_time": 0.0}},
-            "delete": {"local": {"count": 0, "total_time": 0.0}, "redis": {"count": 0, "total_time": 0.0}}
+            "get": {
+                "local": {"hits": 0, "misses": 0, "total_time": 0.0},
+                "redis": {"hits": 0, "misses": 0, "total_time": 0.0},
+            },
+            "set": {
+                "local": {"count": 0, "total_time": 0.0},
+                "redis": {"count": 0, "total_time": 0.0},
+            },
+            "delete": {
+                "local": {"count": 0, "total_time": 0.0},
+                "redis": {"count": 0, "total_time": 0.0},
+            },
         }
         self._lock = threading.Lock()
 
-    def record_operation(self, operation: str, cache_type: str, hit: bool = None, duration: float = 0.0):
+    def record_operation(
+        self, operation: str, cache_type: str, hit: bool = None, duration: float = 0.0
+    ):
         """Record a cache operation"""
         with self._lock:
             if operation == "get" and hit is not None:
@@ -346,7 +379,13 @@ class CacheMetricsCollector:
                 for cache_type, stats in cache_types.items():
                     metrics[operation][cache_type] = {
                         **stats,
-                        "avg_time": stats["total_time"] / max(stats.get("count", stats.get("hits", 0) + stats.get("misses", 0)), 1)
+                        "avg_time": stats["total_time"]
+                        / max(
+                            stats.get(
+                                "count", stats.get("hits", 0) + stats.get("misses", 0)
+                            ),
+                            1,
+                        ),
                     }
 
                     # Calculate hit rate for get operations

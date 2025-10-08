@@ -7,9 +7,8 @@ rapid climbing that may indicate smurf behavior.
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc
 import structlog
 
 from ..models.ranks import PlayerRank, Tier
@@ -20,6 +19,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class RankProgressionResult:
     """Result of rank progression analysis."""
+
     current_tier: str
     current_rank: Optional[str]
     current_lp: int
@@ -40,7 +40,7 @@ class RankProgressionAnalyzer:
         self,
         tier_jump_threshold: int = 2,
         rapid_progression_days: int = 30,
-        min_games_for_analysis: int = 20
+        min_games_for_analysis: int = 20,
     ):
         """
         Initialize the rank progression analyzer.
@@ -65,7 +65,7 @@ class RankProgressionAnalyzer:
             Tier.DIAMOND: 6,
             Tier.MASTER: 7,
             Tier.GRANDMASTER: 8,
-            Tier.CHALLENGER: 9
+            Tier.CHALLENGER: 9,
         }
 
     async def analyze(self, puuid: str, db: AsyncSession) -> RankProgressionResult:
@@ -94,7 +94,7 @@ class RankProgressionAnalyzer:
                 time_to_current=None,
                 meets_threshold=False,
                 confidence=0.0,
-                description="No rank data available"
+                description="No rank data available",
             )
 
         current_rank = rank_history[0]  # Most recent rank
@@ -122,7 +122,7 @@ class RankProgressionAnalyzer:
             peak_tier=peak_rank.tier,
             progression_speed=progression_speed,
             tier_jumps=tier_jumps,
-            meets_threshold=meets_threshold
+            meets_threshold=meets_threshold,
         )
 
         return RankProgressionResult(
@@ -136,14 +136,16 @@ class RankProgressionAnalyzer:
             time_to_current=time_to_current,
             meets_threshold=meets_threshold,
             confidence=confidence,
-            description=description
+            description=description,
         )
 
     async def _get_rank_history(self, puuid: str, db: AsyncSession) -> List[PlayerRank]:
         """Get player's rank history ordered by date."""
-        query = select(PlayerRank).where(
-            PlayerRank.puuid == puuid
-        ).order_by(desc(PlayerRank.created_at))
+        query = (
+            select(PlayerRank)
+            .where(PlayerRank.puuid == puuid)
+            .order_by(desc(PlayerRank.created_at))
+        )
 
         result = await db.execute(query)
         return list(result.scalars().all())
@@ -164,7 +166,7 @@ class RankProgressionAnalyzer:
     def _calculate_rank_score(self, rank: PlayerRank) -> int:
         """Calculate numeric score for a rank."""
         tier_score = self.tier_hierarchy.get(rank.tier, 0)
-        rank_score = 4 - (ord(rank.rank) - ord('I')) if rank.rank else 0
+        rank_score = 4 - (ord(rank.rank) - ord("I")) if rank.rank else 0
         return tier_score * 100 + rank_score * 25 + rank.league_points
 
     def _calculate_progression_speed(self, rank_history: List[PlayerRank]) -> float:
@@ -173,7 +175,7 @@ class RankProgressionAnalyzer:
             return 0.0
 
         # Calculate progression over the most recent period
-        recent_ranks = rank_history[:min(5, len(rank_history))]
+        recent_ranks = rank_history[: min(5, len(rank_history))]
 
         if len(recent_ranks) < 2:
             return 0.0
@@ -200,12 +202,14 @@ class RankProgressionAnalyzer:
         for rank in rank_history[1:]:
             tier_level = self.tier_hierarchy.get(rank.tier, 0)
             if tier_level > current_tier_level:
-                tier_jumps += (tier_level - current_tier_level)
+                tier_jumps += tier_level - current_tier_level
             current_tier_level = tier_level
 
         return tier_jumps
 
-    def _calculate_time_to_current(self, rank_history: List[PlayerRank]) -> Optional[int]:
+    def _calculate_time_to_current(
+        self, rank_history: List[PlayerRank]
+    ) -> Optional[int]:
         """Calculate days taken to reach current rank from lowest."""
         if len(rank_history) < 2:
             return None
@@ -217,10 +221,7 @@ class RankProgressionAnalyzer:
         return max(0, time_diff)
 
     def _meets_smurf_threshold(
-        self,
-        progression_speed: float,
-        tier_jumps: int,
-        rank_history: List[PlayerRank]
+        self, progression_speed: float, tier_jumps: int, rank_history: List[PlayerRank]
     ) -> bool:
         """Determine if rank progression meets smurf threshold."""
         # Check for rapid tier jumps
@@ -236,23 +237,26 @@ class RankProgressionAnalyzer:
             current_rank = rank_history[0]
             time_to_current = self._calculate_time_to_current(rank_history)
 
-            if (time_to_current and
-                time_to_current < self.rapid_progression_days and
-                self.tier_hierarchy.get(current_rank.tier, 0) >= self.tier_hierarchy[Tier.GOLD]):
+            if (
+                time_to_current
+                and time_to_current < self.rapid_progression_days
+                and self.tier_hierarchy.get(current_rank.tier, 0)
+                >= self.tier_hierarchy[Tier.GOLD]
+            ):
                 return True
 
         return False
 
     def _calculate_confidence(
-        self,
-        rank_history: List[PlayerRank],
-        meets_threshold: bool
+        self, rank_history: List[PlayerRank], meets_threshold: bool
     ) -> float:
         """Calculate confidence in the rank progression analysis."""
         if not rank_history:
             return 0.0
 
-        base_confidence = min(1.0, len(rank_history) / 10)  # More history = more confidence
+        base_confidence = min(
+            1.0, len(rank_history) / 10
+        )  # More history = more confidence
 
         if meets_threshold:
             return min(1.0, base_confidence * 1.2)  # Boost confidence if threshold met
@@ -265,7 +269,7 @@ class RankProgressionAnalyzer:
         peak_rank: PlayerRank,
         progression_speed: float,
         tier_jumps: int,
-        meets_threshold: bool
+        meets_threshold: bool,
     ) -> str:
         """Generate human-readable description of rank progression."""
         current_display = current_rank.display_rank
@@ -282,9 +286,7 @@ class RankProgressionAnalyzer:
             return f"Normal rank progression: {current_display} (peak: {peak_display})"
 
     def analyze_rank_discrepancy(
-        self,
-        current_rank: PlayerRank,
-        performance_metrics: Dict[str, float]
+        self, current_rank: PlayerRank, performance_metrics: Dict[str, float]
     ) -> Dict[str, Any]:
         """
         Analyze discrepancy between current rank and performance metrics.
@@ -321,8 +323,8 @@ class RankProgressionAnalyzer:
             7: 0.60,  # Master+
         }
 
-        actual_kda = performance_metrics.get('kda', 0.0)
-        actual_win_rate = performance_metrics.get('win_rate', 0.0)
+        actual_kda = performance_metrics.get("kda", 0.0)
+        actual_win_rate = performance_metrics.get("win_rate", 0.0)
 
         expected_kda_value = expected_kda.get(tier_level, 2.0)
         expected_win_rate_value = expected_win_rate.get(tier_level, 0.50)
@@ -331,7 +333,7 @@ class RankProgressionAnalyzer:
         win_rate_discrepancy = max(0, actual_win_rate - expected_win_rate_value)
 
         # Calculate overall discrepancy score
-        discrepancy_score = (kda_discrepancy * 0.6 + win_rate_discrepancy * 0.4)
+        discrepancy_score = kda_discrepancy * 0.6 + win_rate_discrepancy * 0.4
         is_suspicious = discrepancy_score > 0.15  # 15% or more above expected
 
         return {
@@ -341,5 +343,5 @@ class RankProgressionAnalyzer:
             "actual_kda": actual_kda,
             "expected_win_rate": expected_win_rate_value,
             "actual_win_rate": actual_win_rate,
-            "tier_mismatch": is_suspicious
+            "tier_mismatch": is_suspicious,
         }

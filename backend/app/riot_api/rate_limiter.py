@@ -5,9 +5,8 @@ Rate limiting implementation for Riot API with exponential backoff.
 import asyncio
 import time
 import random
-from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional, Any
+from collections import deque
+from typing import Dict, List, Optional, Any
 import structlog
 
 from .endpoints import parse_rate_limit_header, parse_rate_count_header, RateLimitInfo
@@ -112,8 +111,9 @@ class CircuitBreaker:
             self.failure_count += 1
             self.last_failure_time = time.time()
 
-            if (self.state == "closed" and self.failure_count >= self.failure_threshold) or \
-               (self.state == "half-open"):
+            if (
+                self.state == "closed" and self.failure_count >= self.failure_threshold
+            ) or (self.state == "half-open"):
                 self.state = "open"
 
 
@@ -183,7 +183,7 @@ class RateLimiter:
                         "App rate limit exceeded, waiting",
                         limit_name=limit_name,
                         wait_time=wait_time,
-                        current_usage=limiter.get_current_usage(now)
+                        current_usage=limiter.get_current_usage(now),
                     )
                     await asyncio.sleep(wait_time)
                     now = time.time()  # Update time after sleep
@@ -198,7 +198,7 @@ class RateLimiter:
                         "Method rate limit exceeded, waiting",
                         endpoint_key=endpoint_key,
                         wait_time=wait_time,
-                        current_usage=method_limiter.get_current_usage(now)
+                        current_usage=method_limiter.get_current_usage(now),
                     )
                     await asyncio.sleep(wait_time)
                     now = time.time()  # Update time after sleep
@@ -223,7 +223,7 @@ class RateLimiter:
     def _get_endpoint_key(self, endpoint: str, method: str) -> str:
         """Generate a key for the endpoint."""
         # Extract the main endpoint path for rate limiting
-        parts = endpoint.split('/')
+        parts = endpoint.split("/")
         if len(parts) >= 4:
             # Use the main service and endpoint (e.g., "lol-match-v5-matches")
             service_key = f"{parts[-3]}-{parts[-2]}-{parts[-1]}"
@@ -232,7 +232,9 @@ class RateLimiter:
 
         return f"{method}:{service_key}"
 
-    def update_limits(self, headers: Dict[str, str], endpoint: str, method: str = "GET") -> None:
+    def update_limits(
+        self, headers: Dict[str, str], endpoint: str, method: str = "GET"
+    ) -> None:
         """
         Update rate limits from response headers.
 
@@ -248,11 +250,11 @@ class RateLimiter:
 
             if app_rate_limit:
                 limits = parse_rate_limit_header(app_rate_limit)
-                counts = parse_rate_count_header(app_rate_count) if app_rate_count else []
-
-                self._update_limit_trackers(
-                    self.app_limiters, limits, counts, "app"
+                counts = (
+                    parse_rate_count_header(app_rate_count) if app_rate_count else []
                 )
+
+                self._update_limit_trackers(self.app_limiters, limits, counts, "app")
 
             # Parse method rate limits
             method_rate_limit = headers.get("X-Method-Rate-Limit", "")
@@ -260,7 +262,11 @@ class RateLimiter:
 
             if method_rate_limit:
                 limits = parse_rate_limit_header(method_rate_limit)
-                counts = parse_rate_count_header(method_rate_count) if method_rate_count else []
+                counts = (
+                    parse_rate_count_header(method_rate_count)
+                    if method_rate_count
+                    else []
+                )
 
                 endpoint_key = self._get_endpoint_key(endpoint, method)
                 self._update_limit_trackers(
@@ -275,7 +281,7 @@ class RateLimiter:
         limiters: Dict[str, RateLimitTracker],
         limits: List[Dict[str, int]],
         counts: List[Dict[str, int]],
-        base_key: str
+        base_key: str,
     ) -> None:
         """Update limit trackers with new limits and counts."""
         for i, limit_info in enumerate(limits):
@@ -297,7 +303,7 @@ class RateLimiter:
                     key=key,
                     count=count,
                     limit=requests,
-                    window=window
+                    window=window,
                 )
 
     async def handle_429(self, headers: Dict[str, str], endpoint: str) -> float:
@@ -325,12 +331,14 @@ class RateLimiter:
             "Rate limit hit, waiting",
             endpoint=endpoint,
             wait_time=wait_time,
-            retry_after=retry_after
+            retry_after=retry_after,
         )
 
         return wait_time
 
-    async def calculate_backoff(self, attempt: int, base_delay: Optional[float] = None) -> float:
+    async def calculate_backoff(
+        self, attempt: int, base_delay: Optional[float] = None
+    ) -> float:
         """
         Calculate exponential backoff with jitter.
 
@@ -345,7 +353,7 @@ class RateLimiter:
             base_delay = self.base_backoff
 
         # Exponential backoff: base_delay * (2 ^ attempt)
-        backoff = min(base_delay * (2 ** attempt), self.max_backoff)
+        backoff = min(base_delay * (2**attempt), self.max_backoff)
 
         # Add jitter to prevent thundering herd
         jitter = backoff * self.jitter_factor * (random.random() * 2 - 1)
@@ -357,7 +365,7 @@ class RateLimiter:
             base_delay=base_delay,
             backoff=backoff,
             jitter=jitter,
-            total_backoff=total_backoff
+            total_backoff=total_backoff,
         )
 
         return total_backoff
@@ -377,7 +385,7 @@ class RateLimiter:
         endpoint: str,
         method: str = "GET",
         status_code: Optional[int] = None,
-        error_type: Optional[str] = None
+        error_type: Optional[str] = None,
     ) -> None:
         """
         Record a failed request.
@@ -407,7 +415,7 @@ class RateLimiter:
             endpoint=endpoint_key,
             status_code=status_code,
             error_type=error_type,
-            circuit_key=circuit_key
+            circuit_key=circuit_key,
         )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -417,7 +425,7 @@ class RateLimiter:
             "app_limits": {},
             "method_limits": {},
             "circuit_breakers": {},
-            "last_requests": {}
+            "last_requests": {},
         }
 
         # App limit stats
@@ -427,7 +435,7 @@ class RateLimiter:
                 "max_requests": limiter.requests,
                 "window": limiter.window,
                 "can_make_request": limiter.can_make_request(now),
-                "wait_time": limiter.get_wait_time(now)
+                "wait_time": limiter.get_wait_time(now),
             }
 
         # Method limit stats
@@ -437,7 +445,7 @@ class RateLimiter:
                 "max_requests": limiter.requests,
                 "window": limiter.window,
                 "can_make_request": limiter.can_make_request(now),
-                "wait_time": limiter.get_wait_time(now)
+                "wait_time": limiter.get_wait_time(now),
             }
 
         # Circuit breaker stats
@@ -446,14 +454,16 @@ class RateLimiter:
                 "state": breaker.state,
                 "failure_count": breaker.failure_count,
                 "last_failure_time": breaker.last_failure_time,
-                "time_since_failure": now - breaker.last_failure_time if breaker.last_failure_time > 0 else None
+                "time_since_failure": now - breaker.last_failure_time
+                if breaker.last_failure_time > 0
+                else None,
             }
 
         # Last request times
         for key, last_time in self.last_request_time.items():
             stats["last_requests"][key] = {
                 "last_request": last_time,
-                "time_since": now - last_time
+                "time_since": now - last_time,
             }
 
         return stats

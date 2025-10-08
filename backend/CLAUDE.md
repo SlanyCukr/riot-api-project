@@ -9,14 +9,6 @@ This file provides guidance for working with the Python FastAPI backend.
 - **Data Models**: SQLAlchemy models in `app/models/` (players, matches, participants, ranks, smurf_detection)
 - **Riot API Client**: HTTP client with rate limiting in `app/riot_api/`
 - **Algorithms**: Smurf detection algorithms in `app/algorithms/` (win_rate, rank_progression, performance)
-- **Background Tasks**: Async task processing in `app/tasks/`
-  - `queue.py`: Task queue management
-  - `scheduler.py`: Scheduled task execution
-  - `workers.py`: Background worker processes
-  - `match_fetching.py`: Asynchronous match data retrieval
-  - `player_analysis.py`: Background player analysis tasks
-  - `detection_tasks.py`: Smurf detection background tasks
-  - `data_cleanup.py`: Database cleanup and maintenance tasks
 - **Middleware**: Request/response middleware in `app/middleware/` (performance tracking, CORS, etc.)
 - **Caching**: In-memory caching with TTL support in `app/riot_api/cache.py`
 
@@ -88,14 +80,8 @@ The system uses multiple heuristics:
 ### Caching Strategy
 - In-memory TTL cache for Riot API responses
 - Configurable cache sizes and TTLs per data type
-- Cache Riot API responses with TTL
-- Implement cache invalidation for player data updates
-
-### Background Processing
-- Async task queue for match data fetching
-- Scheduled tasks for data cleanup
-- Batch processing for bulk operations
-- Rate limiting for Riot API calls
+- Automatic cache invalidation based on TTL
+- Cache statistics available via `/api/v1/health/cache-stats` endpoint
 
 ## Database Operations
 

@@ -4,9 +4,7 @@ Riot API HTTP client with proper rate limiting, error handling, and authenticati
 
 import asyncio
 import json
-import time
 from typing import Optional, Dict, Any, List, Union
-from datetime import datetime, timedelta
 import aiohttp
 import structlog
 
@@ -20,7 +18,6 @@ from .errors import (
     NotFoundError,
     ServiceUnavailableError,
     BadRequestError,
-    handle_api_error
 )
 from .models import (
     AccountDTO,
@@ -30,16 +27,10 @@ from .models import (
     LeagueEntryDTO,
     CurrentGameInfoDTO,
     FeaturedGamesDTO,
-    ActiveShardDTO
+    ActiveShardDTO,
 )
 from .cache import RiotAPICache
-from .endpoints import (
-    RiotAPIEndpoints,
-    Region,
-    Platform,
-    QueueType,
-    LeagueQueueType
-)
+from .endpoints import RiotAPIEndpoints, Region, Platform, QueueType
 
 logger = structlog.get_logger(__name__)
 
@@ -56,7 +47,7 @@ class RiotAPIClient:
         platform: Optional[Platform] = None,
         enable_cache: bool = True,
         cache_size: int = 1000,
-        enable_logging: bool = True
+        enable_logging: bool = True,
     ):
         """
         Initialize Riot API client.
@@ -90,7 +81,7 @@ class RiotAPIClient:
             "cache_hits": 0,
             "cache_misses": 0,
             "retries": 0,
-            "errors": 0
+            "errors": 0,
         }
 
     async def __aenter__(self):
@@ -110,7 +101,7 @@ class RiotAPIClient:
                     headers = {
                         "X-Riot-Token": self.api_key,
                         "Content-Type": "application/json",
-                        "User-Agent": f"RiotAPI-SmurfDetector/1.0"
+                        "User-Agent": "RiotAPI-SmurfDetector/1.0",
                     }
 
                     timeout = aiohttp.ClientTimeout(total=30)
@@ -118,20 +109,20 @@ class RiotAPIClient:
                         limit=20,
                         limit_per_host=5,
                         ttl_dns_cache=300,
-                        use_dns_cache=True
+                        use_dns_cache=True,
                     )
 
                     self.session = aiohttp.ClientSession(
-                        headers=headers,
-                        timeout=timeout,
-                        connector=connector
+                        headers=headers, timeout=timeout, connector=connector
                     )
 
                     logger.info(
                         "Riot API client session started",
                         region=self.region.value,
                         platform=self.platform.value,
-                        api_key_prefix=self.api_key[:10] + "..." if self.api_key else "None"
+                        api_key_prefix=self.api_key[:10] + "..."
+                        if self.api_key
+                        else "None",
                     )
 
     async def close(self) -> None:
@@ -147,7 +138,7 @@ class RiotAPIClient:
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         use_cache: bool = True,
-        retry_on_failure: bool = True
+        retry_on_failure: bool = True,
     ) -> Dict[str, Any]:
         """
         Make HTTP request with rate limiting, caching, and retry logic.
@@ -189,21 +180,15 @@ class RiotAPIClient:
                         url=url,
                         method=method,
                         attempt=attempt + 1,
-                        max_retries=max_retries + 1
+                        max_retries=max_retries + 1,
                     )
 
                 async with self.session.request(
-                    method,
-                    url,
-                    params=params,
-                    json=data
+                    method, url, params=params, json=data
                 ) as response:
-
                     # Track rate limits from headers
                     self.rate_limiter.update_limits(
-                        dict(response.headers),
-                        endpoint_path,
-                        method
+                        dict(response.headers), endpoint_path, method
                     )
 
                     # Handle response
@@ -214,7 +199,9 @@ class RiotAPIClient:
                         raise AuthenticationError("Invalid API key")
 
                     elif response.status == 403:
-                        raise ForbiddenError("Access forbidden - may be deprecated endpoint or insufficient API key permissions")
+                        raise ForbiddenError(
+                            "Access forbidden - may be deprecated endpoint or insufficient API key permissions"
+                        )
 
                     elif response.status == 404:
                         raise NotFoundError("Resource not found")
@@ -225,14 +212,19 @@ class RiotAPIClient:
                         if retry_after_header:
                             retry_after = int(retry_after_header)
                         else:
-                            retry_after = await self.rate_limiter.handle_429(dict(response.headers), endpoint_path)
+                            retry_after = await self.rate_limiter.handle_429(
+                                dict(response.headers), endpoint_path
+                            )
 
                         if attempt < max_retries:
                             await asyncio.sleep(retry_after)
                             self.stats["retries"] += 1
                             continue
                         else:
-                            raise RateLimitError("Rate limit exceeded and retries exhausted", retry_after=retry_after)
+                            raise RateLimitError(
+                                "Rate limit exceeded and retries exhausted",
+                                retry_after=retry_after,
+                            )
 
                     elif response.status >= 500:
                         if attempt < max_retries:
@@ -241,7 +233,9 @@ class RiotAPIClient:
                             self.stats["retries"] += 1
                             continue
                         else:
-                            raise ServiceUnavailableError(f"Service unavailable after {max_retries} retries")
+                            raise ServiceUnavailableError(
+                                f"Service unavailable after {max_retries} retries"
+                            )
 
                     # Success response
                     response_data = await response.json()
@@ -256,14 +250,16 @@ class RiotAPIClient:
                             "API request successful",
                             url=url,
                             status=response.status,
-                            response_size=len(str(response_data))
+                            response_size=len(str(response_data)),
                         )
 
                     return response_data
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 last_error = e
-                await self.rate_limiter.record_failure(endpoint_path, method, error_type="timeout")
+                await self.rate_limiter.record_failure(
+                    endpoint_path, method, error_type="timeout"
+                )
 
                 if attempt < max_retries:
                     backoff = await self.rate_limiter.calculate_backoff(attempt)
@@ -275,9 +271,17 @@ class RiotAPIClient:
 
         # All retries failed
         self.stats["errors"] += 1
-        raise RiotAPIError(f"Request failed after {max_retries} retries: {str(last_error)}")
+        raise RiotAPIError(
+            f"Request failed after {max_retries} retries: {str(last_error)}"
+        )
 
-    def _generate_cache_key(self, url: str, method: str, params: Optional[Dict[str, Any]], data: Optional[Dict[str, Any]]) -> str:
+    def _generate_cache_key(
+        self,
+        url: str,
+        method: str,
+        params: Optional[Dict[str, Any]],
+        data: Optional[Dict[str, Any]],
+    ) -> str:
         """Generate cache key for request."""
         key_parts = [method, url]
         if params:
@@ -296,7 +300,9 @@ class RiotAPIClient:
         return url
 
     # Account endpoints
-    async def get_account_by_riot_id(self, game_name: str, tag_line: str, region: Optional[Region] = None) -> AccountDTO:
+    async def get_account_by_riot_id(
+        self, game_name: str, tag_line: str, region: Optional[Region] = None
+    ) -> AccountDTO:
         """Get account by Riot ID (gameName#tagLine)."""
         if self.cache:
             cached = await self.cache.get_account_by_riot_id(game_name, tag_line)
@@ -311,7 +317,9 @@ class RiotAPIClient:
 
         return AccountDTO(**data)
 
-    async def get_account_by_puuid(self, puuid: str, region: Optional[Region] = None) -> AccountDTO:
+    async def get_account_by_puuid(
+        self, puuid: str, region: Optional[Region] = None
+    ) -> AccountDTO:
         """Get account by PUUID."""
         if self.cache:
             cached = await self.cache.get_account_by_puuid(puuid)
@@ -326,7 +334,9 @@ class RiotAPIClient:
 
         return AccountDTO(**data)
 
-    async def get_active_shard(self, puuid: str, game: str = "lol", region: Optional[Region] = None) -> ActiveShardDTO:
+    async def get_active_shard(
+        self, puuid: str, game: str = "lol", region: Optional[Region] = None
+    ) -> ActiveShardDTO:
         """Get active shard by PUUID."""
         if self.cache:
             cached = await self.cache.get_active_shard(puuid, game)
@@ -342,7 +352,9 @@ class RiotAPIClient:
         return ActiveShardDTO(**data)
 
     # Summoner endpoints
-    async def get_summoner_by_name(self, summoner_name: str, platform: Optional[Platform] = None) -> SummonerDTO:
+    async def get_summoner_by_name(
+        self, summoner_name: str, platform: Optional[Platform] = None
+    ) -> SummonerDTO:
         """Get summoner by name."""
         if self.cache:
             cached = await self.cache.get_summoner_by_name(summoner_name)
@@ -357,7 +369,9 @@ class RiotAPIClient:
 
         return SummonerDTO(**data)
 
-    async def get_summoner_by_puuid(self, puuid: str, platform: Optional[Platform] = None) -> SummonerDTO:
+    async def get_summoner_by_puuid(
+        self, puuid: str, platform: Optional[Platform] = None
+    ) -> SummonerDTO:
         """Get summoner by PUUID."""
         if self.cache:
             cached = await self.cache.get_summoner_by_puuid(puuid)
@@ -382,7 +396,7 @@ class RiotAPIClient:
         type: Optional[str] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        region: Optional[Region] = None
+        region: Optional[Region] = None,
     ) -> MatchListDTO:
         """Get match list by PUUID."""
         # Normalize queue parameter to QueueType
@@ -390,11 +404,17 @@ class RiotAPIClient:
 
         if self.cache:
             cached = await self.cache.get_match_list_by_puuid(
-                puuid, start, count, queue_type.value if queue_type else None,
-                start_time, end_time
+                puuid,
+                start,
+                count,
+                queue_type.value if queue_type else None,
+                start_time,
+                end_time,
             )
             if cached:
-                return MatchListDTO(match_ids=cached, start=start, count=count, puuid=puuid)
+                return MatchListDTO(
+                    match_ids=cached, start=start, count=count, puuid=puuid
+                )
 
         url = self.endpoints.match_list_by_puuid(
             puuid, start, count, queue_type, type, start_time, end_time, region
@@ -403,13 +423,20 @@ class RiotAPIClient:
 
         if self.cache:
             await self.cache.set_match_list_by_puuid(
-                puuid, start, count, data,
-                queue_type.value if queue_type else None, start_time, end_time
+                puuid,
+                start,
+                count,
+                data,
+                queue_type.value if queue_type else None,
+                start_time,
+                end_time,
             )
 
         return MatchListDTO(match_ids=data, start=start, count=count, puuid=puuid)
 
-    async def get_match(self, match_id: str, region: Optional[Region] = None) -> MatchDTO:
+    async def get_match(
+        self, match_id: str, region: Optional[Region] = None
+    ) -> MatchDTO:
         """Get match details by match ID."""
         if self.cache:
             cached = await self.cache.get_match(match_id)
@@ -424,13 +451,17 @@ class RiotAPIClient:
 
         return MatchDTO(**data)
 
-    async def get_match_timeline(self, match_id: str, region: Optional[Region] = None) -> Dict[str, Any]:
+    async def get_match_timeline(
+        self, match_id: str, region: Optional[Region] = None
+    ) -> Dict[str, Any]:
         """Get match timeline by match ID."""
         url = self.endpoints.match_timeline_by_id(match_id, region)
         return await self._make_request(url)
 
     # League endpoints
-    async def get_league_entries_by_summoner(self, summoner_id: str, platform: Optional[Platform] = None) -> List[LeagueEntryDTO]:
+    async def get_league_entries_by_summoner(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> List[LeagueEntryDTO]:
         """Get league entries by summoner ID."""
         if self.cache:
             cached = await self.cache.get_league_entries(summoner_id)
@@ -446,7 +477,9 @@ class RiotAPIClient:
         return [LeagueEntryDTO(**entry) for entry in data]
 
     # Spectator endpoints
-    async def get_active_game(self, summoner_id: str, platform: Optional[Platform] = None) -> Optional[CurrentGameInfoDTO]:
+    async def get_active_game(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> Optional[CurrentGameInfoDTO]:
         """Get active game by summoner ID."""
         if self.cache:
             cached = await self.cache.get_active_game(summoner_id)
@@ -464,7 +497,9 @@ class RiotAPIClient:
             # No active game is normal, return None
             return None
 
-    async def get_featured_games(self, platform: Optional[Platform] = None) -> FeaturedGamesDTO:
+    async def get_featured_games(
+        self, platform: Optional[Platform] = None
+    ) -> FeaturedGamesDTO:
         """Get featured games."""
         if self.cache:
             cached = await self.cache.get_featured_games()
@@ -480,23 +515,31 @@ class RiotAPIClient:
         return FeaturedGamesDTO(**data)
 
     # Utility methods
-    async def get_puuid_by_riot_id(self, game_name: str, tag_line: str, region: Optional[Region] = None) -> str:
+    async def get_puuid_by_riot_id(
+        self, game_name: str, tag_line: str, region: Optional[Region] = None
+    ) -> str:
         """Get PUUID from Riot ID."""
         account = await self.get_account_by_riot_id(game_name, tag_line, region)
         return account.puuid
 
-    async def get_puuid_by_summoner_name(self, summoner_name: str, platform: Optional[Platform] = None) -> str:
+    async def get_puuid_by_summoner_name(
+        self, summoner_name: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get PUUID from summoner name."""
         summoner = await self.get_summoner_by_name(summoner_name, platform)
         return summoner.puuid
 
-    async def get_summoner_id_by_puuid(self, puuid: str, platform: Optional[Platform] = None) -> str:
+    async def get_summoner_id_by_puuid(
+        self, puuid: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get summoner ID from PUUID."""
         summoner = await self.get_summoner_by_puuid(puuid, platform)
         return summoner.id
 
     @staticmethod
-    def _normalize_queue_type(queue: Optional[Union[int, str, QueueType]]) -> Optional[QueueType]:
+    def _normalize_queue_type(
+        queue: Optional[Union[int, str, QueueType]],
+    ) -> Optional[QueueType]:
         """
         Normalize queue parameter to QueueType enum.
 
@@ -536,7 +579,7 @@ class RiotAPIClient:
         queue: Union[int, QueueType] = QueueType.RANKED_SOLO,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        max_matches: int = 100
+        max_matches: int = 100,
     ) -> Dict[str, Any]:
         """
         Get match history statistics for a player.
@@ -563,7 +606,7 @@ class RiotAPIClient:
             count=max_matches,
             queue=queue_type,
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
         )
 
         # Get match details for each match
@@ -586,7 +629,9 @@ class RiotAPIClient:
                     deaths += participant.deaths
                     assists += participant.assists
             except Exception as e:
-                logger.warning("Failed to get match for stats", match_id=match_id, error=str(e))
+                logger.warning(
+                    "Failed to get match for stats", match_id=match_id, error=str(e)
+                )
                 continue
 
         # Calculate statistics
@@ -608,7 +653,7 @@ class RiotAPIClient:
             "avg_assists": avg_assists,
             "kda": (kills + assists) / deaths if deaths > 0 else kills + assists,
             "start_time": start_time,
-            "end_time": end_time
+            "end_time": end_time,
         }
 
     def get_stats(self) -> Dict[str, Any]:
@@ -622,7 +667,7 @@ class RiotAPIClient:
             "rate_limiter": rate_limiter_stats,
             "region": self.region.value,
             "platform": self.platform.value,
-            "cache_enabled": self.enable_cache
+            "cache_enabled": self.enable_cache,
         }
 
     async def clear_cache(self) -> None:

@@ -2,10 +2,7 @@
 Player rank model for storing ranked information.
 """
 
-import uuid
-from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -24,6 +21,7 @@ from . import Base
 
 class Tier(str, Enum):
     """League of Legends rank tiers."""
+
     IRON = "IRON"
     BRONZE = "BRONZE"
     SILVER = "SILVER"
@@ -38,7 +36,8 @@ class Tier(str, Enum):
 
 class Division(str, Enum):
     """League of Legends rank divisions."""
-    I = "I"
+
+    I = "I"  # noqa: E741
     II = "II"
     III = "III"
     IV = "IV"
@@ -46,6 +45,7 @@ class Division(str, Enum):
 
 class QueueType(str, Enum):
     """League of Legends queue types."""
+
     RANKED_SOLO_5x5 = "RANKED_SOLO_5x5"
     RANKED_FLEX_5x5 = "RANKED_FLEX_SR"
     RANKED_FLEX_3x3 = "RANKED_FLEX_TT"
@@ -57,11 +57,7 @@ class PlayerRank(Base):
     __tablename__ = "player_ranks"
 
     # Primary key
-    id = Column(
-        Integer,
-        primary_key=True,
-        comment="Auto-incrementing primary key"
-    )
+    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
 
     # Foreign key
     puuid = Column(
@@ -69,7 +65,7 @@ class PlayerRank(Base):
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the player (Riot PUUID)"
+        comment="Reference to the player (Riot PUUID)",
     )
 
     # Queue and rank information
@@ -77,92 +73,68 @@ class PlayerRank(Base):
         String(32),
         nullable=False,
         index=True,
-        comment="Queue type (e.g., RANKED_SOLO_5x5, RANKED_FLEX_SR)"
+        comment="Queue type (e.g., RANKED_SOLO_5x5, RANKED_FLEX_SR)",
     )
 
     tier = Column(
         String(16),
         nullable=False,
         index=True,
-        comment="Rank tier (e.g., GOLD, PLATINUM, DIAMOND)"
+        comment="Rank tier (e.g., GOLD, PLATINUM, DIAMOND)",
     )
 
     rank = Column(
-        String(4),
-        nullable=True,
-        index=True,
-        comment="Rank division (I, II, III, IV)"
+        String(4), nullable=True, index=True, comment="Rank division (I, II, III, IV)"
     )
 
     league_points = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="League points (0-100)"
+        Integer, nullable=False, default=0, comment="League points (0-100)"
     )
 
     wins = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Number of wins in this queue"
+        Integer, nullable=False, default=0, comment="Number of wins in this queue"
     )
 
     losses = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Number of losses in this queue"
+        Integer, nullable=False, default=0, comment="Number of losses in this queue"
     )
 
     veteran = Column(
         Boolean,
         nullable=False,
         default=False,
-        comment="Whether the player is a veteran"
+        comment="Whether the player is a veteran",
     )
 
     inactive = Column(
-        Boolean,
-        nullable=False,
-        default=False,
-        comment="Whether the player is inactive"
+        Boolean, nullable=False, default=False, comment="Whether the player is inactive"
     )
 
     fresh_blood = Column(
         Boolean,
         nullable=False,
         default=False,
-        comment="Whether the player is fresh blood"
+        comment="Whether the player is fresh blood",
     )
 
     hot_streak = Column(
         Boolean,
         nullable=False,
         default=False,
-        comment="Whether the player is on a hot streak"
+        comment="Whether the player is on a hot streak",
     )
 
     # League information
-    league_id = Column(
-        String(64),
-        nullable=True,
-        index=True,
-        comment="League ID"
-    )
+    league_id = Column(String(64), nullable=True, index=True, comment="League ID")
 
-    league_name = Column(
-        String(64),
-        nullable=True,
-        comment="League name"
-    )
+    league_name = Column(String(64), nullable=True, comment="League name")
 
     # Timestamps
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        comment="When this rank record was created"
+        comment="When this rank record was created",
     )
 
     updated_at = Column(
@@ -170,15 +142,12 @@ class PlayerRank(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
-        comment="When this rank record was last updated"
+        comment="When this rank record was last updated",
     )
 
     # Season information
     season_id = Column(
-        String(16),
-        nullable=True,
-        index=True,
-        comment="Season identifier"
+        String(16), nullable=True, index=True, comment="Season identifier"
     )
 
     # Is current rank flag
@@ -187,7 +156,7 @@ class PlayerRank(Base):
         nullable=False,
         default=True,
         index=True,
-        comment="Whether this is the current rank for the player"
+        comment="Whether this is the current rank for the player",
     )
 
     # Relationships
@@ -257,36 +226,23 @@ class PlayerRank(Base):
 
     def is_platinum_plus(self) -> bool:
         """Check if this is platinum or above."""
-        return self.tier in ["PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"]
+        return self.tier in [
+            "PLATINUM",
+            "EMERALD",
+            "DIAMOND",
+            "MASTER",
+            "GRANDMASTER",
+            "CHALLENGER",
+        ]
 
 
 # Create composite indexes for common queries
-Index(
-    "idx_ranks_puuid_queue",
-    PlayerRank.puuid,
-    PlayerRank.queue_type
-)
+Index("idx_ranks_puuid_queue", PlayerRank.puuid, PlayerRank.queue_type)
 
-Index(
-    "idx_ranks_tier_rank",
-    PlayerRank.tier,
-    PlayerRank.rank
-)
+Index("idx_ranks_tier_rank", PlayerRank.tier, PlayerRank.rank)
 
-Index(
-    "idx_ranks_queue_current",
-    PlayerRank.queue_type,
-    PlayerRank.is_current
-)
+Index("idx_ranks_queue_current", PlayerRank.queue_type, PlayerRank.is_current)
 
-Index(
-    "idx_ranks_puuid_current",
-    PlayerRank.puuid,
-    PlayerRank.is_current
-)
+Index("idx_ranks_puuid_current", PlayerRank.puuid, PlayerRank.is_current)
 
-Index(
-    "idx_ranks_tier_lp",
-    PlayerRank.tier,
-    PlayerRank.league_points
-)
+Index("idx_ranks_tier_lp", PlayerRank.tier, PlayerRank.league_points)

@@ -3,9 +3,7 @@ Tests for cache implementation.
 """
 
 import pytest
-import asyncio
 import time
-from unittest.mock import Mock, AsyncMock, patch
 
 from app.riot_api.cache import RiotAPICache, TTLCache, clear_all_caches
 

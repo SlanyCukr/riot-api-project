@@ -14,7 +14,7 @@ from .errors import (
     ForbiddenError,
     NotFoundError,
     BadRequestError,
-    ServiceUnavailableError
+    ServiceUnavailableError,
 )
 from .models import (
     AccountDTO,
@@ -22,7 +22,7 @@ from .models import (
     MatchListDTO,
     MatchDTO,
     LeagueEntryDTO,
-    CurrentGameInfoDTO
+    CurrentGameInfoDTO,
 )
 from .cache import RiotAPICache
 from .endpoints import RiotAPIEndpoints
@@ -44,5 +44,5 @@ __all__ = [
     "LeagueEntryDTO",
     "CurrentGameInfoDTO",
     "RiotAPICache",
-    "RiotAPIEndpoints"
+    "RiotAPIEndpoints",
 ]

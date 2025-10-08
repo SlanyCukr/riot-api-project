@@ -26,9 +26,7 @@ async def get_riot_client() -> RiotAPIClient:
     platform = Platform(settings.riot_platform.lower())
 
     client = RiotAPIClient(
-        api_key=settings.riot_api_key,
-        region=region,
-        platform=platform
+        api_key=settings.riot_api_key, region=region, platform=platform
     )
     try:
         yield client
@@ -38,7 +36,7 @@ async def get_riot_client() -> RiotAPIClient:
 
 async def get_player_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)]
+    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
 ) -> PlayerService:
     """Get player service instance."""
     return PlayerService(db, riot_client)
@@ -46,14 +44,14 @@ async def get_player_service(
 
 async def get_match_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)]
+    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
 ) -> MatchService:
     """Get match service instance."""
     return MatchService(db, riot_client)
 
 
 async def get_stats_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> StatsService:
     """Get stats service instance."""
     return StatsService(db)
@@ -61,7 +59,7 @@ async def get_stats_service(
 
 async def get_detection_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)]
+    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
 ) -> SmurfDetectionService:
     """Get smurf detection service instance."""
     return SmurfDetectionService(db, riot_client)

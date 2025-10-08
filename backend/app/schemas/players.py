@@ -43,21 +43,20 @@ class PlayerSearchRequest(BaseModel):
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     summoner_name: Optional[str] = Field(None, description="Summoner name")
     platform: str = Field("eun1", description="Platform region")
-    size: int = Field(10, ge=1, le=100, description="Maximum number of results to return")
+    size: int = Field(
+        10, ge=1, le=100, description="Maximum number of results to return"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
-            "example": {
-                "riot_id": "DangerousDan#EUW",
-                "platform": "eun1",
-                "size": 10
-            }
+            "example": {"riot_id": "DangerousDan#EUW", "platform": "eun1", "size": 10}
         }
     )
 
 
 class PlayerListResponse(BaseModel):
     """Schema for paginated Player list response."""
+
     players: list[PlayerResponse]
     total: int
     page: int
@@ -69,11 +68,15 @@ class PlayerListResponse(BaseModel):
 
 class PlayerBulkRequest(BaseModel):
     """Schema for bulk player operations."""
-    puuids: list[uuid.UUID] = Field(..., min_length=1, max_length=100, description="List of player PUUIDs")
+
+    puuids: list[uuid.UUID] = Field(
+        ..., min_length=1, max_length=100, description="List of player PUUIDs"
+    )
 
 
 class PlayerBulkResponse(BaseModel):
     """Schema for bulk player operations response."""
+
     players: list[PlayerResponse]
     not_found: list[uuid.UUID]
 

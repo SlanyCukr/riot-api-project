@@ -3,25 +3,13 @@ Tests for Riot API client.
 """
 
 import pytest
-import asyncio
 import aiohttp
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 
 from backend.app.riot_api.client import RiotAPIClient
-from backend.app.riot_api.errors import (
-    RiotAPIError,
-    RateLimitError,
-    AuthenticationError,
-    NotFoundError,
-    ServiceUnavailableError
-)
-from backend.app.riot_api.models import (
-    AccountDTO,
-    SummonerDTO,
-    MatchListDTO,
-    MatchDTO
-)
+from backend.app.riot_api.errors import AuthenticationError, NotFoundError
+from backend.app.riot_api.models import AccountDTO, SummonerDTO, MatchListDTO, MatchDTO
 from backend.app.riot_api.endpoints import Region, Platform, QueueType
 
 
@@ -34,7 +22,7 @@ async def client():
         platform=Platform.EUN1,
         enable_cache=True,
         cache_size=100,
-        enable_logging=False
+        enable_logging=False,
     )
     yield client
     await client.close()
@@ -52,11 +40,7 @@ async def mock_session():
 @pytest.fixture
 def sample_account_data():
     """Sample account data for testing."""
-    return {
-        "puuid": "test-puuid-123",
-        "gameName": "TestPlayer",
-        "tagLine": "EUW"
-    }
+    return {"puuid": "test-puuid-123", "gameName": "TestPlayer", "tagLine": "EUW"}
 
 
 @pytest.fixture
@@ -68,18 +52,14 @@ def sample_summoner_data():
         "name": "TestPlayer",
         "profileIconId": 1234,
         "summonerLevel": 100,
-        "revisionDate": 1234567890000
+        "revisionDate": 1234567890000,
     }
 
 
 @pytest.fixture
 def sample_match_list_data():
     """Sample match list data for testing."""
-    return [
-        "EUW1_1234567890",
-        "EUW1_1234567891",
-        "EUW1_1234567892"
-    ]
+    return ["EUW1_1234567890", "EUW1_1234567891", "EUW1_1234567892"]
 
 
 @pytest.fixture
@@ -89,7 +69,7 @@ def sample_match_data():
         "metadata": {
             "matchId": "EUW1_1234567890",
             "dataVersion": "14.20.555.5555",
-            "participants": ["puuid1", "puuid2", "puuid3", "puuid4", "puuid5"]
+            "participants": ["puuid1", "puuid2", "puuid3", "puuid4", "puuid5"],
         },
         "info": {
             "gameCreation": 1710000000000,
@@ -121,25 +101,15 @@ def sample_match_data():
                     "individualPosition": "MIDDLE",
                     "teamPosition": "MIDDLE",
                     "challenges": {"kda": 9.0},
-                    "perks": {"styles": []}
+                    "perks": {"styles": []},
                 }
             ],
             "teams": [
-                {
-                    "teamId": 100,
-                    "win": True,
-                    "bans": [],
-                    "objectives": {}
-                },
-                {
-                    "teamId": 200,
-                    "win": False,
-                    "bans": [],
-                    "objectives": {}
-                }
+                {"teamId": 100, "win": True, "bans": [], "objectives": {}},
+                {"teamId": 200, "win": False, "bans": [], "objectives": {}},
             ],
-            "platformId": "EUW1"
-        }
+            "platformId": "EUW1",
+        },
     }
 
 
@@ -169,7 +139,9 @@ class TestRiotAPIClient:
     async def test_get_account_by_riot_id(self, client, sample_account_data):
         """Test getting account by Riot ID."""
         # Mock the HTTP request
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.return_value = sample_account_data
 
             result = await client.get_account_by_riot_id("TestPlayer", "EUW")
@@ -187,10 +159,14 @@ class TestRiotAPIClient:
     async def test_get_account_by_riot_id_cached(self, client, sample_account_data):
         """Test cached account lookup."""
         # Set up cache
-        await client.cache.set_account_by_riot_id("TestPlayer", "EUW", sample_account_data)
+        await client.cache.set_account_by_riot_id(
+            "TestPlayer", "EUW", sample_account_data
+        )
 
         # Mock the HTTP request
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             result = await client.get_account_by_riot_id("TestPlayer", "EUW")
 
             # Verify the result
@@ -203,7 +179,9 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_summoner_by_puuid(self, client, sample_summoner_data):
         """Test getting summoner by PUUID."""
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.return_value = sample_summoner_data
 
             result = await client.get_summoner_by_puuid("test-puuid-123")
@@ -224,14 +202,13 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_match_list_by_puuid(self, client, sample_match_list_data):
         """Test getting match list by PUUID."""
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.return_value = sample_match_list_data
 
             result = await client.get_match_list_by_puuid(
-                "test-puuid-123",
-                start=0,
-                count=20,
-                queue=QueueType.RANKED_SOLO
+                "test-puuid-123", start=0, count=20, queue=QueueType.RANKED_SOLO
             )
 
             # Verify the result
@@ -246,7 +223,9 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_match(self, client, sample_match_data):
         """Test getting match details."""
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.return_value = sample_match_data
 
             result = await client.get_match("EUW1_1234567890")
@@ -264,7 +243,9 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_puuid_by_riot_id(self, client, sample_account_data):
         """Test getting PUUID by Riot ID."""
-        with patch.object(client, 'get_account_by_riot_id', new_callable=AsyncMock) as mock_get_account:
+        with patch.object(
+            client, "get_account_by_riot_id", new_callable=AsyncMock
+        ) as mock_get_account:
             mock_account = AccountDTO(**sample_account_data)
             mock_get_account.return_value = mock_account
 
@@ -276,7 +257,9 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_puuid_by_summoner_name(self, client, sample_summoner_data):
         """Test getting PUUID by summoner name."""
-        with patch.object(client, 'get_summoner_by_name', new_callable=AsyncMock) as mock_get_summoner:
+        with patch.object(
+            client, "get_summoner_by_name", new_callable=AsyncMock
+        ) as mock_get_summoner:
             mock_summoner = SummonerDTO(**sample_summoner_data)
             mock_get_summoner.return_value = mock_summoner
 
@@ -286,22 +269,23 @@ class TestRiotAPIClient:
             mock_get_summoner.assert_called_once_with("TestPlayer", None)
 
     @pytest.mark.asyncio
-    async def test_get_match_history_stats(self, client, sample_match_list_data, sample_match_data):
+    async def test_get_match_history_stats(
+        self, client, sample_match_list_data, sample_match_data
+    ):
         """Test getting match history statistics."""
-        with patch.object(client, 'get_match_list_by_puuid', new_callable=AsyncMock) as mock_get_list, \
-             patch.object(client, 'get_match', new_callable=AsyncMock) as mock_get_match:
-
+        with (
+            patch.object(
+                client, "get_match_list_by_puuid", new_callable=AsyncMock
+            ) as mock_get_list,
+            patch.object(client, "get_match", new_callable=AsyncMock) as mock_get_match,
+        ):
             mock_get_list.return_value = MatchListDTO(
-                match_ids=sample_match_list_data,
-                start=0,
-                count=3
+                match_ids=sample_match_list_data, start=0, count=3
             )
             mock_get_match.return_value = MatchDTO(**sample_match_data)
 
             result = await client.get_match_history_stats(
-                "test-puuid-123",
-                queue=QueueType.RANKED_SOLO,
-                max_matches=3
+                "test-puuid-123", queue=QueueType.RANKED_SOLO, max_matches=3
             )
 
             # Verify statistics
@@ -318,7 +302,7 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_success(self, client):
         """Test successful API request."""
-        with patch.object(client, 'session') as mock_session:
+        with patch.object(client, "session") as mock_session:
             # Mock response
             mock_response = AsyncMock()
             mock_response.status = 200
@@ -337,7 +321,7 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_401_error(self, client):
         """Test 401 authentication error."""
-        with patch.object(client, 'session') as mock_session:
+        with patch.object(client, "session") as mock_session:
             mock_response = AsyncMock()
             mock_response.status = 401
             mock_response.headers = {}
@@ -354,7 +338,7 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_404_error(self, client):
         """Test 404 not found error."""
-        with patch.object(client, 'session') as mock_session:
+        with patch.object(client, "session") as mock_session:
             mock_response = AsyncMock()
             mock_response.status = 404
             mock_response.headers = {}
@@ -371,11 +355,16 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_429_retry(self, client):
         """Test 429 rate limit with retry."""
-        with patch.object(client, 'session') as mock_session, \
-             patch.object(client.rate_limiter, 'handle_429', new_callable=AsyncMock) as mock_handle_429, \
-             patch.object(client.rate_limiter, 'calculate_backoff', new_callable=AsyncMock) as mock_backoff, \
-             patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-
+        with (
+            patch.object(client, "session") as mock_session,
+            patch.object(
+                client.rate_limiter, "handle_429", new_callable=AsyncMock
+            ) as mock_handle_429,
+            patch.object(
+                client.rate_limiter, "calculate_backoff", new_callable=AsyncMock
+            ) as mock_backoff,
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
             # First response: 429
             mock_response_429 = AsyncMock()
             mock_response_429.status = 429
@@ -406,10 +395,12 @@ class TestRiotAPIClient:
     async def test_make_request_cache_hit(self, client):
         """Test request cache hit."""
         # Set up cache
-        cache_key = client._generate_cache_key("https://test.com/api", "GET", None, None)
+        cache_key = client._generate_cache_key(
+            "https://test.com/api", "GET", None, None
+        )
         await client.cache.cache.set("request", {"cached": True}, 300, cache_key)
 
-        with patch.object(client, 'session') as mock_session:
+        with patch.object(client, "session") as mock_session:
             result = await client._make_request("https://test.com/api")
 
             assert result == {"cached": True}
@@ -435,21 +426,25 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_clear_cache(self, client):
         """Test clearing cache."""
-        with patch.object(client.cache, 'clear', new_callable=AsyncMock) as mock_clear:
+        with patch.object(client.cache, "clear", new_callable=AsyncMock) as mock_clear:
             await client.clear_cache()
             mock_clear.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_reset_rate_limiter(self, client):
         """Test resetting rate limiter."""
-        with patch.object(client.rate_limiter, 'reset', new_callable=AsyncMock) as mock_reset:
+        with patch.object(
+            client.rate_limiter, "reset", new_callable=AsyncMock
+        ) as mock_reset:
             await client.reset_rate_limiter()
             mock_reset.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_active_game_not_found(self, client):
         """Test active game when player is not in game."""
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.side_effect = NotFoundError("Not found")
 
             result = await client.get_active_game("test-summoner-id")
@@ -459,12 +454,11 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_get_featured_games(self, client):
         """Test getting featured games."""
-        sample_data = {
-            "gameList": [],
-            "clientRefreshInterval": 300
-        }
+        sample_data = {"gameList": [], "clientRefreshInterval": 300}
 
-        with patch.object(client, '_make_request', new_callable=AsyncMock) as mock_request:
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
             mock_request.return_value = sample_data
 
             result = await client.get_featured_games()
@@ -475,8 +469,12 @@ class TestRiotAPIClient:
     def test_generate_cache_key(self, client):
         """Test cache key generation."""
         key1 = client._generate_cache_key("https://test.com/api", "GET", None, None)
-        key2 = client._generate_cache_key("https://test.com/api", "GET", {"param": "value"}, None)
-        key3 = client._generate_cache_key("https://test.com/api", "POST", None, {"data": "test"})
+        key2 = client._generate_cache_key(
+            "https://test.com/api", "GET", {"param": "value"}, None
+        )
+        key3 = client._generate_cache_key(
+            "https://test.com/api", "POST", None, {"data": "test"}
+        )
 
         assert key1 == "GET|https://test.com/api"
         assert key2 == 'GET|https://test.com/api|{"param": "value"}'
@@ -484,8 +482,12 @@ class TestRiotAPIClient:
 
     def test_extract_endpoint_path(self, client):
         """Test endpoint path extraction."""
-        path1 = client._extract_endpoint_path("https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_123")
-        path2 = client._extract_endpoint_path("https://eun1.api.riotgames.com/lol/summoner/v4/summoners/by-name/test")
+        path1 = client._extract_endpoint_path(
+            "https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_123"
+        )
+        path2 = client._extract_endpoint_path(
+            "https://eun1.api.riotgames.com/lol/summoner/v4/summoners/by-name/test"
+        )
 
         assert path1 == "lol/match/v5/matches/EUW1_123"
         assert path2 == "lol/summoner/v4/summoners/by-name/test"

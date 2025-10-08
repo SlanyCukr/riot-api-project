@@ -2,7 +2,6 @@
 Player data model for storing player information.
 """
 
-from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
@@ -30,21 +29,16 @@ class Player(Base):
         String(78),  # Riot PUUIDs are 78 characters
         primary_key=True,
         index=True,
-        comment="Player's universally unique identifier from Riot API"
+        comment="Player's universally unique identifier from Riot API",
     )
 
     # Riot ID information
     riot_id = Column(
-        String(128),
-        nullable=True,
-        index=True,
-        comment="Player's Riot ID (game name)"
+        String(128), nullable=True, index=True, comment="Player's Riot ID (game name)"
     )
 
     tag_line = Column(
-        String(8),
-        nullable=True,
-        comment="Player's tag line (region identifier)"
+        String(8), nullable=True, comment="Player's tag line (region identifier)"
     )
 
     # Summoner information (may change over time)
@@ -52,29 +46,25 @@ class Player(Base):
         String(32),
         nullable=True,
         index=True,
-        comment="Current summoner name (can change)"
+        comment="Current summoner name (can change)",
     )
 
     platform = Column(
         String(8),
         nullable=False,
         index=True,
-        comment="Platform where the player was last seen (e.g., EUW1, EUN1)"
+        comment="Platform where the player was last seen (e.g., EUW1, EUN1)",
     )
 
     # Player statistics
-    account_level = Column(
-        Integer,
-        nullable=True,
-        comment="Player's account level"
-    )
+    account_level = Column(Integer, nullable=True, comment="Player's account level")
 
     # Timestamps
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        comment="When this player record was first created"
+        comment="When this player record was first created",
     )
 
     updated_at = Column(
@@ -82,7 +72,7 @@ class Player(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
-        comment="When this player record was last updated"
+        comment="When this player record was last updated",
     )
 
     last_seen = Column(
@@ -90,7 +80,7 @@ class Player(Base):
         nullable=False,
         server_default=func.now(),
         index=True,
-        comment="When this player was last seen in a match"
+        comment="When this player was last seen in a match",
     )
 
     # Soft deletion flag
@@ -99,27 +89,29 @@ class Player(Base):
         nullable=False,
         default=True,
         index=True,
-        comment="Whether this player record is active (not deleted)"
+        comment="Whether this player record is active (not deleted)",
     )
 
     # Additional metadata fields
-    profile_icon_id = Column(
-        Integer,
-        nullable=True,
-        comment="Profile icon ID"
-    )
+    profile_icon_id = Column(Integer, nullable=True, comment="Profile icon ID")
 
     summoner_id = Column(
         String(64),
         nullable=True,
         index=True,
-        comment="Encrypted summoner ID (used for some Riot API endpoints)"
+        comment="Encrypted summoner ID (used for some Riot API endpoints)",
     )
 
     # Relationships
-    match_participations = relationship("MatchParticipant", back_populates="player", cascade="all, delete-orphan")
-    ranks = relationship("PlayerRank", back_populates="player", cascade="all, delete-orphan")
-    smurf_detections = relationship("SmurfDetection", back_populates="player", cascade="all, delete-orphan")
+    match_participations = relationship(
+        "MatchParticipant", back_populates="player", cascade="all, delete-orphan"
+    )
+    ranks = relationship(
+        "PlayerRank", back_populates="player", cascade="all, delete-orphan"
+    )
+    smurf_detections = relationship(
+        "SmurfDetection", back_populates="player", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         """String representation of the player."""
@@ -151,20 +143,8 @@ class Player(Base):
 
 
 # Create composite indexes for common queries
-Index(
-    "idx_players_summoner_platform",
-    Player.summoner_name,
-    Player.platform
-)
+Index("idx_players_summoner_platform", Player.summoner_name, Player.platform)
 
-Index(
-    "idx_players_riot_tag",
-    Player.riot_id,
-    Player.tag_line
-)
+Index("idx_players_riot_tag", Player.riot_id, Player.tag_line)
 
-Index(
-    "idx_players_last_seen_active",
-    Player.last_seen,
-    Player.is_active
-)
+Index("idx_players_last_seen_active", Player.last_seen, Player.is_active)

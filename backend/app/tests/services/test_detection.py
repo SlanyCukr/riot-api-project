@@ -12,15 +12,12 @@ from uuid import uuid4
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.services.detection import SmurfDetectionService
 from app.models.players import Player
-from app.models.smurf_detection import SmurfDetection
 from app.models.ranks import PlayerRank
-from app.schemas.detection import DetectionRequest, DetectionResponse
+from app.schemas.detection import DetectionResponse
 from app.algorithms.win_rate import WinRateAnalyzer
-from app.algorithms.rank_progression import RankProgressionAnalyzer
 from app.algorithms.performance import PerformanceAnalyzer
 
 
@@ -60,7 +57,7 @@ def sample_player():
         summoner_name="TestSummoner",
         platform="NA1",
         account_level=25,
-        last_seen=datetime.now()
+        last_seen=datetime.now(),
     )
 
 
@@ -69,47 +66,53 @@ def sample_matches():
     """Create sample match data for testing."""
     return [
         {
-            'match_id': 'match1',
-            'game_creation': int((datetime.now() - timedelta(days=1)).timestamp() * 1000),
-            'queue_id': 420,
-            'win': True,
-            'kills': 10,
-            'deaths': 2,
-            'assists': 8,
-            'cs': 250,
-            'vision_score': 30,
-            'champion_id': 1,
-            'role': 'MIDDLE',
-            'team_id': 100
+            "match_id": "match1",
+            "game_creation": int(
+                (datetime.now() - timedelta(days=1)).timestamp() * 1000
+            ),
+            "queue_id": 420,
+            "win": True,
+            "kills": 10,
+            "deaths": 2,
+            "assists": 8,
+            "cs": 250,
+            "vision_score": 30,
+            "champion_id": 1,
+            "role": "MIDDLE",
+            "team_id": 100,
         },
         {
-            'match_id': 'match2',
-            'game_creation': int((datetime.now() - timedelta(days=2)).timestamp() * 1000),
-            'queue_id': 420,
-            'win': True,
-            'kills': 8,
-            'deaths': 3,
-            'assists': 12,
-            'cs': 280,
-            'vision_score': 25,
-            'champion_id': 2,
-            'role': 'MIDDLE',
-            'team_id': 100
+            "match_id": "match2",
+            "game_creation": int(
+                (datetime.now() - timedelta(days=2)).timestamp() * 1000
+            ),
+            "queue_id": 420,
+            "win": True,
+            "kills": 8,
+            "deaths": 3,
+            "assists": 12,
+            "cs": 280,
+            "vision_score": 25,
+            "champion_id": 2,
+            "role": "MIDDLE",
+            "team_id": 100,
         },
         {
-            'match_id': 'match3',
-            'game_creation': int((datetime.now() - timedelta(days=3)).timestamp() * 1000),
-            'queue_id': 420,
-            'win': False,
-            'kills': 5,
-            'deaths': 5,
-            'assists': 6,
-            'cs': 200,
-            'vision_score': 20,
-            'champion_id': 3,
-            'role': 'MIDDLE',
-            'team_id': 100
-        }
+            "match_id": "match3",
+            "game_creation": int(
+                (datetime.now() - timedelta(days=3)).timestamp() * 1000
+            ),
+            "queue_id": 420,
+            "win": False,
+            "kills": 5,
+            "deaths": 5,
+            "assists": 6,
+            "cs": 200,
+            "vision_score": 20,
+            "champion_id": 3,
+            "role": "MIDDLE",
+            "team_id": 100,
+        },
     ]
 
 
@@ -126,7 +129,7 @@ def sample_rank():
         wins=25,
         losses=15,
         is_current=True,
-        created_at=datetime.now() - timedelta(days=30)
+        created_at=datetime.now() - timedelta(days=30),
     )
 
 
@@ -134,7 +137,9 @@ class TestSmurfDetectionService:
     """Test cases for SmurfDetectionService."""
 
     @pytest.mark.asyncio
-    async def test_analyze_player_insufficient_data(self, detection_service, mock_db, sample_player):
+    async def test_analyze_player_insufficient_data(
+        self, detection_service, mock_db, sample_player
+    ):
         """Test analysis with insufficient match data."""
         # Setup
         puuid = str(sample_player.puuid)
@@ -143,7 +148,7 @@ class TestSmurfDetectionService:
         mock_db.execute.return_value = mock_result
 
         # Mock _get_recent_matches to return insufficient data
-        with patch.object(detection_service, '_get_recent_matches', return_value=[]):
+        with patch.object(detection_service, "_get_recent_matches", return_value=[]):
             result = await detection_service.analyze_player(puuid=puuid, min_games=30)
 
         # Assert
@@ -155,7 +160,9 @@ class TestSmurfDetectionService:
         assert "Insufficient data" in result.reason
 
     @pytest.mark.asyncio
-    async def test_analyze_player_success(self, detection_service, mock_db, sample_player, sample_matches):
+    async def test_analyze_player_success(
+        self, detection_service, mock_db, sample_player, sample_matches
+    ):
         """Test successful player analysis."""
         # Setup
         puuid = str(sample_player.puuid)
@@ -164,10 +171,13 @@ class TestSmurfDetectionService:
         mock_db.execute.return_value = mock_result
 
         # Mock dependencies
-        with patch.object(detection_service, '_get_recent_matches', return_value=sample_matches), \
-             patch.object(detection_service, '_get_current_rank', return_value=None), \
-             patch.object(detection_service, '_store_detection_result') as mock_store:
-
+        with (
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=sample_matches
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+        ):
             # Mock stored detection result
             mock_detection = MagicMock()
             mock_detection.created_at = datetime.now()
@@ -185,14 +195,22 @@ class TestSmurfDetectionService:
         assert result.analysis_time_seconds is not None
 
     @pytest.mark.asyncio
-    async def test_analyze_detection_factors(self, detection_service, sample_player, sample_matches):
+    async def test_analyze_detection_factors(
+        self, detection_service, sample_player, sample_matches
+    ):
         """Test individual detection factor analysis."""
         puuid = str(sample_player.puuid)
 
         # Mock rank analyzer to avoid database calls
-        with patch.object(detection_service.rank_analyzer, 'analyze', return_value=MagicMock(
-            progression_speed=0.0, meets_threshold=False, description="Normal progression"
-        )):
+        with patch.object(
+            detection_service.rank_analyzer,
+            "analyze",
+            return_value=MagicMock(
+                progression_speed=0.0,
+                meets_threshold=False,
+                description="Normal progression",
+            ),
+        ):
             factors = await detection_service._analyze_detection_factors(
                 puuid, sample_matches, sample_player
             )
@@ -200,13 +218,19 @@ class TestSmurfDetectionService:
         # Assert
         assert len(factors) >= 5  # Should have at least 5 factors
         factor_names = [f.name for f in factors]
-        expected_factors = ['win_rate', 'account_level', 'rank_progression', 'performance_consistency', 'kda']
+        expected_factors = [
+            "win_rate",
+            "account_level",
+            "rank_progression",
+            "performance_consistency",
+            "kda",
+        ]
 
         for expected in expected_factors:
             assert expected in factor_names
 
         # Check win rate factor
-        win_rate_factor = next(f for f in factors if f.name == 'win_rate')
+        win_rate_factor = next(f for f in factors if f.name == "win_rate")
         assert isinstance(win_rate_factor.value, float)
         assert isinstance(win_rate_factor.weight, float)
         assert isinstance(win_rate_factor.meets_threshold, bool)
@@ -224,7 +248,7 @@ class TestSmurfDetectionService:
                 meets_threshold=True,
                 weight=0.35,
                 description="High win rate",
-                score=0.8
+                score=0.8,
             ),
             DetectionFactor(
                 name="account_level",
@@ -232,7 +256,7 @@ class TestSmurfDetectionService:
                 meets_threshold=True,
                 weight=0.15,
                 description="Low account level",
-                score=0.6
+                score=0.6,
             ),
             DetectionFactor(
                 name="kda",
@@ -240,8 +264,8 @@ class TestSmurfDetectionService:
                 meets_threshold=False,
                 weight=0.05,
                 description="Normal KDA",
-                score=0.0
-            )
+                score=0.0,
+            ),
         ]
 
         score = detection_service._calculate_detection_score(factors)
@@ -257,27 +281,37 @@ class TestSmurfDetectionService:
         factors = [DetectionFactor("test", 0.5, True, 0.1, "test", 0.5)]
 
         # Test high confidence
-        is_smurf, confidence = detection_service._determine_smurf_status(0.85, factors, 30)
+        is_smurf, confidence = detection_service._determine_smurf_status(
+            0.85, factors, 30
+        )
         assert is_smurf is True
         assert confidence == "high"
 
         # Test medium confidence
-        is_smurf, confidence = detection_service._determine_smurf_status(0.65, factors, 30)
+        is_smurf, confidence = detection_service._determine_smurf_status(
+            0.65, factors, 30
+        )
         assert is_smurf is True
         assert confidence == "medium"
 
         # Test low confidence
-        is_smurf, confidence = detection_service._determine_smurf_status(0.45, factors, 30)
+        is_smurf, confidence = detection_service._determine_smurf_status(
+            0.45, factors, 30
+        )
         assert is_smurf is True
         assert confidence == "low"
 
         # Test no detection
-        is_smurf, confidence = detection_service._determine_smurf_status(0.25, factors, 30)
+        is_smurf, confidence = detection_service._determine_smurf_status(
+            0.25, factors, 30
+        )
         assert is_smurf is False
         assert confidence == "none"
 
         # Test insufficient data
-        is_smurf, confidence = detection_service._determine_smurf_status(0.85, factors, 5)
+        is_smurf, confidence = detection_service._determine_smurf_status(
+            0.85, factors, 5
+        )
         assert is_smurf is False
         assert confidence == "insufficient_data"
 
@@ -288,7 +322,9 @@ class TestSmurfDetectionService:
         # Test with triggered factors
         factors = [
             DetectionFactor("win_rate", 0.7, True, 0.35, "High win rate: 70%", 0.8),
-            DetectionFactor("account_level", 25.0, True, 0.15, "Low account level: 25", 0.6)
+            DetectionFactor(
+                "account_level", 25.0, True, 0.15, "Low account level: 25", 0.6
+            ),
         ]
 
         reason = detection_service._generate_reason(factors, 0.8)
@@ -298,7 +334,9 @@ class TestSmurfDetectionService:
         assert "0.80" in reason
 
         # Test with no triggered factors
-        factors = [DetectionFactor("win_rate", 0.4, False, 0.35, "Normal win rate: 40%", 0.0)]
+        factors = [
+            DetectionFactor("win_rate", 0.4, False, 0.35, "Normal win rate: 40%", 0.0)
+        ]
         reason = detection_service._generate_reason(factors, 0.1)
         assert "No smurf indicators detected" in reason
 
@@ -336,8 +374,8 @@ class TestSmurfDetectionService:
         mock_detection = MagicMock()
         mock_detection.puuid = puuid
         mock_detection.is_smurf = True
-        mock_detection.smurf_score = Decimal('0.75')
-        mock_detection.confidence = 'high'
+        mock_detection.smurf_score = Decimal("0.75")
+        mock_detection.confidence = "high"
         mock_detection.games_analyzed = 30
         mock_detection.created_at = datetime.now()
 
@@ -363,25 +401,25 @@ class TestSmurfDetectionService:
         avg_result = MagicMock()
         avg_result.scalar.return_value = 0.45
         confidence_result = MagicMock()
-        confidence_result.return_value = [('high', 15), ('medium', 10)]
+        confidence_result.return_value = [("high", 15), ("medium", 10)]
         queue_result = MagicMock()
-        queue_result.return_value = [('420', 80), ('440', 20)]
+        queue_result.return_value = [("420", 80), ("440", 20)]
         last_result = MagicMock()
         last_result.scalar.return_value = datetime.now()
 
         def mock_execute_side_effect(query):
-            if 'count(SmurfDetection.id)' in str(query):
-                if 'is_smurf' in str(query):
+            if "count(SmurfDetection.id)" in str(query):
+                if "is_smurf" in str(query):
                     return smurf_result
                 else:
                     return total_result
-            elif 'avg(SmurfDetection.smurf_score)' in str(query):
+            elif "avg(SmurfDetection.smurf_score)" in str(query):
                 return avg_result
-            elif 'confidence' in str(query) and 'group_by' in str(query):
+            elif "confidence" in str(query) and "group_by" in str(query):
                 return confidence_result
-            elif 'queue_type' in str(query) and 'group_by' in str(query):
+            elif "queue_type" in str(query) and "group_by" in str(query):
                 return queue_result
-            elif 'max(SmurfDetection.last_analysis)' in str(query):
+            elif "max(SmurfDetection.last_analysis)" in str(query):
                 return last_result
             return MagicMock()
 
@@ -393,23 +431,23 @@ class TestSmurfDetectionService:
         assert stats.smurf_count == 25
         assert stats.smurf_detection_rate == 0.25
         assert stats.average_score == 0.45
-        assert 'high' in stats.confidence_distribution
-        assert '420' in stats.queue_type_distribution
+        assert "high" in stats.confidence_distribution
+        assert "420" in stats.queue_type_distribution
 
     @pytest.mark.asyncio
     async def test_get_config(self, detection_service):
         """Test configuration retrieval."""
         config = await detection_service.get_config()
 
-        assert 'thresholds' in config
-        assert 'weights' in config
-        assert 'min_games_required' in config
-        assert 'analysis_version' in config
-        assert 'last_updated' in config
+        assert "thresholds" in config
+        assert "weights" in config
+        assert "min_games_required" in config
+        assert "analysis_version" in config
+        assert "last_updated" in config
 
         # Check some expected values
-        assert config.thresholds['high_win_rate'] == 0.65
-        assert config.weights['win_rate'] == 0.35
+        assert config.thresholds["high_win_rate"] == 0.65
+        assert config.weights["win_rate"] == 0.35
         assert config.min_games_required == 30
 
 
@@ -423,7 +461,11 @@ class TestDetectionAlgorithms:
 
         # Test with high win rate
         matches = [
-            {'win': True}, {'win': True}, {'win': True}, {'win': True}, {'win': False}
+            {"win": True},
+            {"win": True},
+            {"win": True},
+            {"win": True},
+            {"win": False},
         ]
         result = await analyzer.analyze(matches)
 
@@ -434,7 +476,11 @@ class TestDetectionAlgorithms:
 
         # Test with normal win rate
         matches = [
-            {'win': True}, {'win': True}, {'win': False}, {'win': False}, {'win': False}
+            {"win": True},
+            {"win": True},
+            {"win": False},
+            {"win": False},
+            {"win": False},
         ]
         result = await analyzer.analyze(matches)
 
@@ -453,9 +499,9 @@ class TestDetectionAlgorithms:
 
         # Test with high performance
         matches = [
-            {'kills': 10, 'deaths': 2, 'assists': 8, 'cs': 250, 'vision_score': 30},
-            {'kills': 8, 'deaths': 3, 'assists': 12, 'cs': 280, 'vision_score': 25},
-            {'kills': 12, 'deaths': 1, 'assists': 6, 'cs': 300, 'vision_score': 35}
+            {"kills": 10, "deaths": 2, "assists": 8, "cs": 250, "vision_score": 30},
+            {"kills": 8, "deaths": 3, "assists": 12, "cs": 280, "vision_score": 25},
+            {"kills": 12, "deaths": 1, "assists": 6, "cs": 300, "vision_score": 35},
         ]
         result = await analyzer.analyze(matches)
 

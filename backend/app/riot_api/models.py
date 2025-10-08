@@ -9,6 +9,7 @@ from datetime import datetime
 
 class AccountDTO(BaseModel):
     """Riot Account information."""
+
     puuid: str
     game_name: str = Field(..., alias="gameName")
     tag_line: str = Field(..., alias="tagLine")
@@ -18,6 +19,7 @@ class AccountDTO(BaseModel):
 
 class SummonerDTO(BaseModel):
     """League of Legends Summoner information."""
+
     id: Optional[str] = None
     puuid: str
     name: Optional[str] = None
@@ -25,7 +27,7 @@ class SummonerDTO(BaseModel):
     summoner_level: int = Field(..., alias="summonerLevel")
     revision_date: Optional[datetime] = Field(None, alias="revisionDate")
 
-    @field_validator('revision_date', mode='before')
+    @field_validator("revision_date", mode="before")
     @classmethod
     def parse_timestamp(cls, v):
         if v is None:
@@ -39,6 +41,7 @@ class SummonerDTO(BaseModel):
 
 class MatchListDTO(BaseModel):
     """Match list response."""
+
     match_ids: List[str]
     start: int
     count: int
@@ -50,6 +53,7 @@ class MatchListDTO(BaseModel):
 
 class ParticipantDTO(BaseModel):
     """Match participant information."""
+
     puuid: str
     summoner_name: str = Field(..., alias="summonerName")
     summoner_id: Optional[str] = Field(None, alias="summonerId")
@@ -82,7 +86,7 @@ class ParticipantDTO(BaseModel):
     @property
     def cs_per_minute(self) -> float:
         """Calculate CS per minute."""
-        if not hasattr(self, '_game_duration') or self._game_duration == 0:
+        if not hasattr(self, "_game_duration") or self._game_duration == 0:
             return 0
         total_cs = self.total_minions_killed + self.neutral_minions_killed
         return (total_cs * 60) / self._game_duration
@@ -92,6 +96,7 @@ class ParticipantDTO(BaseModel):
 
 class TeamDTO(BaseModel):
     """Match team information."""
+
     team_id: int = Field(..., alias="teamId")
     win: bool
     bans: Optional[List[Dict[str, Any]]] = None
@@ -102,6 +107,7 @@ class TeamDTO(BaseModel):
 
 class MatchInfoDTO(BaseModel):
     """Match information."""
+
     game_creation: int = Field(..., alias="gameCreation")
     game_duration: int = Field(..., alias="gameDuration")
     game_start_timestamp: Optional[int] = Field(None, alias="gameStartTimestamp")
@@ -124,6 +130,7 @@ class MatchInfoDTO(BaseModel):
 
 class MatchMetadataDTO(BaseModel):
     """Match metadata."""
+
     match_id: str = Field(..., alias="matchId")
     data_version: str = Field(..., alias="dataVersion")
     participants: List[str]
@@ -133,6 +140,7 @@ class MatchMetadataDTO(BaseModel):
 
 class MatchDTO(BaseModel):
     """Complete match data."""
+
     metadata: MatchMetadataDTO
     info: MatchInfoDTO
 
@@ -169,6 +177,7 @@ class MatchDTO(BaseModel):
 
 class LeagueEntryDTO(BaseModel):
     """League entry information."""
+
     league_id: str = Field(..., alias="leagueId")
     summoner_id: str = Field(..., alias="summonerId")
     summoner_name: str = Field(..., alias="summonerName")
@@ -201,6 +210,7 @@ class LeagueEntryDTO(BaseModel):
 
 class CurrentGameParticipantDTO(BaseModel):
     """Current game participant information."""
+
     champion_id: int = Field(..., alias="championId")
     summoner_name: str = Field(..., alias="summonerName")
     summoner_id: str = Field(..., alias="summonerId")
@@ -208,7 +218,9 @@ class CurrentGameParticipantDTO(BaseModel):
     profile_icon_id: int = Field(..., alias="profileIconId")
     summoner_spell1_id: int = Field(..., alias="spell1Id")
     summoner_spell2_id: int = Field(..., alias="spell2Id")
-    game_customization_objects: Optional[List[Dict[str, Any]]] = Field(None, alias="gameCustomizationObjects")
+    game_customization_objects: Optional[List[Dict[str, Any]]] = Field(
+        None, alias="gameCustomizationObjects"
+    )
     bot: bool = Field(..., alias="bot")
     perks: Optional[Dict[str, Any]] = None
 
@@ -217,6 +229,7 @@ class CurrentGameParticipantDTO(BaseModel):
 
 class ObserverDTO(BaseModel):
     """Observer information for current game."""
+
     encryption_key: Optional[str] = Field(None, alias="encryptionKey")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -224,6 +237,7 @@ class ObserverDTO(BaseModel):
 
 class CurrentGameInfoDTO(BaseModel):
     """Current game information."""
+
     game_id: int = Field(..., alias="gameId")
     map_id: int = Field(..., alias="mapId")
     game_mode: str = Field(..., alias="gameMode")
@@ -248,6 +262,7 @@ class CurrentGameInfoDTO(BaseModel):
 
 class FeaturedGameParticipantDTO(BaseModel):
     """Featured game participant information."""
+
     champion_id: int = Field(..., alias="championId")
     summoner_name: str = Field(..., alias="summonerName")
     team_id: int = Field(..., alias="teamId")
@@ -257,6 +272,7 @@ class FeaturedGameParticipantDTO(BaseModel):
 
 class FeaturedGameInfoDTO(BaseModel):
     """Featured game information."""
+
     game_id: int = Field(..., alias="gameId")
     map_id: int = Field(..., alias="mapId")
     game_mode: str = Field(..., alias="gameMode")
@@ -274,6 +290,7 @@ class FeaturedGameInfoDTO(BaseModel):
 
 class FeaturedGamesDTO(BaseModel):
     """Featured games response."""
+
     game_list: List[FeaturedGameInfoDTO] = Field(..., alias="gameList")
     client_refresh_interval: int = Field(..., alias="clientRefreshInterval")
 
@@ -282,6 +299,7 @@ class FeaturedGamesDTO(BaseModel):
 
 class ActiveShardDTO(BaseModel):
     """Active shard information."""
+
     puuid: str
     game: str
     active_shard: str = Field(..., alias="activeShard")

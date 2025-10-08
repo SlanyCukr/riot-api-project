@@ -5,9 +5,12 @@ Tests for rate limiter.
 import pytest
 import asyncio
 import time
-from unittest.mock import Mock, AsyncMock, patch
 
-from backend.app.riot_api.rate_limiter import RateLimiter, RateLimitTracker, CircuitBreaker
+from backend.app.riot_api.rate_limiter import (
+    RateLimiter,
+    RateLimitTracker,
+    CircuitBreaker,
+)
 
 
 class TestRateLimitTracker:
@@ -74,7 +77,7 @@ class TestRateLimitTracker:
 
         # Add requests to hit limit
         tracker.record_request(now - 10)  # 10 seconds ago
-        tracker.record_request(now - 5)   # 5 seconds ago
+        tracker.record_request(now - 5)  # 5 seconds ago
 
         # Should wait until oldest request expires
         wait_time = tracker.get_wait_time(now)
@@ -234,7 +237,7 @@ class TestRateLimiter:
             "X-App-Rate-Limit": "20:1,100:120",
             "X-App-Rate-Count": "15:1,80:120",
             "X-Method-Rate-Limit": "50:60",
-            "X-Method-Rate-Count": "25:60"
+            "X-Method-Rate-Count": "25:60",
         }
 
         limiter.update_limits(headers, "test/endpoint")
@@ -339,8 +342,12 @@ class TestRateLimiter:
         """Test endpoint key generation."""
         limiter = RateLimiter()
 
-        key1 = limiter._get_endpoint_key("https://europe.api.riotgames.com/lol/match/v5/matches", "GET")
-        key2 = limiter._get_endpoint_key("https://europe.api.riotgames.com/lol/summoner/v4/summoners", "POST")
+        key1 = limiter._get_endpoint_key(
+            "https://europe.api.riotgames.com/lol/match/v5/matches", "GET"
+        )
+        key2 = limiter._get_endpoint_key(
+            "https://europe.api.riotgames.com/lol/summoner/v4/summoners", "POST"
+        )
 
         assert key1 == "GET:lol-match-v5-matches"
         assert key2 == "POST:lol-summoner-v4-summoners"

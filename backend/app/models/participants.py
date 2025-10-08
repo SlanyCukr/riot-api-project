@@ -2,8 +2,6 @@
 Match participant model for storing individual player performance in matches.
 """
 
-import uuid
-from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -30,11 +28,7 @@ class MatchParticipant(Base):
     __tablename__ = "match_participants"
 
     # Primary key
-    id = Column(
-        BigInteger,
-        primary_key=True,
-        comment="Auto-incrementing primary key"
-    )
+    id = Column(BigInteger, primary_key=True, comment="Auto-incrementing primary key")
 
     # Foreign keys
     match_id = Column(
@@ -42,7 +36,7 @@ class MatchParticipant(Base):
         ForeignKey("matches.match_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the match this participant belongs to"
+        comment="Reference to the match this participant belongs to",
     )
 
     puuid = Column(
@@ -50,21 +44,19 @@ class MatchParticipant(Base):
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the player (Riot PUUID)"
+        comment="Reference to the player (Riot PUUID)",
     )
 
     # Participant information
     summoner_name = Column(
-        String(32),
-        nullable=False,
-        comment="Summoner name at the time of the match"
+        String(32), nullable=False, comment="Summoner name at the time of the match"
     )
 
     team_id = Column(
         Integer,
         nullable=False,
         index=True,
-        comment="Team ID (100 for blue side, 200 for red side)"
+        comment="Team ID (100 for blue side, 200 for red side)",
     )
 
     # Champion information
@@ -72,105 +64,58 @@ class MatchParticipant(Base):
         Integer,
         nullable=False,
         index=True,
-        comment="Champion ID played by the participant"
+        comment="Champion ID played by the participant",
     )
 
     champion_name = Column(
         String(32),
         nullable=False,
         index=True,
-        comment="Champion name played by the participant"
+        comment="Champion name played by the participant",
     )
 
     # Performance statistics
-    kills = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Number of kills"
-    )
+    kills = Column(Integer, nullable=False, default=0, comment="Number of kills")
 
-    deaths = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Number of deaths"
-    )
+    deaths = Column(Integer, nullable=False, default=0, comment="Number of deaths")
 
-    assists = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Number of assists"
-    )
+    assists = Column(Integer, nullable=False, default=0, comment="Number of assists")
 
     win = Column(
-        Boolean,
-        nullable=False,
-        comment="Whether the participant won the match"
+        Boolean, nullable=False, comment="Whether the participant won the match"
     )
 
     gold_earned = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Total gold earned"
+        Integer, nullable=False, default=0, comment="Total gold earned"
     )
 
-    vision_score = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Vision score"
-    )
+    vision_score = Column(Integer, nullable=False, default=0, comment="Vision score")
 
     cs = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="Total creep score (minions killed)"
+        Integer, nullable=False, default=0, comment="Total creep score (minions killed)"
     )
 
-    kda = Column(
-        SQLDecimal(5, 2),
-        nullable=True,
-        comment="Kill-death-assist ratio"
-    )
+    kda = Column(SQLDecimal(5, 2), nullable=True, comment="Kill-death-assist ratio")
 
     # Additional performance metrics
     champ_level = Column(
-        Integer,
-        nullable=False,
-        default=1,
-        comment="Champion level achieved"
+        Integer, nullable=False, default=1, comment="Champion level achieved"
     )
 
     total_damage_dealt = Column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        comment="Total damage dealt"
+        BigInteger, nullable=False, default=0, comment="Total damage dealt"
     )
 
     total_damage_dealt_to_champions = Column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        comment="Total damage dealt to champions"
+        BigInteger, nullable=False, default=0, comment="Total damage dealt to champions"
     )
 
     total_damage_taken = Column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        comment="Total damage taken"
+        BigInteger, nullable=False, default=0, comment="Total damage taken"
     )
 
     total_heal = Column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        comment="Total healing done"
+        BigInteger, nullable=False, default=0, comment="Total healing done"
     )
 
     # Position information
@@ -178,14 +123,11 @@ class MatchParticipant(Base):
         String(16),
         nullable=True,
         index=True,
-        comment="Individual position (e.g., 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')"
+        comment="Individual position (e.g., 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
     )
 
     team_position = Column(
-        String(16),
-        nullable=True,
-        index=True,
-        comment="Team position"
+        String(16), nullable=True, index=True, comment="Team position"
     )
 
     # Role information
@@ -193,7 +135,7 @@ class MatchParticipant(Base):
         String(16),
         nullable=True,
         index=True,
-        comment="Role (e.g., 'DUO', 'DUO_CARRY', 'DUO_SUPPORT', 'SUPPORT')"
+        comment="Role (e.g., 'DUO', 'DUO_CARRY', 'DUO_SUPPORT', 'SUPPORT')",
     )
 
     # Timestamps
@@ -201,7 +143,7 @@ class MatchParticipant(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        comment="When this participant record was created"
+        comment="When this participant record was created",
     )
 
     updated_at = Column(
@@ -209,7 +151,7 @@ class MatchParticipant(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
-        comment="When this participant record was last updated"
+        comment="When this participant record was last updated",
     )
 
     # Relationships
@@ -258,7 +200,6 @@ class MatchParticipant(Base):
 
     def calculate_cs_per_minute(self) -> Optional[float]:
         """Calculate CS per minute."""
-        from .matches import Match
 
         # This would need to be calculated after fetching the match
         # For now, we'll return None
@@ -278,32 +219,18 @@ class MatchParticipant(Base):
 
 
 # Create composite indexes for common queries
-Index(
-    "idx_participants_match_puuid",
-    MatchParticipant.match_id,
-    MatchParticipant.puuid
-)
+Index("idx_participants_match_puuid", MatchParticipant.match_id, MatchParticipant.puuid)
 
 Index(
-    "idx_participants_champion_win",
-    MatchParticipant.champion_id,
-    MatchParticipant.win
+    "idx_participants_champion_win", MatchParticipant.champion_id, MatchParticipant.win
 )
 
-Index(
-    "idx_participants_kills_deaths",
-    MatchParticipant.kills,
-    MatchParticipant.deaths
-)
+Index("idx_participants_kills_deaths", MatchParticipant.kills, MatchParticipant.deaths)
 
 Index(
     "idx_participants_position_champion",
     MatchParticipant.individual_position,
-    MatchParticipant.champion_id
+    MatchParticipant.champion_id,
 )
 
-Index(
-    "idx_participants_team_win",
-    MatchParticipant.team_id,
-    MatchParticipant.win
-)
+Index("idx_participants_team_win", MatchParticipant.team_id, MatchParticipant.win)

@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from ..riot_api.client import RiotAPIClient
-from ..riot_api.endpoints import Platform, Region
+from ..riot_api.endpoints import Platform
 from ..riot_api.errors import NotFoundError as RiotNotFoundError
 from ..models.players import Player
 from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
@@ -32,9 +32,13 @@ class PlayerService:
         """Get player by Riot ID (name#tag)."""
         # Convert platform string to Platform enum
         try:
-            platform_enum = Platform(platform) if isinstance(platform, str) else platform
+            platform_enum = (
+                Platform(platform) if isinstance(platform, str) else platform
+            )
         except ValueError:
-            raise ValueError(f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}")
+            raise ValueError(
+                f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}"
+            )
 
         # First try to get from database
         riot_id = f"{game_name}#{tag_line}"
@@ -43,8 +47,12 @@ class PlayerService:
         if not player:
             # Fetch from Riot API
             try:
-                account = await self.riot_client.get_account_by_riot_id(game_name, tag_line)
-                summoner = await self.riot_client.get_summoner_by_puuid(account.puuid, platform_enum)
+                account = await self.riot_client.get_account_by_riot_id(
+                    game_name, tag_line
+                )
+                summoner = await self.riot_client.get_summoner_by_puuid(
+                    account.puuid, platform_enum
+                )
 
                 # Create player record
                 # Note: summoner.name and summoner.id are no longer returned by Riot API v4
@@ -57,18 +65,25 @@ class PlayerService:
                     platform=platform,
                     account_level=summoner.summoner_level,
                     profile_icon_id=summoner.profile_icon_id,
-                    summoner_id=summoner.id  # May be None, which is acceptable
+                    summoner_id=summoner.id,  # May be None, which is acceptable
                 )
 
                 player = await self._create_or_update_player(player_data)
 
             except RiotNotFoundError:
-                logger.info("Player not found in Riot API",
-                           game_name=game_name, tag_line=tag_line)
+                logger.info(
+                    "Player not found in Riot API",
+                    game_name=game_name,
+                    tag_line=tag_line,
+                )
                 raise ValueError(f"Player not found: {game_name}#{tag_line}")
             except Exception as e:
-                logger.error("Failed to fetch player data from Riot API",
-                           game_name=game_name, tag_line=tag_line, error=str(e))
+                logger.error(
+                    "Failed to fetch player data from Riot API",
+                    game_name=game_name,
+                    tag_line=tag_line,
+                    error=str(e),
+                )
                 raise Exception(f"Failed to fetch player data: {str(e)}")
 
         return PlayerResponse.from_orm(player)
@@ -87,7 +102,7 @@ class PlayerService:
             select(Player).where(
                 Player.summoner_name.ilike(f"%{summoner_name}%"),
                 Player.platform == platform,
-                Player.is_active == True
+                Player.is_active,
             )
         )
         players = result.scalars().all()
@@ -95,40 +110,49 @@ class PlayerService:
         # If exact match found, return it
         for player in players:
             if player.summoner_name.lower() == summoner_name.lower():
-                logger.info("Found exact match for summoner name",
-                           summoner_name=summoner_name, platform=platform)
+                logger.info(
+                    "Found exact match for summoner name",
+                    summoner_name=summoner_name,
+                    platform=platform,
+                )
                 return PlayerResponse.from_orm(player)
 
         # If only one partial match, return it
         if len(players) == 1:
-            logger.info("Found single partial match for summoner name",
-                       summoner_name=summoner_name, platform=platform,
-                       matched_name=players[0].summoner_name)
+            logger.info(
+                "Found single partial match for summoner name",
+                summoner_name=summoner_name,
+                platform=platform,
+                matched_name=players[0].summoner_name,
+            )
             return PlayerResponse.from_orm(players[0])
 
         # If multiple partial matches, return error with suggestions
         if len(players) > 1:
             matched_names = [p.summoner_name for p in players]
-            logger.info("Found multiple matches for summoner name",
-                       summoner_name=summoner_name, platform=platform,
-                       matches=matched_names)
+            logger.info(
+                "Found multiple matches for summoner name",
+                summoner_name=summoner_name,
+                platform=platform,
+                matches=matched_names,
+            )
             raise ValueError(
                 f"Multiple players found matching '{summoner_name}': {', '.join(matched_names)}. "
                 "Please be more specific."
             )
 
         # No matches found in database
-        logger.info("No player found in database for summoner name",
-                   summoner_name=summoner_name, platform=platform)
+        logger.info(
+            "No player found in database for summoner name",
+            summoner_name=summoner_name,
+            platform=platform,
+        )
         raise ValueError(f"Player not found: {summoner_name}")
 
     async def get_player_by_puuid(self, puuid: str) -> Optional[PlayerResponse]:
         """Get player by PUUID."""
         result = await self.db.execute(
-            select(Player).where(
-                Player.puuid == puuid,
-                Player.is_active == True
-            )
+            select(Player).where(Player.puuid == puuid, Player.is_active)
         )
         player = result.scalar_one_or_none()
 
@@ -142,9 +166,11 @@ class PlayerService:
         # For now, return empty list - will be implemented in Task 8
         return []
 
-    async def _get_player_from_db(self, riot_id: str = None, puuid: str = None) -> Optional[Player]:
+    async def _get_player_from_db(
+        self, riot_id: str = None, puuid: str = None
+    ) -> Optional[Player]:
         """Get player from database by Riot ID or PUUID."""
-        query = select(Player).where(Player.is_active == True)
+        query = select(Player).where(Player.is_active)
 
         if riot_id:
             query = query.where(Player.riot_id == riot_id)
@@ -159,21 +185,10 @@ class PlayerService:
     async def _create_or_update_player(self, player_data: PlayerCreate) -> Player:
         """Create new player record or update existing one."""
         # Use PostgreSQL UPSERT functionality
-        stmt = insert(Player).values(
-            puuid=player_data.puuid,
-            riot_id=player_data.riot_id,
-            tag_line=player_data.tag_line,
-            summoner_name=player_data.summoner_name,
-            platform=player_data.platform,
-            account_level=player_data.account_level,
-            profile_icon_id=player_data.profile_icon_id,
-            summoner_id=player_data.summoner_id,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-            last_seen=datetime.utcnow()
-        ).on_conflict_do_update(
-            index_elements=['puuid'],
-            set_=dict(
+        stmt = (
+            insert(Player)
+            .values(
+                puuid=player_data.puuid,
                 riot_id=player_data.riot_id,
                 tag_line=player_data.tag_line,
                 summoner_name=player_data.summoner_name,
@@ -181,28 +196,49 @@ class PlayerService:
                 account_level=player_data.account_level,
                 profile_icon_id=player_data.profile_icon_id,
                 summoner_id=player_data.summoner_id,
+                created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
-                last_seen=datetime.utcnow()
+                last_seen=datetime.utcnow(),
             )
-        ).returning(Player)
+            .on_conflict_do_update(
+                index_elements=["puuid"],
+                set_=dict(
+                    riot_id=player_data.riot_id,
+                    tag_line=player_data.tag_line,
+                    summoner_name=player_data.summoner_name,
+                    platform=player_data.platform,
+                    account_level=player_data.account_level,
+                    profile_icon_id=player_data.profile_icon_id,
+                    summoner_id=player_data.summoner_id,
+                    updated_at=datetime.utcnow(),
+                    last_seen=datetime.utcnow(),
+                ),
+            )
+            .returning(Player)
+        )
 
         result = await self.db.execute(stmt)
         await self.db.commit()
         return result.scalar_one()
 
-    async def _update_player(self, puuid: UUID, update_data: PlayerUpdate) -> Optional[Player]:
+    async def _update_player(
+        self, puuid: UUID, update_data: PlayerUpdate
+    ) -> Optional[Player]:
         """Update existing player record."""
         update_dict = update_data.dict(exclude_unset=True)
         if not update_dict:
             return None
 
-        update_dict['updated_at'] = datetime.utcnow()
-        if 'last_seen' not in update_dict:
-            update_dict['last_seen'] = datetime.utcnow()
+        update_dict["updated_at"] = datetime.utcnow()
+        if "last_seen" not in update_dict:
+            update_dict["last_seen"] = datetime.utcnow()
 
-        stmt = update(Player).where(
-            Player.puuid == puuid
-        ).values(**update_dict).returning(Player)
+        stmt = (
+            update(Player)
+            .where(Player.puuid == puuid)
+            .values(**update_dict)
+            .returning(Player)
+        )
 
         result = await self.db.execute(stmt)
         await self.db.commit()
@@ -214,10 +250,7 @@ class PlayerService:
             return []
 
         result = await self.db.execute(
-            select(Player).where(
-                Player.puuid.in_(puuids),
-                Player.is_active == True
-            )
+            select(Player).where(Player.puuid.in_(puuids), Player.is_active)
         )
         players = result.scalars().all()
         return [PlayerResponse.from_orm(player) for player in players]
@@ -227,10 +260,10 @@ class PlayerService:
         summoner_name: Optional[str] = None,
         riot_id: Optional[str] = None,
         platform: Optional[str] = None,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[PlayerResponse]:
         """Search players by various criteria."""
-        query = select(Player).where(Player.is_active == True)
+        query = select(Player).where(Player.is_active)
 
         if summoner_name:
             query = query.where(Player.summoner_name.ilike(f"%{summoner_name}%"))
@@ -240,7 +273,7 @@ class PlayerService:
                 game_name, tag_line = riot_id.split("#", 1)
                 query = query.where(
                     Player.riot_id.ilike(f"%{game_name}%"),
-                    Player.tag_line.ilike(f"%{tag_line}%")
+                    Player.tag_line.ilike(f"%{tag_line}%"),
                 )
             else:
                 query = query.where(Player.riot_id.ilike(f"%{riot_id}%"))

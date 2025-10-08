@@ -2,7 +2,6 @@
 Database connection and session management for PostgreSQL using SQLAlchemy with async support.
 """
 
-import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
     async_sessionmaker,
 )
-from sqlalchemy.pool import NullPool
 
 from .config import settings
 

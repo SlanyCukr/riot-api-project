@@ -3,16 +3,14 @@ Match service for handling match data operations.
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 from uuid import UUID
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc
+from sqlalchemy import select, func, and_, desc
 from sqlalchemy.orm import selectinload
 
 from ..riot_api.client import RiotAPIClient
-from ..database import get_db
 from ..models.matches import Match
 from ..models.participants import MatchParticipant
 from ..models.players import Player
@@ -37,7 +35,7 @@ class MatchService:
         count: int = 20,
         queue: Optional[int] = None,
         start_time: Optional[int] = None,
-        end_time: Optional[int] = None
+        end_time: Optional[int] = None,
     ) -> MatchListResponse:
         """
         Get match history for a player.
@@ -78,7 +76,7 @@ class MatchService:
                 matches=match_responses,
                 total=len(match_responses),
                 start=start,
-                count=count
+                count=count,
             )
         except Exception as e:
             logger.error("Failed to get player matches", puuid=puuid, error=str(e))
@@ -137,7 +135,7 @@ class MatchService:
                     avg_assists=0.0,
                     avg_kda=0.0,
                     avg_cs=0.0,
-                    avg_vision_score=0.0
+                    avg_vision_score=0.0,
                 )
 
             # Calculate statistics
@@ -174,7 +172,9 @@ class MatchService:
                 avg_assists=total_assists / total_matches if total_matches > 0 else 0.0,
                 avg_kda=avg_kda,
                 avg_cs=total_cs / total_matches if total_matches > 0 else 0.0,
-                avg_vision_score=total_vision / total_matches if total_matches > 0 else 0.0
+                avg_vision_score=total_vision / total_matches
+                if total_matches > 0
+                else 0.0,
             )
         except Exception as e:
             logger.error("Failed to get player stats", puuid=puuid, error=str(e))
@@ -207,13 +207,23 @@ class MatchService:
             raise
 
     async def _get_matches_from_db(
-        self, puuid: str, start: int, count: int, queue: Optional[int],
-        start_time: Optional[int], end_time: Optional[int]
+        self,
+        puuid: str,
+        start: int,
+        count: int,
+        queue: Optional[int],
+        start_time: Optional[int],
+        end_time: Optional[int],
     ) -> List[Match]:
         """Get matches from database."""
-        query = select(Match).join(MatchParticipant).where(
-            MatchParticipant.puuid == puuid
-        ).order_by(desc(Match.game_creation)).offset(start).limit(count)
+        query = (
+            select(Match)
+            .join(MatchParticipant)
+            .where(MatchParticipant.puuid == puuid)
+            .order_by(desc(Match.game_creation))
+            .offset(start)
+            .limit(count)
+        )
 
         if queue:
             query = query.where(Match.queue_id == queue)
@@ -226,8 +236,13 @@ class MatchService:
         return result.scalars().all()
 
     async def _fetch_matches_from_api(
-        self, puuid: str, start: int, count: int, queue: Optional[int],
-        start_time: Optional[int], end_time: Optional[int]
+        self,
+        puuid: str,
+        start: int,
+        count: int,
+        queue: Optional[int],
+        start_time: Optional[int],
+        end_time: Optional[int],
     ) -> List[str]:
         """Fetch match IDs from Riot API."""
         try:
@@ -237,7 +252,7 @@ class MatchService:
                 count=count,
                 queue=queue,
                 start_time=start_time,
-                end_time=end_time
+                end_time=end_time,
             )
             return match_list.match_ids
         except Exception as e:
@@ -256,7 +271,7 @@ class MatchService:
                 match_dto = await self.riot_client.get_match(match_id)
                 # Convert MatchDTO to dict for storage - use model_dump with by_alias=True
                 # to get camelCase field names that the transformer expects
-                match_data = match_dto.model_dump(by_alias=True, mode='json')
+                match_data = match_dto.model_dump(by_alias=True, mode="json")
                 await self._store_match_detail(match_data)
             except Exception as e:
                 logger.error("Failed to store match", match_id=match_id, error=str(e))
@@ -272,10 +287,10 @@ class MatchService:
             transformed = self.transformer.transform_match_data(match_data)
 
             # Get platform from match metadata
-            platform_id = transformed['match'].get('platform_id', 'EUN1')
+            platform_id = transformed["match"].get("platform_id", "EUN1")
 
             # Ensure all participant PUUIDs exist in players table
-            participant_puuids = {p['puuid'] for p in transformed['participants']}
+            participant_puuids = {p["puuid"] for p in transformed["participants"]}
             for puuid in participant_puuids:
                 # Check if player exists
                 existing_player = await self.db.execute(
@@ -285,25 +300,33 @@ class MatchService:
                     # Create minimal player record
                     # Get summoner name from participants
                     summoner_name = next(
-                        (p['summoner_name'] for p in transformed['participants'] if p['puuid'] == puuid),
-                        'Unknown'
+                        (
+                            p["summoner_name"]
+                            for p in transformed["participants"]
+                            if p["puuid"] == puuid
+                        ),
+                        "Unknown",
                     )
                     player = Player(
                         puuid=puuid,
                         summoner_name=summoner_name,
                         platform=platform_id.lower(),
-                        is_active=True
+                        is_active=True,
                     )
                     self.db.add(player)
-                    logger.debug("Created minimal player record", puuid=puuid, summoner_name=summoner_name)
+                    logger.debug(
+                        "Created minimal player record",
+                        puuid=puuid,
+                        summoner_name=summoner_name,
+                    )
 
             # Store match
-            match_data_dict = transformed['match']
+            match_data_dict = transformed["match"]
             match = Match(**match_data_dict)
             self.db.add(match)
 
             # Store participants
-            for participant_data in transformed['participants']:
+            for participant_data in transformed["participants"]:
                 participant = MatchParticipant(**participant_data)
                 self.db.add(participant)
 
@@ -323,13 +346,12 @@ class MatchService:
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def _get_match_participant(self, match_id: str, puuid: str) -> Optional[MatchParticipant]:
+    async def _get_match_participant(
+        self, match_id: str, puuid: str
+    ) -> Optional[MatchParticipant]:
         """Get match participant from database."""
         query = select(MatchParticipant).where(
-            and_(
-                MatchParticipant.match_id == match_id,
-                MatchParticipant.puuid == puuid
-            )
+            and_(MatchParticipant.match_id == match_id, MatchParticipant.puuid == puuid)
         )
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -356,7 +378,7 @@ class MatchService:
         champion_id: Optional[int] = None,
         is_processed: Optional[bool] = None,
         page: int = 1,
-        size: int = 20
+        size: int = 20,
     ) -> Dict[str, Any]:
         """
         Search matches with various filters.
@@ -381,7 +403,9 @@ class MatchService:
 
             # Apply filters
             if puuid:
-                query = query.join(MatchParticipant).where(MatchParticipant.puuid == puuid)
+                query = query.join(MatchParticipant).where(
+                    MatchParticipant.puuid == puuid
+                )
             if queue_id:
                 query = query.where(Match.queue_id == queue_id)
             if game_mode:
@@ -391,14 +415,18 @@ class MatchService:
             if end_time:
                 query = query.where(Match.game_creation <= end_time)
             if champion_id:
-                query = query.join(MatchParticipant).where(MatchParticipant.champion_id == champion_id)
+                query = query.join(MatchParticipant).where(
+                    MatchParticipant.champion_id == champion_id
+                )
             if is_processed is not None:
                 query = query.where(Match.is_processed == is_processed)
 
             # Get total count
             count_query = select(func.count(Match.match_id))
             if puuid:
-                count_query = count_query.join(MatchParticipant).where(MatchParticipant.puuid == puuid)
+                count_query = count_query.join(MatchParticipant).where(
+                    MatchParticipant.puuid == puuid
+                )
             if queue_id:
                 count_query = count_query.where(Match.queue_id == queue_id)
             if game_mode:
@@ -408,7 +436,9 @@ class MatchService:
             if end_time:
                 count_query = count_query.where(Match.game_creation <= end_time)
             if champion_id:
-                count_query = count_query.join(MatchParticipant).where(MatchParticipant.champion_id == champion_id)
+                count_query = count_query.join(MatchParticipant).where(
+                    MatchParticipant.champion_id == champion_id
+                )
             if is_processed is not None:
                 count_query = count_query.where(Match.is_processed == is_processed)
 
@@ -423,17 +453,19 @@ class MatchService:
             match_responses = [MatchResponse.from_orm(match) for match in matches]
 
             return {
-                'matches': match_responses,
-                'total': total,
-                'page': page,
-                'size': size,
-                'pages': (total + size - 1) // size
+                "matches": match_responses,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size,
             }
         except Exception as e:
             logger.error("Failed to search matches", error=str(e))
             raise
 
-    async def get_match_by_id_with_participants(self, match_id: str) -> Optional[Dict[str, Any]]:
+    async def get_match_by_id_with_participants(
+        self, match_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Get match with all participant details.
 
@@ -444,7 +476,11 @@ class MatchService:
             Dictionary with match and participant data
         """
         try:
-            query = select(Match).options(selectinload(Match.participants)).where(Match.match_id == match_id)
+            query = (
+                select(Match)
+                .options(selectinload(Match.participants))
+                .where(Match.match_id == match_id)
+            )
             result = await self.db.execute(query)
             match = result.scalar_one_or_none()
 
@@ -452,9 +488,13 @@ class MatchService:
                 return None
 
             return {
-                'match': MatchResponse.from_orm(match),
-                'participants': [participant.to_dict() for participant in match.participants]
+                "match": MatchResponse.from_orm(match),
+                "participants": [
+                    participant.to_dict() for participant in match.participants
+                ],
             }
         except Exception as e:
-            logger.error("Failed to get match with participants", match_id=match_id, error=str(e))
+            logger.error(
+                "Failed to get match with participants", match_id=match_id, error=str(e)
+            )
             raise

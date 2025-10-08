@@ -20,7 +20,7 @@ import structlog
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
+        structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,
     logger_factory=structlog.stdlib.LoggerFactory(),
@@ -109,7 +109,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
     openapi_tags=tags_metadata,
     lifespan=lifespan,
-    debug=settings.debug
+    debug=settings.debug,
 )
 
 # Configure CORS middleware
@@ -157,7 +157,7 @@ async def health_check():
         "status": "healthy",
         "message": "Application is running",
         "version": "0.1.0",
-        "debug": settings.debug
+        "debug": settings.debug,
     }
 
 
@@ -174,11 +174,7 @@ async def api_health_check():
     - **service**: Service identifier
     - **version**: API version
     """
-    return {
-        "status": "healthy",
-        "service": "riot-api-backend",
-        "version": "0.1.0"
-    }
+    return {"status": "healthy", "service": "riot-api-backend", "version": "0.1.0"}
 
 
 @app.get("/api/v1/health/cache-stats", tags=["health"])
@@ -214,8 +210,6 @@ async def get_cache_stats():
     return RiotAPICache.get_stats()
 
 
-
-
 if __name__ == "__main__":
     import uvicorn
 
@@ -224,5 +218,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=settings.debug,
-        log_level=settings.log_level.lower()
+        log_level=settings.log_level.lower(),
     )

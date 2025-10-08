@@ -2,8 +2,6 @@
 Configuration settings for the Riot API application.
 """
 
-import os
-from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
@@ -26,7 +24,6 @@ class Settings(BaseSettings):
     postgres_password: str = Field(..., env="POSTGRES_PASSWORD")
     database_url: str = Field(..., env="DATABASE_URL")
 
-
     # Application Configuration
     debug: bool = Field(default=False, env="DEBUG")
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
@@ -36,8 +33,7 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
-        env="CORS_ORIGINS"
+        default=["http://localhost:3000", "http://127.0.0.1:3000"], env="CORS_ORIGINS"
     )
 
     # Database Connection Pool Settings
@@ -46,11 +42,7 @@ class Settings(BaseSettings):
     db_pool_timeout: int = Field(default=30, env="DB_POOL_TIMEOUT")
     db_pool_recycle: int = Field(default=1800, env="DB_POOL_RECYCLE")
 
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        case_sensitive=False
-    )
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
 def get_settings() -> Settings:

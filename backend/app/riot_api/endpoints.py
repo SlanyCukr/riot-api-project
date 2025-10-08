@@ -2,7 +2,7 @@
 Riot API endpoint definitions and routing information.
 """
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 from enum import Enum
 import structlog
 
@@ -11,6 +11,7 @@ logger = structlog.get_logger(__name__)
 
 class Region(str, Enum):
     """Riot API regions for regional routing."""
+
     AMERICAS = "americas"
     ASIA = "asia"
     EUROPE = "europe"
@@ -19,6 +20,7 @@ class Region(str, Enum):
 
 class Platform(str, Enum):
     """Riot API platforms for platform routing."""
+
     BR1 = "br1"
     EUN1 = "eun1"
     EUW1 = "euw1"
@@ -39,6 +41,7 @@ class Platform(str, Enum):
 
 class QueueType(str, Enum):
     """Common queue types for filtering."""
+
     RANKED_SOLO = "420"
     RANKED_FLEX = "440"
     NORMAL_BLIND = "400"
@@ -54,6 +57,7 @@ class QueueType(str, Enum):
 
 class GameMode(str, Enum):
     """Game modes."""
+
     CLASSIC = "CLASSIC"
     ARAM = "ARAM"
     TUTORIAL = "TUTORIAL"
@@ -75,6 +79,7 @@ class GameMode(str, Enum):
 
 class LeagueQueueType(str, Enum):
     """League queue types for ranked entries."""
+
     RANKED_SOLO_5X5 = "RANKED_SOLO_5x5"
     RANKED_FLEX_SR = "RANKED_FLEX_SR"
     RANKED_FLEX_TT = "RANKED_FLEX_TT"
@@ -106,7 +111,9 @@ class RiotAPIEndpoints:
         Platform.VN2: Region.SEA,
     }
 
-    def __init__(self, region: Region = Region.EUROPE, platform: Platform = Platform.EUN1):
+    def __init__(
+        self, region: Region = Region.EUROPE, platform: Platform = Platform.EUN1
+    ):
         """
         Initialize endpoint configuration.
 
@@ -132,7 +139,9 @@ class RiotAPIEndpoints:
         return f"https://{platform.value}.api.riotgames.com"
 
     # Account endpoints (Regional)
-    def account_by_riot_id(self, game_name: str, tag_line: str, region: Optional[Region] = None) -> str:
+    def account_by_riot_id(
+        self, game_name: str, tag_line: str, region: Optional[Region] = None
+    ) -> str:
         """Get account by Riot ID endpoint."""
         base_url = self.get_base_url(region)
         return f"{base_url}/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}"
@@ -142,13 +151,19 @@ class RiotAPIEndpoints:
         base_url = self.get_base_url(region)
         return f"{base_url}/riot/account/v1/accounts/by-puuid/{puuid}"
 
-    def active_shard(self, puuid: str, game: str = "lol", region: Optional[Region] = None) -> str:
+    def active_shard(
+        self, puuid: str, game: str = "lol", region: Optional[Region] = None
+    ) -> str:
         """Get active shard by PUUID endpoint."""
         base_url = self.get_base_url(region)
-        return f"{base_url}/riot/account/v1/active-shards/by-game/{game}/by-puuid/{puuid}"
+        return (
+            f"{base_url}/riot/account/v1/active-shards/by-game/{game}/by-puuid/{puuid}"
+        )
 
     # Summoner endpoints (Platform)
-    def summoner_by_name(self, summoner_name: str, platform: Optional[Platform] = None) -> str:
+    def summoner_by_name(
+        self, summoner_name: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get summoner by name endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/summoner/v4/summoners/by-name/{summoner_name}"
@@ -158,7 +173,9 @@ class RiotAPIEndpoints:
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/summoner/v4/summoners/by-puuid/{puuid}"
 
-    def summoner_by_id(self, summoner_id: str, platform: Optional[Platform] = None) -> str:
+    def summoner_by_id(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get summoner by ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/summoner/v4/summoners/{summoner_id}"
@@ -173,7 +190,7 @@ class RiotAPIEndpoints:
         type: Optional[str] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
-        region: Optional[Region] = None
+        region: Optional[Region] = None,
     ) -> str:
         """Get match list by PUUID endpoint."""
         base_url = self.get_base_url(region)
@@ -199,13 +216,17 @@ class RiotAPIEndpoints:
         base_url = self.get_base_url(region)
         return f"{base_url}/lol/match/v5/matches/{match_id}"
 
-    def match_timeline_by_id(self, match_id: str, region: Optional[Region] = None) -> str:
+    def match_timeline_by_id(
+        self, match_id: str, region: Optional[Region] = None
+    ) -> str:
         """Get match timeline by ID endpoint."""
         base_url = self.get_base_url(region)
         return f"{base_url}/lol/match/v5/matches/{match_id}/timeline"
 
     # League endpoints (Platform)
-    def league_entries_by_summoner(self, summoner_id: str, platform: Optional[Platform] = None) -> str:
+    def league_entries_by_summoner(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get league entries by summoner ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/entries/by-summoner/{summoner_id}"
@@ -216,29 +237,37 @@ class RiotAPIEndpoints:
         tier: str,
         division: str,
         page: int = 1,
-        platform: Optional[Platform] = None
+        platform: Optional[Platform] = None,
     ) -> str:
         """Get league entries by queue, tier, and division endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/entries/{queue.value}/{tier}/{division}?page={page}"
 
-    def league_grandmaster_by_queue(self, queue: LeagueQueueType, platform: Optional[Platform] = None) -> str:
+    def league_grandmaster_by_queue(
+        self, queue: LeagueQueueType, platform: Optional[Platform] = None
+    ) -> str:
         """Get grandmaster league by queue endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/grandmasterleagues/by-queue/{queue.value}"
 
-    def league_challenger_by_queue(self, queue: LeagueQueueType, platform: Optional[Platform] = None) -> str:
+    def league_challenger_by_queue(
+        self, queue: LeagueQueueType, platform: Optional[Platform] = None
+    ) -> str:
         """Get challenger league by queue endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/challengerleagues/by-queue/{queue.value}"
 
-    def league_master_by_queue(self, queue: LeagueQueueType, platform: Optional[Platform] = None) -> str:
+    def league_master_by_queue(
+        self, queue: LeagueQueueType, platform: Optional[Platform] = None
+    ) -> str:
         """Get master league by queue endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/masterleagues/by-queue/{queue.value}"
 
     # Spectator endpoints (Platform)
-    def active_game_by_summoner(self, summoner_id: str, platform: Optional[Platform] = None) -> str:
+    def active_game_by_summoner(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get active game by summoner ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/spectator/v4/active-games/by-summoner/{summoner_id}"
@@ -249,30 +278,35 @@ class RiotAPIEndpoints:
         return f"{platform_url}/lol/spectator/v4/featured-games"
 
     # Champion Mastery endpoints (Platform)
-    def champion_mastery_by_summoner(self, summoner_id: str, platform: Optional[Platform] = None) -> str:
+    def champion_mastery_by_summoner(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get all champion mastery entries by summoner ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}"
 
     def champion_mastery_by_champion(
-        self,
-        summoner_id: str,
-        champion_id: int,
-        platform: Optional[Platform] = None
+        self, summoner_id: str, champion_id: int, platform: Optional[Platform] = None
     ) -> str:
         """Get champion mastery by summoner ID and champion ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}/by-champion/{champion_id}"
 
-    def champion_mastery_top(self, summoner_id: str, count: int = 3, platform: Optional[Platform] = None) -> str:
+    def champion_mastery_top(
+        self, summoner_id: str, count: int = 3, platform: Optional[Platform] = None
+    ) -> str:
         """Get top champion mastery entries by summoner ID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/champion-mastery/v4/champion-masteries/by-summoner/{summoner_id}/top?count={count}"
 
-    def champion_mastery_total_score(self, summoner_id: str, platform: Optional[Platform] = None) -> str:
+    def champion_mastery_total_score(
+        self, summoner_id: str, platform: Optional[Platform] = None
+    ) -> str:
         """Get total champion mastery score by summoner ID endpoint."""
         platform_url = self.get_platform_url(platform)
-        return f"{platform_url}/lol/champion-mastery/v4/scores/by-summoner/{summoner_id}"
+        return (
+            f"{platform_url}/lol/champion-mastery/v4/scores/by-summoner/{summoner_id}"
+        )
 
     # LOL Status endpoints (Platform)
     def lol_status(self, platform: Optional[Platform] = None) -> str:
@@ -281,17 +315,23 @@ class RiotAPIEndpoints:
         return f"{platform_url}/lol/status/v4/platform-data"
 
     # Tournament endpoints (Regional)
-    def tournament_codes(self, tournament_id: int, count: int = 1, region: Optional[Region] = None) -> str:
+    def tournament_codes(
+        self, tournament_id: int, count: int = 1, region: Optional[Region] = None
+    ) -> str:
         """Get tournament codes endpoint."""
         base_url = self.get_base_url(region)
         return f"{base_url}/lol/tournament/v5/codes?count={count}&tournamentId={tournament_id}"
 
-    def tournament_info_by_code(self, tournament_code: str, region: Optional[Region] = None) -> str:
+    def tournament_info_by_code(
+        self, tournament_code: str, region: Optional[Region] = None
+    ) -> str:
         """Get tournament info by code endpoint."""
         base_url = self.get_base_url(region)
         return f"{base_url}/lol/tournament/v5/codes/{tournament_code}"
 
-    def match_by_tournament_code(self, match_id: str, tournament_code: str, region: Optional[Region] = None) -> str:
+    def match_by_tournament_code(
+        self, match_id: str, tournament_code: str, region: Optional[Region] = None
+    ) -> str:
         """Get match by tournament code endpoint."""
         base_url = self.get_base_url(region)
         return f"{base_url}/lol/match/v5/matches/{match_id}/by-tournament-code/{tournament_code}"
@@ -314,23 +354,20 @@ class RateLimitInfo:
     METHOD_LIMITS = {
         # Account endpoints
         "account": {"requests": 100, "window": 120},  # 100 requests per 2 minutes
-
         # Summoner endpoints
         "summoner": {"requests": 500, "window": 600},  # 500 requests per 10 minutes
-
         # Match endpoints
         "match": {"requests": 100, "window": 120},  # 100 requests per 2 minutes
         "match_timeline": {"requests": 50, "window": 120},  # 50 requests per 2 minutes
-
         # League endpoints
         "league": {"requests": 300, "window": 600},  # 300 requests per 10 minutes
-
         # Spectator endpoints
         "spectator": {"requests": 300, "window": 600},  # 300 requests per 10 minutes
-
         # Champion Mastery endpoints
-        "champion_mastery": {"requests": 1000, "window": 3600},  # 1000 requests per hour
-
+        "champion_mastery": {
+            "requests": 1000,
+            "window": 3600,
+        },  # 1000 requests per hour
         # Status endpoints
         "status": {"requests": 500, "window": 600},  # 500 requests per 10 minutes
     }
@@ -368,12 +405,14 @@ def parse_rate_limit_header(header_value: str) -> List[Dict[str, int]]:
         return []
 
     limits = []
-    for part in header_value.split(','):
+    for part in header_value.split(","):
         try:
-            requests, window = map(int, part.strip().split(':'))
+            requests, window = map(int, part.strip().split(":"))
             limits.append({"requests": requests, "window": window})
         except (ValueError, AttributeError):
-            logger.warning("Failed to parse rate limit part", part=part, header=header_value)
+            logger.warning(
+                "Failed to parse rate limit part", part=part, header=header_value
+            )
             continue
 
     return limits
