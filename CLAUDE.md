@@ -91,18 +91,15 @@ docker compose down
 Pre-commit hooks automatically check code quality before commits. They run linters, formatters, and other checks to ensure consistent code style.
 
 ```bash
-# Install pre-commit (one-time setup)
-pip install pre-commit
-
-# Install git hooks
-pre-commit install
+# Install and run pre-commit hooks (using uvx - no installation needed)
+uvx pre-commit install
 
 # Run hooks manually on all files
-pre-commit run --all-files
+uvx pre-commit run --all-files
 
 # Run specific hook
-pre-commit run ruff --all-files
-pre-commit run ruff-format --all-files
+uvx pre-commit run ruff --all-files
+uvx pre-commit run ruff-format --all-files
 ```
 
 ### Configured Hooks
