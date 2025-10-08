@@ -39,7 +39,7 @@ class SummonerDTO(BaseModel):
 
 class MatchListDTO(BaseModel):
     """Match list response."""
-    match_ids: List[str] = Field(..., alias="matchIds")
+    match_ids: List[str]
     start: int
     count: int
     total: Optional[int] = None
@@ -55,6 +55,7 @@ class ParticipantDTO(BaseModel):
     summoner_id: Optional[str] = Field(None, alias="summonerId")
     team_id: int = Field(..., alias="teamId")
     win: bool
+    champion_id: int = Field(..., alias="championId")
     champion_name: str = Field(..., alias="championName")
     kills: int
     deaths: int

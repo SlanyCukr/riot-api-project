@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.endpoints import Platform, Region
+from ..riot_api.errors import NotFoundError as RiotNotFoundError
 from ..models.players import Player
 from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
 import structlog
@@ -46,19 +47,25 @@ class PlayerService:
                 summoner = await self.riot_client.get_summoner_by_puuid(account.puuid, platform_enum)
 
                 # Create player record
+                # Note: summoner.name and summoner.id are no longer returned by Riot API v4
+                # Use game_name from account and summoner_id is optional
                 player_data = PlayerCreate(
                     puuid=account.puuid,
                     riot_id=game_name,
                     tag_line=tag_line,
-                    summoner_name=account.game_name,
+                    summoner_name=game_name,  # Use game_name since API doesn't return summoner.name
                     platform=platform,
                     account_level=summoner.summoner_level,
                     profile_icon_id=summoner.profile_icon_id,
-                    summoner_id=summoner.id
+                    summoner_id=summoner.id  # May be None, which is acceptable
                 )
 
                 player = await self._create_or_update_player(player_data)
 
+            except RiotNotFoundError:
+                logger.info("Player not found in Riot API",
+                           game_name=game_name, tag_line=tag_line)
+                raise ValueError(f"Player not found: {game_name}#{tag_line}")
             except Exception as e:
                 logger.error("Failed to fetch player data from Riot API",
                            game_name=game_name, tag_line=tag_line, error=str(e))
@@ -69,14 +76,13 @@ class PlayerService:
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
     ) -> PlayerResponse:
-        """Get player by summoner name."""
-        # Convert platform string to Platform enum
-        try:
-            platform_enum = Platform(platform) if isinstance(platform, str) else platform
-        except ValueError:
-            raise ValueError(f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}")
+        """
+        Get player by summoner name from database only.
 
-        # Try database first - look for exact match or partial match
+        This searches only the local database for players already being tracked.
+        To add new players from Riot API, use a separate add/import feature.
+        """
+        # Search database for exact match or partial match
         result = await self.db.execute(
             select(Player).where(
                 Player.summoner_name.ilike(f"%{summoner_name}%"),
@@ -89,51 +95,32 @@ class PlayerService:
         # If exact match found, return it
         for player in players:
             if player.summoner_name.lower() == summoner_name.lower():
+                logger.info("Found exact match for summoner name",
+                           summoner_name=summoner_name, platform=platform)
                 return PlayerResponse.from_orm(player)
 
         # If only one partial match, return it
         if len(players) == 1:
+            logger.info("Found single partial match for summoner name",
+                       summoner_name=summoner_name, platform=platform,
+                       matched_name=players[0].summoner_name)
             return PlayerResponse.from_orm(players[0])
 
-        # If multiple matches or no matches, fetch from Riot API
-        try:
-            summoner = await self.riot_client.get_summoner_by_name(summoner_name, platform_enum)
-
-            # Check if we already have this player by PUUID
-            existing_player = await self._get_player_from_db(puuid=summoner.puuid)
-            if existing_player:
-                # Update player info
-                await self._update_player(existing_player.puuid, PlayerUpdate(
-                    summoner_name=summoner_name,
-                    account_level=summoner.summoner_level
-                ))
-                existing_player.summoner_name = summoner_name
-                existing_player.account_level = summoner.summoner_level
-                existing_player.profile_icon_id = summoner.profile_icon_id
-                existing_player.summoner_id = summoner.id
-
-                return PlayerResponse.from_orm(existing_player)
-
-            # Create new player record
-            player_data = PlayerCreate(
-                puuid=summoner.puuid,
-                summoner_name=summoner_name,
-                platform=platform,
-                account_level=summoner.summoner_level,
-                profile_icon_id=summoner.profile_icon_id,
-                summoner_id=summoner.id
+        # If multiple partial matches, return error with suggestions
+        if len(players) > 1:
+            matched_names = [p.summoner_name for p in players]
+            logger.info("Found multiple matches for summoner name",
+                       summoner_name=summoner_name, platform=platform,
+                       matches=matched_names)
+            raise ValueError(
+                f"Multiple players found matching '{summoner_name}': {', '.join(matched_names)}. "
+                "Please be more specific."
             )
 
-            player = await self._create_or_update_player(player_data)
-            return PlayerResponse.from_orm(player)
-
-        except Exception as e:
-            logger.error("Failed to fetch player by summoner name",
-                       summoner_name=summoner_name, platform=platform, error=str(e))
-            if players:
-                # Return the first partial match if API call fails
-                return PlayerResponse.from_orm(players[0])
-            raise Exception(f"Player not found: {str(e)}")
+        # No matches found in database
+        logger.info("No player found in database for summoner name",
+                   summoner_name=summoner_name, platform=platform)
+        raise ValueError(f"Player not found: {summoner_name}")
 
     async def get_player_by_puuid(self, puuid: str) -> Optional[PlayerResponse]:
         """Get player by PUUID."""

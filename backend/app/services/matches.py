@@ -253,7 +253,10 @@ class MatchService:
                 if existing_match:
                     continue
 
-                match_data = await self.riot_client.get_match(match_id)
+                match_dto = await self.riot_client.get_match(match_id)
+                # Convert MatchDTO to dict for storage - use model_dump with by_alias=True
+                # to get camelCase field names that the transformer expects
+                match_data = match_dto.model_dump(by_alias=True, mode='json')
                 await self._store_match_detail(match_data)
             except Exception as e:
                 logger.error("Failed to store match", match_id=match_id, error=str(e))
@@ -267,6 +270,32 @@ class MatchService:
                 raise ValueError("Invalid match data")
 
             transformed = self.transformer.transform_match_data(match_data)
+
+            # Get platform from match metadata
+            platform_id = transformed['match'].get('platform_id', 'EUN1')
+
+            # Ensure all participant PUUIDs exist in players table
+            participant_puuids = {p['puuid'] for p in transformed['participants']}
+            for puuid in participant_puuids:
+                # Check if player exists
+                existing_player = await self.db.execute(
+                    select(Player).where(Player.puuid == puuid)
+                )
+                if not existing_player.scalar_one_or_none():
+                    # Create minimal player record
+                    # Get summoner name from participants
+                    summoner_name = next(
+                        (p['summoner_name'] for p in transformed['participants'] if p['puuid'] == puuid),
+                        'Unknown'
+                    )
+                    player = Player(
+                        puuid=puuid,
+                        summoner_name=summoner_name,
+                        platform=platform_id.lower(),
+                        is_active=True
+                    )
+                    self.db.add(player)
+                    logger.debug("Created minimal player record", puuid=puuid, summoner_name=summoner_name)
 
             # Store match
             match_data_dict = transformed['match']

@@ -168,18 +168,8 @@ class RiotAPIClient:
         """
         await self.start_session()
 
-        # Generate cache key
-        cache_key = self._generate_cache_key(url, method, params, data) if use_cache and self.cache else None
-
-        # Check cache
-        if use_cache and self.cache and cache_key:
-            cached_data = await self.cache.cache.get("request", cache_key)
-            if cached_data:
-                self.stats["cache_hits"] += 1
-                logger.debug("Cache hit", url=url, method=method)
-                return cached_data
-            else:
-                self.stats["cache_misses"] += 1
+        # Cache checking is done at the method level (get_account_by_riot_id, get_match, etc.)
+        # Generic request caching removed to use endpoint-specific caching
 
         # Rate limiting
         endpoint_path = self._extract_endpoint_path(url)
@@ -256,9 +246,7 @@ class RiotAPIClient:
                     # Success response
                     response_data = await response.json()
 
-                    # Cache successful response
-                    if use_cache and self.cache and cache_key:
-                        await self.cache.cache.set("request", response_data, 300, cache_key)
+                    # Caching is done at the method level (get_account_by_riot_id, get_match, etc.)
 
                     # Record success
                     await self.rate_limiter.record_success(endpoint_path, method)
@@ -390,33 +378,36 @@ class RiotAPIClient:
         puuid: str,
         start: int = 0,
         count: int = 20,
-        queue: Optional[QueueType] = None,
+        queue: Optional[Union[int, QueueType]] = None,
         type: Optional[str] = None,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
         region: Optional[Region] = None
     ) -> MatchListDTO:
         """Get match list by PUUID."""
+        # Normalize queue parameter to QueueType
+        queue_type = self._normalize_queue_type(queue)
+
         if self.cache:
             cached = await self.cache.get_match_list_by_puuid(
-                puuid, start, count, queue.value if queue else None,
+                puuid, start, count, queue_type.value if queue_type else None,
                 start_time, end_time
             )
             if cached:
-                return MatchListDTO(**cached)
+                return MatchListDTO(match_ids=cached, start=start, count=count, puuid=puuid)
 
         url = self.endpoints.match_list_by_puuid(
-            puuid, start, count, queue, type, start_time, end_time, region
+            puuid, start, count, queue_type, type, start_time, end_time, region
         )
         data = await self._make_request(url)
 
         if self.cache:
             await self.cache.set_match_list_by_puuid(
                 puuid, start, count, data,
-                queue.value if queue else None, start_time, end_time
+                queue_type.value if queue_type else None, start_time, end_time
             )
 
-        return MatchListDTO(match_ids=data, start=start, count=count)
+        return MatchListDTO(match_ids=data, start=start, count=count, puuid=puuid)
 
     async def get_match(self, match_id: str, region: Optional[Region] = None) -> MatchDTO:
         """Get match details by match ID."""
@@ -504,10 +495,45 @@ class RiotAPIClient:
         summoner = await self.get_summoner_by_puuid(puuid, platform)
         return summoner.id
 
+    @staticmethod
+    def _normalize_queue_type(queue: Optional[Union[int, str, QueueType]]) -> Optional[QueueType]:
+        """
+        Normalize queue parameter to QueueType enum.
+
+        Args:
+            queue: Queue ID as int, string, QueueType enum, or None
+
+        Returns:
+            QueueType enum or None
+
+        Notes:
+            - If queue is already QueueType, return as-is
+            - If queue is int or str, try to find matching QueueType
+            - If no match found, return None (let Riot API handle invalid values)
+        """
+        if queue is None:
+            return None
+
+        if isinstance(queue, QueueType):
+            return queue
+
+        # Convert to string for comparison
+        queue_str = str(queue)
+
+        # Try to find matching QueueType by value
+        for queue_type in QueueType:
+            if queue_type.value == queue_str:
+                return queue_type
+
+        # If no exact match, return None
+        # Alternative: Could pass raw int and let Riot API validate
+        logger.warning("Unknown queue type", queue=queue)
+        return None
+
     async def get_match_history_stats(
         self,
         puuid: str,
-        queue: QueueType = QueueType.RANKED_SOLO,
+        queue: Union[int, QueueType] = QueueType.RANKED_SOLO,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
         max_matches: int = 100
@@ -517,7 +543,7 @@ class RiotAPIClient:
 
         Args:
             puuid: Player PUUID
-            queue: Queue type to filter
+            queue: Queue type to filter (int or QueueType)
             start_time: Start time in epoch seconds
             end_time: End time in epoch seconds
             max_matches: Maximum number of matches to analyze
@@ -525,12 +551,17 @@ class RiotAPIClient:
         Returns:
             Dictionary with statistics
         """
+        # Normalize queue parameter
+        queue_type = self._normalize_queue_type(queue)
+        if queue_type is None:
+            queue_type = QueueType.RANKED_SOLO
+
         # Get match list
         match_list = await self.get_match_list_by_puuid(
             puuid,
             start=0,
             count=max_matches,
-            queue=queue,
+            queue=queue_type,
             start_time=start_time,
             end_time=end_time
         )
@@ -567,7 +598,7 @@ class RiotAPIClient:
 
         return {
             "puuid": puuid,
-            "queue": queue.value,
+            "queue": queue_type.value,
             "total_matches": total_matches,
             "wins": wins,
             "losses": total_matches - wins,

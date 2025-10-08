@@ -38,13 +38,7 @@ export function Dashboard() {
           <div className="lg:col-span-2 space-y-6">
             {selectedPlayer && (
               <>
-                <PlayerCard
-                  player={selectedPlayer}
-                  onAnalyze={() => {
-                    setShowMatchHistory(false);
-                    setShowSmurfDetection(true);
-                  }}
-                />
+                <PlayerCard player={selectedPlayer} />
 
                 <div className="flex space-x-4">
                   <button

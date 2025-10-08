@@ -65,7 +65,7 @@ class SmurfDetection(Base):
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the player being analyzed"
+        comment="Reference to the player being analyzed (Riot PUUID)"
     )
 
     # Detection results

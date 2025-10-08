@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 
 
 class MatchBase(BaseModel):
@@ -49,8 +49,18 @@ class MatchResponse(MatchBase):
     game_start_datetime: Optional[datetime] = Field(None, description="Game creation as a datetime object")
     game_end_datetime: Optional[datetime] = Field(None, description="Game end as a datetime object")
     patch_version: Optional[str] = Field(None, description="Extracted patch version from game version")
-    is_ranked_match: bool = Field(..., description="Whether this is a ranked match")
-    is_normal_match: bool = Field(..., description="Whether this is a normal match")
+
+    @computed_field
+    @property
+    def is_ranked_match(self) -> bool:
+        """Whether this is a ranked match."""
+        return self.queue_id in [420, 440]  # Ranked Solo/Duo and Ranked Flex
+
+    @computed_field
+    @property
+    def is_normal_match(self) -> bool:
+        """Whether this is a normal match."""
+        return self.queue_id in [400, 430]  # Normal Draft and Blind Pick
 
     model_config = ConfigDict(from_attributes=True)
 

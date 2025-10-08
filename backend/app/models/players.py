@@ -25,8 +25,9 @@ class Player(Base):
     __tablename__ = "players"
 
     # Primary key - PUUID is the unique identifier from Riot API
+    # Note: Riot PUUID is a base64-encoded string, not a standard UUID
     puuid = Column(
-        String(78),
+        String(78),  # Riot PUUIDs are 78 characters
         primary_key=True,
         index=True,
         comment="Player's universally unique identifier from Riot API"

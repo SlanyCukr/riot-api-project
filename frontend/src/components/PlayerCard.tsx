@@ -3,10 +3,9 @@ import { Trophy, User } from 'lucide-react';
 
 interface PlayerCardProps {
   player: Player;
-  onAnalyze?: () => void;
 }
 
-export function PlayerCard({ player, onAnalyze }: PlayerCardProps) {
+export function PlayerCard({ player }: PlayerCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
   };
@@ -54,15 +53,6 @@ export function PlayerCard({ player, onAnalyze }: PlayerCardProps) {
           <div className="text-xs">{player.platform}</div>
         </div>
       </div>
-
-      {onAnalyze && (
-        <button
-          onClick={onAnalyze}
-          className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-        >
-          Analyze for Smurf Detection
-        </button>
-      )}
     </div>
   );
 }

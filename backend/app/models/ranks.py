@@ -69,7 +69,7 @@ class PlayerRank(Base):
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the player"
+        comment="Reference to the player (Riot PUUID)"
     )
 
     # Queue and rank information
