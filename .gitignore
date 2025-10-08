@@ -233,11 +233,13 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# Docker
-.dockerignore
-
 # Application specific
 *.sqlite
 *.db
 logs/
 *.log
+
+agents/
+.zed/
+.claude/
+specs/

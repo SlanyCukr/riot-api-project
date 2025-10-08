@@ -12,6 +12,7 @@ This is a full-stack Riot API application for analyzing League of Legends match 
 - `frontend/` - React TypeScript frontend application
 - `docker/` - Docker configuration and deployment guides
 - `docker/postgres/` - Database-specific guidance
+- `scripts/` - Utility scripts for development and deployment
 
 ## Specialized Documentation
 

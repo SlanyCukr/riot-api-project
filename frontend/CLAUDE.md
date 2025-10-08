@@ -4,22 +4,32 @@ This file provides guidance for working with the React TypeScript frontend.
 
 ## Technology Stack
 
-- **Framework**: React with TypeScript
-- **Styling**: Tailwind CSS
+- **Framework**: React 19.2.0 with TypeScript
+- **Styling**: Tailwind CSS with class-variance-authority and clsx
 - **Build Tool**: Vite
 - **Package Manager**: npm
-- **Linting**: ESLint
+- **Routing**: React Router DOM
+- **State Management**: TanStack Query (React Query)
+- **Form Handling**: React Hook Form with Zod validation
+- **HTTP Client**: Axios
+- **UI Components**: Radix UI primitives, Lucide React icons
+- **Linting**: ESLint with TypeScript
 - **Testing**: React Testing Library (planned)
 
 ## Project Structure
 
 - **src/components/**: Reusable UI components
+  - `PlayerSearch.tsx`: Player search form component
+  - `PlayerCard.tsx`: Player information display
+  - `MatchHistory.tsx`: Match history list component
+  - `SmurfDetection.tsx`: Smurf detection results display
+  - `LoadingSpinner.tsx`: Loading state component
+  - `ErrorMessage.tsx`: Error display component
 - **src/pages/**: Page-level components
 - **src/hooks/**: Custom React hooks
-- **src/services/**: API client and services
+- **src/lib/**: Utility libraries and helpers
 - **src/types/**: TypeScript type definitions
 - **src/utils/**: Utility functions
-- **src/styles/**: Global styles and Tailwind configuration
 
 ## Development Guidelines
 
@@ -49,8 +59,9 @@ This file provides guidance for working with the React TypeScript frontend.
 - Authentication handling
 
 ### Data Fetching
-- Use React Query or SWR for data fetching
-- Implement proper caching strategies
+- Uses TanStack Query (React Query) for server state management
+- Axios for HTTP requests to backend API
+- Implement proper caching strategies with React Query
 - Handle loading and error states gracefully
 - Use optimistic updates where appropriate
 

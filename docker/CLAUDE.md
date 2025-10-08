@@ -246,6 +246,38 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 - Use secrets management
 - Implement proper logging
 
+## Utility Scripts
+
+### Clean Local Environment
+Remove local development artifacts when switching to pure Docker development:
+
+```bash
+# Run cleanup script
+./scripts/clean-local.sh
+```
+
+This script removes:
+- Python virtual environments (.venv, venv)
+- Node.js dependencies (node_modules)
+- Build artifacts (dist, build)
+- Cache files (.cache, .pytest_cache, .mypy_cache)
+- Log files (*.log, logs/)
+- Temporary files (*.tmp, .eslintcache)
+
+### Seed Development Data
+Insert test data into the database for development and testing:
+
+```bash
+# Seed test player data
+./scripts/seed-dev-data.sh
+```
+
+This script:
+- Inserts a real test player (Jim Morioriarty#2434 from EUNE)
+- Can be run multiple times safely (uses upsert logic)
+- Useful for testing player search, match history, and smurf detection features
+- Requires database to be running and migrations applied
+
 ## Troubleshooting
 
 ### Common Issues

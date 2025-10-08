@@ -17,6 +17,44 @@ This file provides guidance for working with the PostgreSQL database and schema.
 - Players → Ranks (one-to-many, historical)
 - Players → Smurf Detection (one-to-many, historical)
 
+## Database Initialization
+
+### Init SQL Script
+The database is initialized using `/docker/postgres/init.sql` (mounted in docker-compose.yml):
+
+- Sets up database infrastructure (schemas, permissions, privileges)
+- Creates `app` schema
+- Configures user permissions and search paths
+- **Note**: Does NOT create tables - tables are created by Alembic migrations
+- **Note**: Does not use `uuid-ossp` extension - not needed since PUUIDs are stored as strings
+
+### Execution Order
+When PostgreSQL container starts for the first time:
+1. `init.sql` runs → creates database infrastructure
+2. Backend starts → Alembic creates all tables
+
+**Important**: Init scripts only run on first container creation. To re-run:
+```bash
+docker-compose down -v  # Remove volume
+docker-compose up       # Fresh database
+```
+
+### Development Seed Data
+For development and testing, use the seed script instead of SQL files:
+
+```bash
+# Seed test player data into the database
+./scripts/seed-dev-data.sh
+```
+
+This script inserts a real test player (Jim Morioriarty#2434 from EUNE, Level 794) into the database. The script can be run multiple times safely (uses `ON CONFLICT DO UPDATE`).
+
+**Benefits over SQL files**:
+- No need to modify docker-compose.yml
+- Can be run on-demand, anytime after migrations
+- Easier to maintain and extend
+- Clear separation from initialization logic
+
 ## Database Operations (via Docker)
 
 ### Migrations
