@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { useApi } from '../hooks/useApi';
-import { Player } from '../types/api';
-import { Search, User } from 'lucide-react';
+import { useState } from "react";
+import { useApi } from "../hooks/useApi";
+import { Player } from "../types/api";
+import { Search, User } from "lucide-react";
 
 interface PlayerSearchProps {
   onPlayerFound: (player: Player) => void;
 }
 
 export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
-  const [searchType, setSearchType] = useState<'riot_id' | 'summoner_name'>('riot_id');
-  const [searchValue, setSearchValue] = useState('');
-  const [platform, setPlatform] = useState('eun1');
+  const [searchType, setSearchType] = useState<"riot_id" | "summoner_name">(
+    "riot_id",
+  );
+  const [searchValue, setSearchValue] = useState("");
+  const [platform, setPlatform] = useState("eun1");
   const { loading, error, get } = useApi<Player>();
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -23,12 +25,12 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       platform,
     };
 
-    await get('/players/search', searchParams, {
+    await get("/players/search", searchParams, {
       onSuccess: (data) => {
         if (data) {
           onPlayerFound(data);
         }
-      }
+      },
     });
   };
 
@@ -50,8 +52,8 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                 type="radio"
                 name="searchType"
                 value="riot_id"
-                checked={searchType === 'riot_id'}
-                onChange={(e) => setSearchType(e.target.value as 'riot_id')}
+                checked={searchType === "riot_id"}
+                onChange={(e) => setSearchType(e.target.value as "riot_id")}
                 className="mr-2"
               />
               Riot ID (name#tag)
@@ -61,8 +63,10 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                 type="radio"
                 name="searchType"
                 value="summoner_name"
-                checked={searchType === 'summoner_name'}
-                onChange={(e) => setSearchType(e.target.value as 'summoner_name')}
+                checked={searchType === "summoner_name"}
+                onChange={(e) =>
+                  setSearchType(e.target.value as "summoner_name")
+                }
                 className="mr-2"
               />
               Summoner Name
@@ -72,13 +76,15 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {searchType === 'riot_id' ? 'Riot ID' : 'Summoner Name'}
+            {searchType === "riot_id" ? "Riot ID" : "Summoner Name"}
           </label>
           <input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder={searchType === 'riot_id' ? 'DangerousDan#EUW' : 'DangerousDan'}
+            placeholder={
+              searchType === "riot_id" ? "DangerousDan#EUW" : "DangerousDan"
+            }
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={loading}
           />

@@ -1,6 +1,4 @@
-"""
-Custom error classes for Riot API client.
-"""
+"""Custom error classes for Riot API client."""
 
 from typing import Optional, Dict, Any
 import json
@@ -16,6 +14,7 @@ class RiotAPIError(Exception):
         response_data: Optional[Dict[str, Any]] = None,
         retry_after: Optional[float] = None,
     ):
+        """Initialize RiotAPIError."""
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data or {}
@@ -23,9 +22,10 @@ class RiotAPIError(Exception):
         self.message = message
 
     def __str__(self) -> str:
+        """Return string representation of the error."""
         if self.status_code:
-            return f"RiotAPIError[{self.status_code}]: {self.message}"
-        return f"RiotAPIError: {self.message}"
+            return f"Riot API Error {self.status_code}: {self.message}"
+        return f"Riot API Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -48,14 +48,18 @@ class RateLimitError(RiotAPIError):
         app_rate_limit: Optional[str] = None,
         method_rate_limit: Optional[str] = None,
     ):
+        """Initialize RateLimitError."""
         super().__init__(message=message, status_code=429, retry_after=retry_after)
         self.app_rate_limit = app_rate_limit
         self.method_rate_limit = method_rate_limit
 
     def __str__(self) -> str:
+        """Return string representation of the error."""
         if self.retry_after:
-            return f"RateLimitError: {self.message} (Retry after: {self.retry_after}s)"
-        return f"RateLimitError: {self.message}"
+            return (
+                f"Rate Limit Error: {self.message} (Retry after: {self.retry_after}s)"
+            )
+        return f"Rate Limit Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -74,10 +78,12 @@ class AuthenticationError(RiotAPIError):
     """Exception raised for authentication/authorization failures."""
 
     def __init__(self, message: str = "Authentication failed"):
+        """Initialize AuthenticationError."""
         super().__init__(message=message, status_code=401)
 
     def __str__(self) -> str:
-        return f"AuthenticationError: {self.message}"
+        """Return string representation of the error."""
+        return f"Authentication Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -93,10 +99,12 @@ class ForbiddenError(RiotAPIError):
         self,
         message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions",
     ):
+        """Initialize ForbiddenError."""
         super().__init__(message=message, status_code=403)
 
     def __str__(self) -> str:
-        return f"ForbiddenError: {self.message}"
+        """Return string representation of the error."""
+        return f"Forbidden Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -109,10 +117,12 @@ class NotFoundError(RiotAPIError):
     """Exception raised when requested resource is not found."""
 
     def __init__(self, message: str = "Resource not found"):
+        """Initialize NotFoundError."""
         super().__init__(message=message, status_code=404)
 
     def __str__(self) -> str:
-        return f"NotFoundError: {self.message}"
+        """Return string representation of the error."""
+        return f"Not Found Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -124,11 +134,13 @@ class NotFoundError(RiotAPIError):
 class ServiceUnavailableError(RiotAPIError):
     """Exception raised when Riot API service is unavailable."""
 
-    def __init__(self, message: str = "Service unavailable"):
+    def __init__(self, message: str = "API service unavailable"):
+        """Initialize ServiceUnavailableError."""
         super().__init__(message=message, status_code=503)
 
     def __str__(self) -> str:
-        return f"ServiceUnavailableError: {self.message}"
+        """Return string representation of the error."""
+        return f"Service Unavailable Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -140,11 +152,13 @@ class ServiceUnavailableError(RiotAPIError):
 class BadRequestError(RiotAPIError):
     """Exception raised for malformed requests."""
 
-    def __init__(self, message: str = "Bad request"):
+    def __init__(self, message: str = "Invalid API request"):
+        """Initialize InvalidRequestError."""
         super().__init__(message=message, status_code=400)
 
     def __str__(self) -> str:
-        return f"BadRequestError: {self.message}"
+        """Return string representation of the error."""
+        return f"Bad Request Error: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for JSON serialization."""
@@ -157,10 +171,12 @@ class CircuitBreakerOpenError(RiotAPIError):
     """Exception raised when circuit breaker is open."""
 
     def __init__(self, message: str = "Circuit breaker is open"):
+        """Initialize CircuitBreakerOpenError."""
         super().__init__(message=message)
         self.status_code = None  # This is a client-side error
 
     def __str__(self) -> str:
+        """Return string representation of the error."""
         return f"CircuitBreakerOpenError: {self.message}"
 
     def to_dict(self) -> Dict[str, Any]:

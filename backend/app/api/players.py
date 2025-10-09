@@ -1,9 +1,7 @@
-"""
-Player API endpoints for the Riot API application.
-"""
+"""Player API endpoints for the Riot API application."""
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional, List
+
 from uuid import UUID
 
 from ..schemas.players import (
@@ -20,8 +18,8 @@ router = APIRouter(prefix="/players", tags=["players"])
 @router.get("/search", response_model=PlayerResponse)
 async def search_player(
     player_service: PlayerServiceDep,
-    riot_id: Optional[str] = Query(None, description="Riot ID in format name#tag"),
-    summoner_name: Optional[str] = Query(None, description="Summoner name"),
+    riot_id: str | None = Query(None, description="Riot ID in format name#tag"),
+    summoner_name: str | None = Query(None, description="Summoner name"),
     platform: str = Query("eun1", description="Platform region"),
 ):
     """
@@ -48,8 +46,11 @@ async def search_player(
                 game_name, tag_line, platform
             )
         else:
+            if summoner_name is None:
+                raise HTTPException(status_code=400, detail="summoner_name is required")
             player = await player_service.get_player_by_summoner_name(
-                summoner_name, platform
+                summoner_name,
+                platform,
             )
 
         return player
@@ -60,25 +61,25 @@ async def search_player(
 
 @router.get("/{puuid}", response_model=PlayerResponse)
 async def get_player_by_puuid(puuid: UUID, player_service: PlayerServiceDep):
-    """Get player information by PUUID"""
+    """Get player information by PUUID."""
     player = await player_service.get_player_by_puuid(str(puuid))
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
 
 
-@router.get("/{puuid}/recent", response_model=List[str])
+@router.get("/{puuid}/recent", response_model=list[str])
 async def get_player_recent_opponents(
     puuid: UUID,
     player_service: PlayerServiceDep,
     limit: int = Query(10, ge=1, le=50, description="Number of recent opponents"),
 ):
-    """Get recent opponents for a player"""
+    """Get recent opponents for a player."""
     opponents = await player_service.get_recent_opponents(str(puuid), limit)
     return opponents
 
 
-@router.post("/search", response_model=List[PlayerResponse])
+@router.post("/search", response_model=list[PlayerResponse])
 async def search_players_advanced(
     search_request: PlayerSearchRequest, player_service: PlayerServiceDep
 ):
@@ -109,10 +110,10 @@ async def get_players_bulk(
     )
 
 
-@router.get("/", response_model=List[PlayerResponse])
+@router.get("/", response_model=list[PlayerResponse])
 async def get_players(
     player_service: PlayerServiceDep,
-    platform: Optional[str] = Query(None, description="Filter by platform"),
+    platform: str | None = Query(None, description="Filter by platform"),
     limit: int = Query(20, ge=1, le=100, description="Number of players to return"),
 ):
     """Get players with optional filtering."""

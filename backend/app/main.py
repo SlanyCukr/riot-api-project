@@ -46,7 +46,7 @@ structlog.configure(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager"""
+    """Application lifespan manager."""
     logger.info("Starting up Riot API Backend application")
 
     yield
@@ -115,7 +115,7 @@ app = FastAPI(
 # Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -164,7 +164,7 @@ async def health_check():
 @app.get("/api/v1/health", tags=["health"])
 async def api_health_check():
     """
-    API v1 health check endpoint.
+    Check API v1 health status.
 
     Returns health status specifically for the v1 API endpoints.
     This is the recommended health check endpoint for production use.

@@ -135,8 +135,12 @@ async def get_latest_detection(
 async def get_detection_history(
     puuid: str,
     detection_service: DetectionServiceDep,
-    limit: int = Query(10, ge=1, le=50, description="Number of historical results"),
-    include_factors: bool = Query(True, description="Include detailed factor analysis"),
+    limit: int = Query(
+        default=10, ge=1, le=50, description="Number of historical results"
+    ),
+    include_factors: bool = Query(
+        default=True, description="Include detailed factor analysis"
+    ),
 ):
     """
     Get historical smurf detection results for a player.
@@ -150,7 +154,7 @@ async def get_detection_history(
         include_factors: Whether to include detailed factor analysis
 
     Returns:
-        List of DetectionResponse objects with historical analysis results
+        list of DetectionResponse objects with historical analysis results
 
     Raises:
         HTTPException: If history retrieval fails
@@ -246,7 +250,7 @@ async def get_detection_config(detection_service: DetectionServiceDep):
 @router.post("/bulk-analyze", response_model=BulkDetectionResponse)
 async def bulk_analyze_players(
     request: BulkDetectionRequest,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks,  # noqa: ARG001
     detection_service: DetectionServiceDep,
 ):
     """
@@ -304,8 +308,10 @@ async def bulk_analyze_players(
 async def get_detailed_detection(
     puuid: str,
     detection_service: DetectionServiceDep,
-    include_trends: bool = Query(True, description="Include trend analysis"),
-    include_recommendations: bool = Query(True, description="Include recommendations"),
+    include_trends: bool = Query(default=True, description="Include trend analysis"),  # noqa: ARG001
+    include_recommendations: bool = Query(
+        default=True, description="Include recommendations"
+    ),  # noqa: ARG001
 ):
     """
     Get detailed smurf detection analysis with additional insights.
@@ -333,7 +339,7 @@ async def get_detailed_detection(
         # For now, return enhanced version of basic result
         # Additional features like trends and recommendations would be implemented here
         detailed_result = DetailedDetectionResponse(
-            **basic_result.dict(),
+            **basic_result.model_dump(),
             signals=[],  # Would be populated with detailed signal analysis
             recommendations=[],  # Would be populated with AI recommendations
             trend_analysis=None,  # Would be populated with trend analysis
@@ -396,7 +402,9 @@ async def check_player_analysis_exists(
                 "exists": True,
                 "last_analysis": recent_analysis.last_analysis.isoformat(),
                 "is_smurf": recent_analysis.is_smurf,
-                "detection_score": float(recent_analysis.smurf_score),
+                "detection_score": float(
+                    getattr(recent_analysis, "smurf_score", 0.0) or 0.0
+                ),
                 "confidence_level": recent_analysis.confidence,
             }
         else:

@@ -1,6 +1,4 @@
-"""
-Riot API HTTP client with proper rate limiting, error handling, and authentication.
-"""
+"""Riot API HTTP client with proper rate limiting, error handling, and authentication."""
 
 import asyncio
 import json
@@ -36,9 +34,7 @@ logger = structlog.get_logger(__name__)
 
 
 class RiotAPIClient:
-    """
-    Comprehensive Riot API client with rate limiting, caching, and error handling.
-    """
+    """Comprehensive Riot API client with rate limiting, caching, and error handling."""
 
     def __init__(
         self,
@@ -69,7 +65,7 @@ class RiotAPIClient:
         # Initialize components
         self.rate_limiter = RateLimiter()
         self.endpoints = RiotAPIEndpoints(self.region, self.platform)
-        self.cache = RiotAPICache(max_size=cache_size) if enable_cache else None
+        self.cache = RiotAPICache if enable_cache else None
 
         # HTTP session
         self.session = None
@@ -305,7 +301,7 @@ class RiotAPIClient:
     ) -> AccountDTO:
         """Get account by Riot ID (gameName#tagLine)."""
         if self.cache:
-            cached = await self.cache.get_account_by_riot_id(game_name, tag_line)
+            cached = self.cache.get_account_by_riot_id(game_name, tag_line)
             if cached:
                 return AccountDTO(**cached)
 
@@ -313,7 +309,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_account_by_riot_id(game_name, tag_line, data)
+            self.cache.set_account_by_riot_id(game_name, tag_line, data)
 
         return AccountDTO(**data)
 
@@ -322,7 +318,7 @@ class RiotAPIClient:
     ) -> AccountDTO:
         """Get account by PUUID."""
         if self.cache:
-            cached = await self.cache.get_account_by_puuid(puuid)
+            cached = self.cache.get_account_by_puuid(puuid)
             if cached:
                 return AccountDTO(**cached)
 
@@ -330,7 +326,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_account_by_puuid(puuid, data)
+            self.cache.set_account_by_puuid(puuid, data)
 
         return AccountDTO(**data)
 
@@ -339,7 +335,7 @@ class RiotAPIClient:
     ) -> ActiveShardDTO:
         """Get active shard by PUUID."""
         if self.cache:
-            cached = await self.cache.get_active_shard(puuid, game)
+            cached = self.cache.get_active_shard(puuid, game)
             if cached:
                 return ActiveShardDTO(**cached)
 
@@ -347,7 +343,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_active_shard(puuid, game, data)
+            self.cache.set_active_shard(puuid, game, data)
 
         return ActiveShardDTO(**data)
 
@@ -357,7 +353,7 @@ class RiotAPIClient:
     ) -> SummonerDTO:
         """Get summoner by name."""
         if self.cache:
-            cached = await self.cache.get_summoner_by_name(summoner_name)
+            cached = self.cache.get_summoner_by_name(summoner_name)
             if cached:
                 return SummonerDTO(**cached)
 
@@ -365,7 +361,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_summoner_by_name(summoner_name, data)
+            self.cache.set_summoner_by_name(summoner_name, data)
 
         return SummonerDTO(**data)
 
@@ -374,7 +370,7 @@ class RiotAPIClient:
     ) -> SummonerDTO:
         """Get summoner by PUUID."""
         if self.cache:
-            cached = await self.cache.get_summoner_by_puuid(puuid)
+            cached = self.cache.get_summoner_by_puuid(puuid)
             if cached:
                 return SummonerDTO(**cached)
 
@@ -382,7 +378,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_summoner_by_puuid(puuid, data)
+            self.cache.set_summoner_by_puuid(puuid, data)
 
         return SummonerDTO(**data)
 
@@ -403,7 +399,7 @@ class RiotAPIClient:
         queue_type = self._normalize_queue_type(queue)
 
         if self.cache:
-            cached = await self.cache.get_match_list_by_puuid(
+            cached = self.cache.get_match_list(
                 puuid,
                 start,
                 count,
@@ -422,7 +418,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_match_list_by_puuid(
+            self.cache.set_match_list(
                 puuid,
                 start,
                 count,
@@ -439,7 +435,7 @@ class RiotAPIClient:
     ) -> MatchDTO:
         """Get match details by match ID."""
         if self.cache:
-            cached = await self.cache.get_match(match_id)
+            cached = self.cache.get_match(match_id)
             if cached:
                 return MatchDTO(**cached)
 
@@ -447,7 +443,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_match(match_id, data)
+            self.cache.set_match(match_id, data)
 
         return MatchDTO(**data)
 
@@ -464,7 +460,7 @@ class RiotAPIClient:
     ) -> List[LeagueEntryDTO]:
         """Get league entries by summoner ID."""
         if self.cache:
-            cached = await self.cache.get_league_entries(summoner_id)
+            cached = self.cache.get_league_entries(summoner_id)
             if cached:
                 return [LeagueEntryDTO(**entry) for entry in cached]
 
@@ -472,7 +468,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_league_entries(summoner_id, data)
+            self.cache.set_league_entries(summoner_id, data)
 
         return [LeagueEntryDTO(**entry) for entry in data]
 
@@ -482,7 +478,7 @@ class RiotAPIClient:
     ) -> Optional[CurrentGameInfoDTO]:
         """Get active game by summoner ID."""
         if self.cache:
-            cached = await self.cache.get_active_game(summoner_id)
+            cached = self.cache.get_active_game(summoner_id)
             if cached:
                 return CurrentGameInfoDTO(**cached)
 
@@ -491,7 +487,7 @@ class RiotAPIClient:
         try:
             data = await self._make_request(url)
             if self.cache:
-                await self.cache.set_active_game(summoner_id, data)
+                self.cache.set_active_game(summoner_id, data)
             return CurrentGameInfoDTO(**data)
         except NotFoundError:
             # No active game is normal, return None
@@ -502,7 +498,7 @@ class RiotAPIClient:
     ) -> FeaturedGamesDTO:
         """Get featured games."""
         if self.cache:
-            cached = await self.cache.get_featured_games()
+            cached = self.cache.get_featured_games()
             if cached:
                 return FeaturedGamesDTO(**cached)
 
@@ -510,7 +506,7 @@ class RiotAPIClient:
         data = await self._make_request(url)
 
         if self.cache:
-            await self.cache.set_featured_games(data)
+            self.cache.set_featured_games(data)
 
         return FeaturedGamesDTO(**data)
 
@@ -673,7 +669,7 @@ class RiotAPIClient:
     async def clear_cache(self) -> None:
         """Clear all cached data."""
         if self.cache:
-            await self.cache.clear()
+            self.cache.clear_all()
             logger.info("Client cache cleared")
 
     async def reset_rate_limiter(self) -> None:

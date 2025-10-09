@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { PlayerSearch } from '../components/PlayerSearch';
-import { PlayerCard } from '../components/PlayerCard';
-import { MatchHistory } from '../components/MatchHistory';
-import { SmurfDetection } from '../components/SmurfDetection';
-import { Player } from '../types/api';
+import { useState } from "react";
+import { PlayerSearch } from "../components/PlayerSearch";
+import { PlayerCard } from "../components/PlayerCard";
+import { MatchHistory } from "../components/MatchHistory";
+import { SmurfDetection } from "../components/SmurfDetection";
+import { Player } from "../types/api";
 
 export function Dashboard() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -24,7 +24,8 @@ export function Dashboard() {
             Riot API Smurf Detection
           </h1>
           <p className="text-gray-600">
-            Analyze League of Legends players for smurf behavior using match history and performance metrics
+            Analyze League of Legends players for smurf behavior using match
+            history and performance metrics
           </p>
         </div>
 
@@ -48,8 +49,8 @@ export function Dashboard() {
                     }}
                     className={`px-4 py-2 rounded-md ${
                       showMatchHistory
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
                   >
                     Match History
@@ -61,8 +62,8 @@ export function Dashboard() {
                     }}
                     className={`px-4 py-2 rounded-md ${
                       showSmurfDetection
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
                   >
                     Smurf Detection
@@ -70,7 +71,10 @@ export function Dashboard() {
                 </div>
 
                 {showMatchHistory && (
-                  <MatchHistory puuid={selectedPlayer.puuid} queueFilter={420} />
+                  <MatchHistory
+                    puuid={selectedPlayer.puuid}
+                    queueFilter={420}
+                  />
                 )}
 
                 {showSmurfDetection && (
@@ -81,7 +85,8 @@ export function Dashboard() {
 
             {!selectedPlayer && (
               <div className="text-center py-12 text-gray-500">
-                Search for a player to view their match history and smurf detection analysis
+                Search for a player to view their match history and smurf
+                detection analysis
               </div>
             )}
           </div>

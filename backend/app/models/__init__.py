@@ -1,6 +1,4 @@
-"""
-Database models package initialization.
-"""
+"""Database models package initialization."""
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import MetaData

@@ -1,8 +1,6 @@
-"""
-Configuration settings for the Riot API application.
-"""
+"""Configuration settings for the Riot API application."""
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -32,9 +30,16 @@ class Settings(BaseSettings):
     api_url: str = Field(default="http://localhost:8000", env="API_URL")
 
     # CORS Configuration
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"], env="CORS_ORIGINS"
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000", env="CORS_ORIGINS"
     )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Get CORS origins as a list."""
+        return [
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
 
     # Database Connection Pool Settings
     db_pool_size: int = Field(default=10, env="DB_POOL_SIZE")

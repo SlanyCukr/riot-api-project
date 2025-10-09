@@ -254,18 +254,18 @@ class RiotAPICache:
 
     @staticmethod
     def get_active_shard(
-        summoner_id: str, game: str = "lol"
+        puuid: str, game: str = "lol"
     ) -> Optional[Dict[str, Any]]:
         """Get cached active shard."""
-        key = f"shard:{game}:{summoner_id}"
+        key = f"shard:{game}:{puuid}"
         return shard_cache.get(key)
 
     @staticmethod
     def set_active_shard(
-        summoner_id: str, data: Dict[str, Any], game: str = "lol"
+        puuid: str, data: Dict[str, Any], game: str = "lol"
     ) -> None:
         """Cache active shard data."""
-        key = f"shard:{game}:{summoner_id}"
+        key = f"shard:{game}:{puuid}"
         shard_cache.set(key, data)
 
     @staticmethod

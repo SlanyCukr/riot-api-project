@@ -1,6 +1,4 @@
-"""
-Pydantic schemas for Player model.
-"""
+"""Pydantic schemas for Player model."""
 
 import uuid
 from datetime import datetime
@@ -10,6 +8,8 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class PlayerBase(BaseModel):
+    """Base player schema with common fields."""
+
     puuid: str = Field(..., description="Player's PUUID")
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     tag_line: Optional[str] = Field(None, description="Riot tag line")
@@ -21,16 +21,22 @@ class PlayerBase(BaseModel):
 
 
 class PlayerCreate(PlayerBase):
+    """Schema for creating a new player."""
+
     pass
 
 
 class PlayerUpdate(BaseModel):
+    """Schema for updating an existing player."""
+
     summoner_name: Optional[str] = None
     account_level: Optional[int] = None
     last_seen: Optional[datetime] = None
 
 
 class PlayerResponse(PlayerBase):
+    """Schema for player response data."""
+
     id: Optional[int] = Field(None, description="Database ID")
     created_at: datetime
     updated_at: datetime
@@ -40,6 +46,8 @@ class PlayerResponse(PlayerBase):
 
 
 class PlayerSearchRequest(BaseModel):
+    """Schema for player search request parameters."""
+
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     summoner_name: Optional[str] = Field(None, description="Summoner name")
     platform: str = Field("eun1", description="Platform region")

@@ -1,6 +1,4 @@
-"""
-Database connection and session management for PostgreSQL using SQLAlchemy with async support.
-"""
+"""Database connection and session management for PostgreSQL using SQLAlchemy with async support."""
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -18,6 +16,7 @@ class DatabaseManager:
     """Database connection and session manager."""
 
     def __init__(self):
+        """Initialize database manager with async engine."""
         # Convert synchronous database URL to asynchronous
         self.database_url = settings.database_url.replace(
             "postgresql://", "postgresql+asyncpg://"
@@ -79,7 +78,7 @@ db_manager = DatabaseManager()
 
 # Dependency for FastAPI routes
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency for getting a database session."""
+    """Fastapi dependency for getting a database session."""
     async with db_manager.get_session() as session:
         yield session
 

@@ -1,5 +1,5 @@
-import { Player } from '../types/api';
-import { Trophy, User } from 'lucide-react';
+import { Player } from "../types/api";
+import { Trophy, User } from "lucide-react";
 
 interface PlayerCardProps {
   player: Player;

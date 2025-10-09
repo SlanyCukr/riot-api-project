@@ -1,6 +1,4 @@
-"""
-Player service for handling player data operations.
-"""
+"""Player service for handling player data operations."""
 
 from typing import Optional, List
 from datetime import datetime
@@ -23,6 +21,7 @@ class PlayerService:
     """Service for handling player data operations."""
 
     def __init__(self, db: AsyncSession, riot_client: RiotAPIClient):
+        """Initialize player service with database and API client."""
         self.db = db
         self.riot_client = riot_client
 
@@ -53,6 +52,8 @@ class PlayerService:
                 summoner = await self.riot_client.get_summoner_by_puuid(
                     account.puuid, platform_enum
                 )
+
+                
 
                 # Create player record
                 # Note: summoner.name and summoner.id are no longer returned by Riot API v4

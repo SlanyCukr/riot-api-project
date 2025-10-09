@@ -4,9 +4,15 @@ interface ErrorMessageProps {
   className?: string;
 }
 
-export function ErrorMessage({ message, onRetry, className = '' }: ErrorMessageProps) {
+export function ErrorMessage({
+  message,
+  onRetry,
+  className = "",
+}: ErrorMessageProps) {
   return (
-    <div className={`p-3 bg-red-100 border border-red-400 text-red-700 rounded-md ${className}`}>
+    <div
+      className={`p-3 bg-red-100 border border-red-400 text-red-700 rounded-md ${className}`}
+    >
       <p className="font-medium">Error</p>
       <p className="text-sm">{message}</p>
       {onRetry && (

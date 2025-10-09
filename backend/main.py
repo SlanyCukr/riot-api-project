@@ -1,6 +1,4 @@
-"""
-Application entry point for the Riot API Backend
-"""
+"""Application entry point for the Riot API Backend."""
 
 import uvicorn
 from app.config import settings

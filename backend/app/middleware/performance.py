@@ -1,13 +1,13 @@
-"""
-Performance monitoring middleware for API response tracking and metrics collection.
-"""
+"""Performance monitoring middleware for API response tracking and metrics collection."""
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Callable, Dict, Any, List
+from typing import Any
 import time
 import threading
 import structlog
+from fastapi import FastAPI
+from starlette.middleware.base import RequestResponseEndpoint
 
 logger = structlog.get_logger(__name__)
 
@@ -15,7 +15,7 @@ logger = structlog.get_logger(__name__)
 class PerformanceMiddleware(BaseHTTPMiddleware):
     """Middleware for monitoring API performance and collecting metrics."""
 
-    def __init__(self, app):
+    def __init__(self, app: FastAPI):
         """
         Initialize performance middleware.
 
@@ -23,18 +23,20 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
             app: FastAPI application
         """
         super().__init__(app)
-        self.slow_request_threshold = 2.0  # seconds
-        self.db_query_threshold = 0.5  # seconds
+        self.slow_request_threshold: float = 2.0  # seconds
+        self.db_query_threshold: float = 0.5  # seconds
 
         # Thread-safe metrics storage
-        self._lock = threading.Lock()
+        self._lock: threading.Lock = threading.Lock()
 
         # Performance metrics
-        self.request_metrics = RequestMetricsCollector()
-        self.db_monitor = DatabaseQueryMonitor()
-        self.cache_metrics = CacheMetricsCollector()
+        self.request_metrics: RequestMetricsCollector = RequestMetricsCollector()
+        self.db_monitor: DatabaseQueryMonitor = DatabaseQueryMonitor()
+        self.cache_metrics: CacheMetricsCollector = CacheMetricsCollector()
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         """
         Process incoming request with performance monitoring.
 
@@ -101,8 +103,8 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
             )
             raise
 
-    def get_performance_metrics(self) -> Dict[str, Any]:
-        """Get comprehensive performance metrics"""
+    def get_performance_metrics(self) -> dict[str, Any]:
+        """Get comprehensive performance metrics."""
         with self._lock:
             return {
                 "request_metrics": self.request_metrics.get_metrics(),
@@ -115,40 +117,40 @@ class PerformanceMiddleware(BaseHTTPMiddleware):
             }
 
     def log_database_query(
-        self, query: str, duration: float, params: Dict[str, Any] = None
-    ):
-        """Log a database query with performance metrics"""
+        self, query: str, duration: float, params: dict[str, Any] | None = None
+    ) -> None:
+        """Log a database query with performance metrics."""
         self.db_monitor.log_query(query, duration, params)
 
     def record_cache_operation(
         self, operation: str, cache_type: str, hit: bool, duration: float
     ):
-        """Record cache operation metrics"""
+        """Record cache operation metrics."""
         self.cache_metrics.record_operation(operation, cache_type, hit, duration)
 
-    def reset_metrics(self):
-        """Reset all performance metrics"""
-        with self._lock:
-            self.request_metrics.reset()
-            self.db_monitor.reset()
-            self.cache_metrics.reset()
-            logger.info("Performance metrics reset")
+    def reset_metrics(self) -> None:
+        """Reset all performance metrics."""
+        self.request_metrics.reset()
+        self.db_monitor.reset()
+        self.cache_metrics.reset()
+        logger.info("Performance metrics reset")
 
 
 class RequestMetricsCollector:
     """Collect and analyze API request metrics."""
 
     def __init__(self):
-        self.endpoint_stats = {}
-        self.error_rates = {}
-        self.total_requests = 0
-        self.total_duration = 0.0
-        self._lock = threading.Lock()
+        """Initialize request metrics collector."""
+        self.endpoint_stats: dict[str, dict[str, Any]] = {}
+        self.error_rates: dict[str, dict[str, int]] = {}
+        self.total_requests: int = 0
+        self.total_duration: float = 0.0
+        self._lock: threading.Lock = threading.Lock()
 
     def record_request(
         self, endpoint: str, method: str, status_code: int, duration: float
-    ):
-        """Record a request for metrics collection"""
+    ) -> None:
+        """Record a request for metrics collection."""
         with self._lock:
             self.total_requests += 1
             self.total_duration += duration
@@ -197,8 +199,8 @@ class RequestMetricsCollector:
                     self.error_rates[key] = {"errors": 0, "total": 0}
                 self.error_rates[key]["total"] += 1
 
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get current request metrics"""
+    def get_metrics(self) -> dict[str, Any]:
+        """Get current request metrics."""
         with self._lock:
             avg_response_time = (
                 self.total_duration / self.total_requests
@@ -226,15 +228,15 @@ class RequestMetricsCollector:
             }
 
     def _calculate_rps(self) -> float:
-        """Calculate requests per second (simplified)"""
+        """Calculate requests per second (simplified)."""
         # This is a simplified version - in production you'd track timestamps
         if self.total_requests == 0:
             return 0.0
         # Assume metrics are collected over the last minute
         return min(self.total_requests / 60.0, 1000.0)  # Cap at 1000 RPS
 
-    def _get_slow_endpoints(self) -> List[Dict[str, Any]]:
-        """Get list of slow endpoints sorted by average duration"""
+    def _get_slow_endpoints(self) -> list[dict[str, Any]]:
+        """Get list of slow endpoints sorted by average duration."""
         slow_endpoints = []
         for endpoint, stats in self.endpoint_stats.items():
             if stats["avg_duration"] > 1.0:  # Slower than 1 second
@@ -251,8 +253,8 @@ class RequestMetricsCollector:
             :10
         ]
 
-    def reset(self):
-        """Reset all metrics"""
+    def reset(self) -> None:
+        """Reset all metrics."""
         with self._lock:
             self.endpoint_stats.clear()
             self.error_rates.clear()
@@ -264,17 +266,20 @@ class DatabaseQueryMonitor:
     """Monitor database query performance."""
 
     def __init__(self):
-        self.slow_queries = []
-        self.query_stats = {
+        """Initialize database query monitor."""
+        self.slow_queries: list[dict[str, Any]] = []
+        self.query_stats: dict[str, float | int] = {
             "total": 0,
             "slow": 0,
             "avg_duration": 0.0,
             "total_duration": 0.0,
         }
-        self._lock = threading.Lock()
+        self._lock: threading.Lock = threading.Lock()
 
-    def log_query(self, query: str, duration: float, params: Dict[str, Any] = None):
-        """Log a database query with performance metrics"""
+    def log_query(
+        self, query: str, duration: float, params: dict[str, Any] | None = None
+    ) -> None:
+        """Log a database query with performance metrics."""
         with self._lock:
             self.query_stats["total"] += 1
             self.query_stats["total_duration"] += duration
@@ -303,8 +308,8 @@ class DatabaseQueryMonitor:
                     query=query[:100],
                 )
 
-    def get_stats(self) -> Dict[str, Any]:
-        """Get query performance statistics"""
+    def get_stats(self) -> dict[str, Any]:
+        """Get database query performance statistics."""
         with self._lock:
             return {
                 "query_stats": self.query_stats.copy(),
@@ -323,8 +328,8 @@ class DatabaseQueryMonitor:
                 ),
             }
 
-    def reset(self):
-        """Reset all query metrics"""
+    def reset(self) -> None:
+        """Reset all query statistics."""
         with self._lock:
             self.slow_queries.clear()
             self.query_stats = {
@@ -339,7 +344,8 @@ class CacheMetricsCollector:
     """Collect cache performance metrics."""
 
     def __init__(self):
-        self.operations = {
+        """Initialize cache metrics collector."""
+        self.operations: dict[str, dict[str, dict[str, float | int]]] = {
             "get": {
                 "local": {"hits": 0, "misses": 0, "total_time": 0.0},
                 "redis": {"hits": 0, "misses": 0, "total_time": 0.0},
@@ -353,12 +359,16 @@ class CacheMetricsCollector:
                 "redis": {"count": 0, "total_time": 0.0},
             },
         }
-        self._lock = threading.Lock()
+        self._lock: threading.Lock = threading.Lock()
 
     def record_operation(
-        self, operation: str, cache_type: str, hit: bool = None, duration: float = 0.0
-    ):
-        """Record a cache operation"""
+        self,
+        operation: str,
+        cache_type: str,
+        hit: bool | None = None,
+        duration: float = 0.0,
+    ) -> None:
+        """Record a cache operation."""
         with self._lock:
             if operation == "get" and hit is not None:
                 if hit:
@@ -370,8 +380,8 @@ class CacheMetricsCollector:
                 self.operations[operation][cache_type]["count"] += 1
                 self.operations[operation][cache_type]["total_time"] += duration
 
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get cache performance metrics"""
+    def get_metrics(self) -> dict[str, Any]:
+        """Get cache performance metrics."""
         with self._lock:
             metrics = {}
             for operation, cache_types in self.operations.items():
@@ -398,7 +408,7 @@ class CacheMetricsCollector:
             return metrics
 
     def reset(self):
-        """Reset all cache metrics"""
+        """Reset all cache metrics."""
         with self._lock:
             for operation in self.operations:
                 for cache_type in self.operations[operation]:

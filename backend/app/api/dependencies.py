@@ -28,6 +28,7 @@ async def get_riot_client() -> RiotAPIClient:
     client = RiotAPIClient(
         api_key=settings.riot_api_key, region=region, platform=platform
     )
+    await client.start_session()
     try:
         yield client
     finally:
