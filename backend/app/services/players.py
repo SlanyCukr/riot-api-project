@@ -53,8 +53,6 @@ class PlayerService:
                     account.puuid, platform_enum
                 )
 
-                
-
                 # Create player record
                 # Note: summoner.name and summoner.id are no longer returned by Riot API v4
                 # Use game_name from account and summoner_id is optional

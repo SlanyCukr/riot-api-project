@@ -253,17 +253,13 @@ class RiotAPICache:
         featured_games_cache.set("featured_games", data)
 
     @staticmethod
-    def get_active_shard(
-        puuid: str, game: str = "lol"
-    ) -> Optional[Dict[str, Any]]:
+    def get_active_shard(puuid: str, game: str = "lol") -> Optional[Dict[str, Any]]:
         """Get cached active shard."""
         key = f"shard:{game}:{puuid}"
         return shard_cache.get(key)
 
     @staticmethod
-    def set_active_shard(
-        puuid: str, data: Dict[str, Any], game: str = "lol"
-    ) -> None:
+    def set_active_shard(puuid: str, data: Dict[str, Any], game: str = "lol") -> None:
         """Cache active shard data."""
         key = f"shard:{game}:{puuid}"
         shard_cache.set(key, data)
