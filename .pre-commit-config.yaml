@@ -13,8 +13,6 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: debug-statements
-    # Run these hooks first to fix formatting issues before linting
-    stages: [commit]
 
   # Ruff - Fast Python linter and formatter (replaces black, isort, flake8)
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -23,10 +21,8 @@ repos:
       # Run the linter
       - id: ruff
         args: ["--fix"]
-        stages: [commit]
       # Run the formatter
       - id: ruff-format
-        stages: [commit]
 
   # Bandit - Security vulnerability scanner
   - repo: https://github.com/PyCQA/bandit
@@ -35,7 +31,6 @@ repos:
       - id: bandit
         args: ["-c", "backend/pyproject.toml"]
         exclude: ^(tests/|tools/)
-        stages: [commit]
 
   # pydocstyle - Documentation quality checker (temporarily disabled due to many violations)
   # - repo: https://github.com/PyCQA/pydocstyle
@@ -65,7 +60,6 @@ repos:
           - "eslint-plugin-react@7.33.2"
           - "eslint-plugin-react-hooks@4.6.0"
           - "eslint-plugin-react-refresh@0.4.5"
-        stages: [commit]
 
   # Prettier - Code formatter for consistent style
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -77,7 +71,6 @@ repos:
         additional_dependencies:
           - "prettier@3.4.2"
           - "prettier-plugin-tailwindcss@0.6.11"
-        stages: [commit]
 
   # Check for frontend package.json consistency (temporarily disabled due to version issues)
   # - repo: https://github.com/pre-commit/mirrors-eslint
@@ -97,12 +90,8 @@ repos:
   #         ]
 
 # Configuration for pre-commit
-default_stages: [commit]
+default_stages: [pre-commit]
 fail_fast: false
-# Prevent hooks from running multiple times
-skip:
-  - merge-commit
-  - push
 
 # Exclude certain paths from all hooks
 exclude: |
