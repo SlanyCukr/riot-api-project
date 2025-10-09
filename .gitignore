@@ -243,3 +243,4 @@ agents/
 .zed/
 .claude/
 specs/
+.ruff_cache/

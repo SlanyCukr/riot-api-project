@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 import structlog
 
-from ..riot_api.client import RiotAPIClient
+from ..riot_api.data_manager import RiotDataManager
 from ..models.players import Player
 from ..models.smurf_detection import SmurfDetection
 from ..models.ranks import PlayerRank
@@ -34,9 +34,9 @@ logger = structlog.get_logger(__name__)
 class SmurfDetectionService:
     """Service for comprehensive smurf detection analysis."""
 
-    def __init__(self, db: AsyncSession, riot_client: RiotAPIClient):
+    def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
         self.db = db
-        self.riot_client = riot_client
+        self.data_manager = data_manager
 
         # Initialize analyzers
         self.win_rate_analyzer = WinRateAnalyzer()

@@ -12,6 +12,7 @@ from app.config import settings
 from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
+from app.api.dependencies import RiotDataManagerDep
 from app.middleware.performance import PerformanceMiddleware
 from app.riot_api.cache import RiotAPICache
 import structlog
@@ -22,7 +23,7 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Configure structlog for better performance logging
 structlog.configure(
@@ -208,6 +209,79 @@ async def get_cache_stats():
     - Capacity planning
     """
     return RiotAPICache.get_stats()
+
+
+@app.get("/api/v1/health/rate-limit-status", tags=["health"])
+async def get_rate_limit_status(riot_data_manager: RiotDataManagerDep):
+    """
+    Get current rate limit status for monitoring and user feedback.
+
+    Returns information about rate limits, cooldown periods, and API usage.
+
+    ## Response
+    Returns rate limit information including:
+    - **can_fetch**: Whether API calls can be made
+    - **reason**: Reason if calls cannot be made
+    - **wait_time**: Time to wait before next API call (seconds)
+    - **priority_level**: Current priority level for requests
+    - **api_stats**: Detailed API usage statistics
+    - **circuit_breakers**: Circuit breaker status
+
+    This endpoint is useful for:
+    - Monitoring rate limit usage
+    - Implementing user-facing cooldown UI
+    - Debugging rate limit issues
+    """
+    try:
+        status = await riot_data_manager.get_rate_limit_status()
+        return {
+            "status": "success",
+            "data": status,
+            "message": "Rate limit status retrieved successfully",
+        }
+    except Exception as e:
+        logger.error("Failed to get rate limit status", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Failed to retrieve rate limit status",
+        }
+
+
+@app.get("/api/v1/health/data-stats", tags=["health"])
+async def get_data_stats(riot_data_manager: RiotDataManagerDep):
+    """
+    Get comprehensive data management statistics.
+
+    Returns tracking stats, queue status, and usage patterns.
+
+    ## Response
+    Returns comprehensive statistics including:
+    - **tracking_stats**: Data freshness and hit rates by type
+    - **pending_requests**: Number of queued API requests
+    - **recent_rate_limits**: Recent rate limit events
+    - **rate_limit_status**: Current rate limit status
+
+    This endpoint is useful for:
+    - Monitoring data freshness
+    - Analyzing cache hit rates
+    - Understanding usage patterns
+    - Debugging data management issues
+    """
+    try:
+        stats = await riot_data_manager.get_data_stats()
+        return {
+            "status": "success",
+            "data": stats,
+            "message": "Data statistics retrieved successfully",
+        }
+    except Exception as e:
+        logger.error("Failed to get data stats", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Failed to retrieve data statistics",
+        }
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ from typing import Annotated
 from ..database import get_db
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.endpoints import Platform, Region
+from ..riot_api.data_manager import RiotDataManager
 from ..services.players import PlayerService
 from ..services.matches import MatchService
 from ..services.stats import StatsService
@@ -35,20 +36,28 @@ async def get_riot_client() -> RiotAPIClient:
         await client.close()
 
 
-async def get_player_service(
+async def get_riot_data_manager(
     db: Annotated[AsyncSession, Depends(get_db)],
     riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
+) -> RiotDataManager:
+    """Get Riot data manager instance."""
+    return RiotDataManager(db, riot_client)
+
+
+async def get_player_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> PlayerService:
     """Get player service instance."""
-    return PlayerService(db, riot_client)
+    return PlayerService(db, riot_data_manager)
 
 
 async def get_match_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
+    riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> MatchService:
     """Get match service instance."""
-    return MatchService(db, riot_client)
+    return MatchService(db, riot_data_manager)
 
 
 async def get_stats_service(
@@ -60,15 +69,16 @@ async def get_stats_service(
 
 async def get_detection_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
+    riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> SmurfDetectionService:
     """Get smurf detection service instance."""
-    return SmurfDetectionService(db, riot_client)
+    return SmurfDetectionService(db, riot_data_manager)
 
 
 # Type aliases for cleaner dependency injection
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 RiotClient = Annotated[RiotAPIClient, Depends(get_riot_client)]
+RiotDataManagerDep = Annotated[RiotDataManager, Depends(get_riot_data_manager)]
 PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
 MatchServiceDep = Annotated[MatchService, Depends(get_match_service)]
 StatsServiceDep = Annotated[StatsService, Depends(get_stats_service)]

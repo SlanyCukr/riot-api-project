@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 from sqlalchemy.orm import selectinload
 
-from ..riot_api.client import RiotAPIClient
+from ..riot_api.data_manager import RiotDataManager
 from ..models.matches import Match
 from ..models.participants import MatchParticipant
 from ..models.players import Player
@@ -23,9 +23,9 @@ logger = structlog.get_logger(__name__)
 class MatchService:
     """Service for handling match data operations."""
 
-    def __init__(self, db: AsyncSession, riot_client: RiotAPIClient):
+    def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
         self.db = db
-        self.riot_client = riot_client
+        self.data_manager = data_manager
         self.transformer = MatchTransformer()
 
     async def get_player_matches(
@@ -96,9 +96,11 @@ class MatchService:
             # Try database first
             match = await self._get_match_from_db(match_id)
             if not match:
-                # Fetch from API
-                match_data = await self.riot_client.get_match(match_id)
-                match = await self._store_match_detail(match_data)
+                # Fetch from API using RiotDataManager
+                match_data = await self.data_manager.get_match(match_id)
+                # Convert MatchDTO to dict for storage
+                match_data_dict = match_data.model_dump(by_alias=True, mode="json")
+                match = await self._store_match_detail(match_data_dict)
 
             return MatchResponse.from_orm(match)
         except Exception as e:
@@ -244,9 +246,9 @@ class MatchService:
         start_time: Optional[int],
         end_time: Optional[int],
     ) -> List[str]:
-        """Fetch match IDs from Riot API."""
+        """Fetch match IDs from Riot API using RiotDataManager."""
         try:
-            match_list = await self.riot_client.get_match_list_by_puuid(
+            match_list = await self.data_manager.get_match_list_by_puuid(
                 puuid=puuid,
                 start=start,
                 count=count,
@@ -268,7 +270,7 @@ class MatchService:
                 if existing_match:
                     continue
 
-                match_dto = await self.riot_client.get_match(match_id)
+                match_dto = await self.data_manager.get_match(match_id)
                 # Convert MatchDTO to dict for storage - use model_dump with by_alias=True
                 # to get camelCase field names that the transformer expects
                 match_data = match_dto.model_dump(by_alias=True, mode="json")

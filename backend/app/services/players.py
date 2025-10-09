@@ -7,9 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ..riot_api.client import RiotAPIClient
-from ..riot_api.endpoints import Platform
-from ..riot_api.errors import NotFoundError as RiotNotFoundError
+from ..riot_api.data_manager import RiotDataManager
+from ..riot_api.errors import RateLimitError
 from ..models.players import Player
 from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
 import structlog
@@ -20,72 +19,83 @@ logger = structlog.get_logger(__name__)
 class PlayerService:
     """Service for handling player data operations."""
 
-    def __init__(self, db: AsyncSession, riot_client: RiotAPIClient):
-        """Initialize player service with database and API client."""
+    def __init__(self, db: AsyncSession, riot_data_manager: RiotDataManager):
+        """Initialize player service with database and data manager."""
         self.db = db
-        self.riot_client = riot_client
+        self.data_manager = riot_data_manager
 
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
     ) -> PlayerResponse:
-        """Get player by Riot ID (name#tag)."""
-        # Convert platform string to Platform enum
+        """Get player by Riot ID (name#tag) using intelligent data management."""
         try:
-            platform_enum = (
-                Platform(platform) if isinstance(platform, str) else platform
+            # Validate platform
+            valid_platforms = [
+                "eun1",
+                "euw1",
+                "na1",
+                "kr",
+                "br1",
+                "la1",
+                "la2",
+                "oc1",
+                "ru",
+                "tr1",
+                "jp1",
+                "ph2",
+                "sg2",
+                "th2",
+                "tw2",
+                "vn2",
+            ]
+            if platform not in valid_platforms:
+                raise ValueError(
+                    f"Invalid platform: {platform}. Must be one of: {', '.join(valid_platforms)}"
+                )
+
+            # Use RiotDataManager for intelligent data fetching
+            player_response = await self.data_manager.get_player_by_riot_id(
+                game_name, tag_line, platform
             )
+
+            logger.info(
+                "Player data retrieved successfully",
+                extra={
+                    "game_name": game_name,
+                    "tag_line": tag_line,
+                    "platform": platform,
+                },
+            )
+
+            return player_response
+
+        except RateLimitError as e:
+            logger.warning(
+                "Rate limit hit while fetching player",
+                extra={
+                    "game_name": game_name,
+                    "tag_line": tag_line,
+                    "retry_after": e.retry_after,
+                },
+            )
+            raise
+
         except ValueError:
-            raise ValueError(
-                f"Invalid platform: {platform}. Must be one of: {', '.join([p.value for p in Platform])}"
+            # Re-raise validation errors
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Failed to fetch player data",
+                extra={
+                    "game_name": game_name,
+                    "tag_line": tag_line,
+                    "platform": platform,
+                    "error": str(e),
+                },
+                exc_info=True,
             )
-
-        # First try to get from database
-        riot_id = f"{game_name}#{tag_line}"
-        player = await self._get_player_from_db(riot_id=riot_id)
-
-        if not player:
-            # Fetch from Riot API
-            try:
-                account = await self.riot_client.get_account_by_riot_id(
-                    game_name, tag_line
-                )
-                summoner = await self.riot_client.get_summoner_by_puuid(
-                    account.puuid, platform_enum
-                )
-
-                # Create player record
-                # Note: summoner.name and summoner.id are no longer returned by Riot API v4
-                # Use game_name from account and summoner_id is optional
-                player_data = PlayerCreate(
-                    puuid=account.puuid,
-                    riot_id=game_name,
-                    tag_line=tag_line,
-                    summoner_name=game_name,  # Use game_name since API doesn't return summoner.name
-                    platform=platform,
-                    account_level=summoner.summoner_level,
-                    profile_icon_id=summoner.profile_icon_id,
-                    summoner_id=summoner.id,  # May be None, which is acceptable
-                )
-
-                player = await self._create_or_update_player(player_data)
-
-            except RiotNotFoundError:
-                logger.info(
-                    "Player not found in Riot API",
-                    game_name=game_name,
-                    tag_line=tag_line,
-                )
-                raise ValueError(f"Player not found: {game_name}#{tag_line}")
-            except Exception as e:
-                logger.error(
-                    "Failed to fetch player data from Riot API",
-                    game_name=game_name,
-                    tag_line=tag_line,
-                    error=str(e),
-                )
-                raise Exception(f"Failed to fetch player data: {str(e)}")
-
-        return PlayerResponse.from_orm(player)
+            raise Exception(f"Failed to fetch player data: {str(e)}")
 
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
@@ -148,16 +158,39 @@ class PlayerService:
         )
         raise ValueError(f"Player not found: {summoner_name}")
 
-    async def get_player_by_puuid(self, puuid: str) -> Optional[PlayerResponse]:
-        """Get player by PUUID."""
-        result = await self.db.execute(
-            select(Player).where(Player.puuid == puuid, Player.is_active)
-        )
-        player = result.scalar_one_or_none()
+    async def get_player_by_puuid(
+        self, puuid: str, platform: str = "eun1"
+    ) -> PlayerResponse:
+        """Get player by PUUID using intelligent data management."""
+        try:
+            player_response = await self.data_manager.get_player_by_puuid(
+                puuid, platform
+            )
 
-        if player:
-            return PlayerResponse.from_orm(player)
-        return None
+            logger.info(
+                "Player data retrieved by PUUID successfully",
+                puuid=puuid,
+                platform=platform,
+            )
+
+            return player_response
+
+        except RateLimitError as e:
+            logger.warning(
+                "Rate limit hit while fetching player by PUUID",
+                puuid=puuid,
+                retry_after=e.retry_after,
+            )
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Failed to fetch player data by PUUID",
+                puuid=puuid,
+                platform=platform,
+                error=str(e),
+            )
+            raise Exception(f"Failed to fetch player data: {str(e)}")
 
     async def get_recent_opponents(self, puuid: str, limit: int) -> List[str]:
         """Get recent opponents for a player."""
