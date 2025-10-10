@@ -3,7 +3,6 @@ Match service for handling match data operations.
 """
 
 from typing import Optional, List, Dict, Any
-from uuid import UUID
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,7 +69,9 @@ class MatchService:
                 puuid, start, count, queue, start_time, end_time
             )
 
-            match_responses = [MatchResponse.from_orm(match) for match in all_matches]
+            match_responses = [
+                MatchResponse.model_validate(match) for match in all_matches
+            ]
 
             return MatchListResponse(
                 matches=match_responses,
@@ -102,7 +103,7 @@ class MatchService:
                 match_data_dict = match_data.model_dump(by_alias=True, mode="json")
                 match = await self._store_match_detail(match_data_dict)
 
-            return MatchResponse.from_orm(match)
+            return MatchResponse.model_validate(match)
         except Exception as e:
             logger.error("Failed to get match details", match_id=match_id, error=str(e))
             raise
@@ -372,7 +373,7 @@ class MatchService:
 
     async def search_matches(
         self,
-        puuid: Optional[UUID] = None,
+        puuid: Optional[str] = None,
         queue_id: Optional[int] = None,
         game_mode: Optional[str] = None,
         start_time: Optional[int] = None,
@@ -402,48 +403,45 @@ class MatchService:
         try:
             offset = (page - 1) * size
             query = select(Match)
+            count_query = select(func.count(Match.match_id))
 
-            # Apply filters
-            if puuid:
-                query = query.join(MatchParticipant).where(
-                    MatchParticipant.puuid == puuid
-                )
+            # Determine if participant filters are needed
+            needs_participant_join = puuid or champion_id
+
+            if needs_participant_join:
+                # Join once and apply all participant filters
+                query = query.join(MatchParticipant)
+                count_query = count_query.join(MatchParticipant)
+
+                participant_conditions = []
+                if puuid:
+                    participant_conditions.append(MatchParticipant.puuid == puuid)
+                if champion_id:
+                    participant_conditions.append(
+                        MatchParticipant.champion_id == champion_id
+                    )
+
+                query = query.where(and_(*participant_conditions))
+                count_query = count_query.where(and_(*participant_conditions))
+
+            # Apply match-level filters (no join needed)
             if queue_id:
                 query = query.where(Match.queue_id == queue_id)
-            if game_mode:
-                query = query.where(Match.game_mode == game_mode)
-            if start_time:
-                query = query.where(Match.game_creation >= start_time)
-            if end_time:
-                query = query.where(Match.game_creation <= end_time)
-            if champion_id:
-                query = query.join(MatchParticipant).where(
-                    MatchParticipant.champion_id == champion_id
-                )
-            if is_processed is not None:
-                query = query.where(Match.is_processed == is_processed)
-
-            # Get total count
-            count_query = select(func.count(Match.match_id))
-            if puuid:
-                count_query = count_query.join(MatchParticipant).where(
-                    MatchParticipant.puuid == puuid
-                )
-            if queue_id:
                 count_query = count_query.where(Match.queue_id == queue_id)
             if game_mode:
+                query = query.where(Match.game_mode == game_mode)
                 count_query = count_query.where(Match.game_mode == game_mode)
             if start_time:
+                query = query.where(Match.game_creation >= start_time)
                 count_query = count_query.where(Match.game_creation >= start_time)
             if end_time:
+                query = query.where(Match.game_creation <= end_time)
                 count_query = count_query.where(Match.game_creation <= end_time)
-            if champion_id:
-                count_query = count_query.join(MatchParticipant).where(
-                    MatchParticipant.champion_id == champion_id
-                )
             if is_processed is not None:
+                query = query.where(Match.is_processed == is_processed)
                 count_query = count_query.where(Match.is_processed == is_processed)
 
+            # Get total count
             total_result = await self.db.execute(count_query)
             total = total_result.scalar()
 
@@ -452,7 +450,7 @@ class MatchService:
             result = await self.db.execute(query)
             matches = result.scalars().all()
 
-            match_responses = [MatchResponse.from_orm(match) for match in matches]
+            match_responses = [MatchResponse.model_validate(match) for match in matches]
 
             return {
                 "matches": match_responses,
@@ -490,7 +488,7 @@ class MatchService:
                 return None
 
             return {
-                "match": MatchResponse.from_orm(match),
+                "match": MatchResponse.model_validate(match),
                 "participants": [
                     participant.to_dict() for participant in match.participants
                 ],

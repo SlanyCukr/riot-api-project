@@ -2,8 +2,6 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from uuid import UUID
-
 from ..schemas.players import (
     PlayerResponse,
     PlayerSearchRequest,
@@ -60,9 +58,9 @@ async def search_player(
 
 
 @router.get("/{puuid}", response_model=PlayerResponse)
-async def get_player_by_puuid(puuid: UUID, player_service: PlayerServiceDep):
+async def get_player_by_puuid(puuid: str, player_service: PlayerServiceDep):
     """Get player information by PUUID."""
-    player = await player_service.get_player_by_puuid(str(puuid))
+    player = await player_service.get_player_by_puuid(puuid)
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     return player
@@ -70,12 +68,12 @@ async def get_player_by_puuid(puuid: UUID, player_service: PlayerServiceDep):
 
 @router.get("/{puuid}/recent", response_model=list[str])
 async def get_player_recent_opponents(
-    puuid: UUID,
+    puuid: str,
     player_service: PlayerServiceDep,
     limit: int = Query(10, ge=1, le=50, description="Number of recent opponents"),
 ):
     """Get recent opponents for a player."""
-    opponents = await player_service.get_recent_opponents(str(puuid), limit)
+    opponents = await player_service.get_recent_opponents(puuid, limit)
     return opponents
 
 
@@ -98,16 +96,13 @@ async def get_players_bulk(
     bulk_request: PlayerBulkRequest, player_service: PlayerServiceDep
 ):
     """Get multiple players by PUUIDs."""
-    puuids = [str(puuid) for puuid in bulk_request.puuids]
-    players = await player_service.bulk_get_players(puuids)
+    players = await player_service.bulk_get_players(bulk_request.puuids)
 
     # Find which PUUIDs were not found
-    found_puuids = {str(player.puuid) for player in players}
-    not_found = [puuid for puuid in puuids if puuid not in found_puuids]
+    found_puuids = {player.puuid for player in players}
+    not_found = [puuid for puuid in bulk_request.puuids if puuid not in found_puuids]
 
-    return PlayerBulkResponse(
-        players=players, not_found=[UUID(puuid) for puuid in not_found]
-    )
+    return PlayerBulkResponse(players=players, not_found=not_found)
 
 
 @router.get("/", response_model=list[PlayerResponse])

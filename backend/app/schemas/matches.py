@@ -136,7 +136,12 @@ class MatchStatsResponse(BaseModel):
 class MatchSearchRequest(BaseModel):
     """Schema for match search requests."""
 
+    puuid: Optional[str] = Field(None, description="Filter by player PUUID")
+    champion_id: Optional[int] = Field(None, description="Filter by champion ID")
     queue_id: Optional[int] = Field(None, description="Queue type ID to filter by")
+    game_mode: Optional[str] = Field(
+        None, max_length=32, description="Game mode to filter by"
+    )
     platform_id: Optional[str] = Field(
         None, max_length=8, description="Platform to filter by"
     )

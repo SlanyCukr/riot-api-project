@@ -12,12 +12,13 @@ export function MatchHistory({ puuid, queueFilter }: MatchHistoryProps) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const { loading, error, request } = useApi<MatchListResponse>();
+  const { loading, error, get } = useApi<MatchListResponse>();
 
   const loadMatches = async () => {
     const start = page * 20;
-    await request(
+    await get(
       `/matches/player/${puuid}?start=${start}&count=20${queueFilter ? `&queue=${queueFilter}` : ""}`,
+      undefined,
       {
         onSuccess: (data) => {
           if (data?.matches) {

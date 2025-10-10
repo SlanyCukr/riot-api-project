@@ -1,6 +1,5 @@
 """Pydantic schemas for Player model."""
 
-import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -15,7 +14,7 @@ class PlayerBase(BaseModel):
     tag_line: Optional[str] = Field(None, description="Riot tag line")
     summoner_name: str = Field(..., description="Current summoner name")
     platform: str = Field(..., description="Platform region")
-    account_level: int = Field(..., description="Account level")
+    account_level: Optional[int] = Field(None, description="Account level")
     profile_icon_id: Optional[int] = Field(None, description="Profile icon ID")
     summoner_id: Optional[str] = Field(None, description="Encrypted summoner ID")
 
@@ -77,7 +76,7 @@ class PlayerListResponse(BaseModel):
 class PlayerBulkRequest(BaseModel):
     """Schema for bulk player operations."""
 
-    puuids: list[uuid.UUID] = Field(
+    puuids: list[str] = Field(
         ..., min_length=1, max_length=100, description="List of player PUUIDs"
     )
 
@@ -86,6 +85,6 @@ class PlayerBulkResponse(BaseModel):
     """Schema for bulk player operations response."""
 
     players: list[PlayerResponse]
-    not_found: list[uuid.UUID]
+    not_found: list[str]
 
     model_config = ConfigDict(from_attributes=True)

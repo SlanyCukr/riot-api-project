@@ -23,7 +23,7 @@ RUN useradd --create-home --shell /bin/bash app \
 USER app
 
 # Copy dependency files
-COPY --chown=app:app pyproject.toml ./
+COPY --chown=app:app pyproject.toml uv.lock ./
 COPY --chown=app:app README.md ./
 
 # Development stage

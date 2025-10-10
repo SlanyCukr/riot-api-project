@@ -124,7 +124,7 @@ class PlayerService:
                     summoner_name=summoner_name,
                     platform=platform,
                 )
-                return PlayerResponse.from_orm(player)
+                return PlayerResponse.model_validate(player)
 
         # If only one partial match, return it
         if len(players) == 1:
@@ -134,7 +134,7 @@ class PlayerService:
                 platform=platform,
                 matched_name=players[0].summoner_name,
             )
-            return PlayerResponse.from_orm(players[0])
+            return PlayerResponse.model_validate(players[0])
 
         # If multiple partial matches, return error with suggestions
         if len(players) > 1:
@@ -285,7 +285,7 @@ class PlayerService:
             select(Player).where(Player.puuid.in_(puuids), Player.is_active)
         )
         players = result.scalars().all()
-        return [PlayerResponse.from_orm(player) for player in players]
+        return [PlayerResponse.model_validate(player) for player in players]
 
     async def search_players(
         self,
@@ -317,4 +317,4 @@ class PlayerService:
 
         result = await self.db.execute(query)
         players = result.scalars().all()
-        return [PlayerResponse.from_orm(player) for player in players]
+        return [PlayerResponse.model_validate(player) for player in players]

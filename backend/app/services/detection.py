@@ -7,7 +7,7 @@ consistency.
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 import structlog
@@ -86,7 +86,7 @@ class SmurfDetectionService:
         Returns:
             DetectionResponse with analysis results
         """
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
 
         # Check if recent analysis exists (unless forced)
         if not force_reanalyze:
@@ -142,7 +142,7 @@ class SmurfDetectionService:
         )
 
         # Calculate analysis time
-        analysis_time = (datetime.now() - start_time).total_seconds()
+        analysis_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         logger.info(
             "Smurf detection analysis completed",
@@ -361,7 +361,10 @@ class SmurfDetectionService:
 
         if time_period_days:
             cutoff_time = int(
-                (datetime.now() - timedelta(days=time_period_days)).timestamp() * 1000
+                (
+                    datetime.now(timezone.utc) - timedelta(days=time_period_days)
+                ).timestamp()
+                * 1000
             )
             query = query.where(Match.game_creation >= cutoff_time)
 
@@ -488,7 +491,7 @@ class SmurfDetectionService:
         self, puuid: str, hours: int = 24
     ) -> Optional[SmurfDetection]:
         """Get recent detection analysis if it exists."""
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         result = await self.db.execute(
             select(SmurfDetection)
@@ -655,14 +658,14 @@ class SmurfDetectionService:
             weights=self.weights,
             min_games_required=self.thresholds["min_games"],
             analysis_version="1.0",
-            last_updated=datetime.now(),
+            last_updated=datetime.now(timezone.utc),
         )
 
     async def analyze_bulk_players(
         self, puuids: List[str], analysis_config: DetectionRequest
     ) -> BulkDetectionResponse:
         """Perform bulk smurf detection analysis."""
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         results = []
         successful = 0
         failed = 0
@@ -697,7 +700,7 @@ class SmurfDetectionService:
                     )
                 )
 
-        processing_time = (datetime.now() - start_time).total_seconds()
+        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # Create summary
         smurf_count = sum(1 for r in results if r.is_smurf)

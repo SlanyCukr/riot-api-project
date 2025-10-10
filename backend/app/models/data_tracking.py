@@ -2,7 +2,7 @@
 Data tracking models for monitoring freshness and API usage patterns.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
@@ -133,14 +133,14 @@ class DataTracking(Base):
         """Get age of data in hours."""
         if not self.last_fetched:
             return float("inf")
-        return (datetime.now() - self.last_fetched).total_seconds() / 3600
+        return (datetime.now(timezone.utc) - self.last_fetched).total_seconds() / 3600
 
     @property
     def hours_since_last_hit(self) -> Optional[float]:
         """Get hours since last hit, or None if never hit."""
         if not self.last_hit:
             return None
-        return (datetime.now() - self.last_hit).total_seconds() / 3600
+        return (datetime.now(timezone.utc) - self.last_hit).total_seconds() / 3600
 
     @property
     def hit_rate(self) -> float:
@@ -295,12 +295,12 @@ class APIRequestQueue(Base):
     @property
     def age_seconds(self) -> float:
         """Get age of request in seconds."""
-        return (datetime.now() - self.created_at).total_seconds()
+        return (datetime.now(timezone.utc) - self.created_at).total_seconds()
 
     @property
     def is_overdue(self) -> bool:
         """Check if request is overdue for processing."""
-        return datetime.now() > self.scheduled_at
+        return datetime.now(timezone.utc) > self.scheduled_at
 
 
 class RateLimitLog(Base):

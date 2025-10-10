@@ -11,7 +11,7 @@ This module provides a unified interface for accessing Riot API data that:
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass
 from enum import Enum
@@ -81,7 +81,7 @@ class DataFreshnessManager:
     def is_fresh(self, data_type: str, last_updated: datetime) -> bool:
         """Check if data is still fresh based on TTL policy."""
         policy = self.FRESHNESS_POLICIES.get(data_type, timedelta(hours=1))
-        return datetime.now() - last_updated < policy
+        return datetime.now(timezone.utc) - last_updated < policy
 
     def get_freshness_policy(self, data_type: str) -> timedelta:
         """Get freshness policy for a data type."""
@@ -100,8 +100,8 @@ class DataFreshnessManager:
                     )
                 )
                 .values(
-                    last_fetched=datetime.now(),
-                    last_updated=datetime.now(),
+                    last_fetched=datetime.now(timezone.utc),
+                    last_updated=datetime.now(timezone.utc),
                     fetch_count=DataTracking.fetch_count + 1,
                     is_active=True,
                 )
@@ -115,8 +115,8 @@ class DataFreshnessManager:
                 new_tracking = DataTracking(
                     data_type=data_type,
                     identifier=identifier,
-                    last_fetched=datetime.now(),
-                    last_updated=datetime.now(),
+                    last_fetched=datetime.now(timezone.utc),
+                    last_updated=datetime.now(timezone.utc),
                     fetch_count=1,
                     hit_count=0,
                 )
@@ -148,7 +148,7 @@ class DataFreshnessManager:
                 )
                 .values(
                     hit_count=DataTracking.hit_count + 1,
-                    last_hit=datetime.now(),
+                    last_hit=datetime.now(timezone.utc),
                 )
             )
             await self.db.execute(stmt)
@@ -260,7 +260,7 @@ class RateLimitAwareFetcher:
                 limit_type=limit_type,
                 endpoint=endpoint,
                 retry_after=retry_after,
-                created_at=datetime.now(),
+                created_at=datetime.now(timezone.utc),
             )
             self.db.add(log_entry)
             await self.db.commit()
@@ -282,13 +282,13 @@ class RateLimitAwareFetcher:
             if scheduled_at is None:
                 # Default to 5 minutes from now for normal priority
                 if priority == "urgent":
-                    scheduled_at = datetime.now() + timedelta(seconds=30)
+                    scheduled_at = datetime.now(timezone.utc) + timedelta(seconds=30)
                 elif priority == "high":
-                    scheduled_at = datetime.now() + timedelta(minutes=2)
+                    scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=2)
                 elif priority == "low":
-                    scheduled_at = datetime.now() + timedelta(minutes=15)
+                    scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=15)
                 else:  # normal
-                    scheduled_at = datetime.now() + timedelta(minutes=5)
+                    scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=5)
 
             queued_request = APIRequestQueue(
                 data_type=data_type,
@@ -399,7 +399,7 @@ class SmartFetchStrategy:
                     return StaleDataWarning(
                         data=cached_data,
                         stale_reason=fetch_status.reason,
-                        fresh_at=datetime.now()
+                        fresh_at=datetime.now(timezone.utc)
                         + timedelta(seconds=fetch_status.wait_time or 60),
                     )
 
@@ -486,7 +486,7 @@ class SmartFetchStrategy:
 
                 result = await self.db.execute(stmt)
                 player = result.scalar_one_or_none()
-                return PlayerResponse.from_orm(player) if player else None
+                return PlayerResponse.model_validate(player) if player else None
 
             elif data_type == "match":
                 stmt = select(Match).where(Match.match_id == identifier)
@@ -595,8 +595,8 @@ class SmartFetchStrategy:
                     for key, value in data.items():
                         if hasattr(player, key):
                             setattr(player, key, value)
-                    player.updated_at = datetime.now()
-                    player.last_seen = datetime.now()
+                    player.updated_at = datetime.now(timezone.utc)
+                    player.last_seen = datetime.now(timezone.utc)
                 else:
                     # Create new player
                     player = Player(
@@ -608,9 +608,9 @@ class SmartFetchStrategy:
                         account_level=data.get("account_level"),
                         profile_icon_id=data.get("profile_icon_id"),
                         summoner_id=data.get("summoner_id"),
-                        created_at=datetime.now(),
-                        updated_at=datetime.now(),
-                        last_seen=datetime.now(),
+                        created_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc),
+                        last_seen=datetime.now(timezone.utc),
                     )
                     self.db.add(player)
 
@@ -918,7 +918,8 @@ class RiotDataManager:
 
             # Get rate limit stats
             rate_limit_stmt = select(RateLimitLog).where(
-                RateLimitLog.created_at > datetime.now() - timedelta(hours=24)
+                RateLimitLog.created_at
+                > datetime.now(timezone.utc) - timedelta(hours=24)
             )
             rate_limit_result = await self.db.execute(rate_limit_stmt)
             recent_rate_limits = len(rate_limit_result.scalars().all())

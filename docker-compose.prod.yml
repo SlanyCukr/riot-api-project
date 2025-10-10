@@ -7,7 +7,7 @@ services:
       - API_URL=${API_URL:-http://backend:8000}
     restart: always
     ports:
-      - "3000:3000"
+      - "3000:80"
     deploy:
       replicas: 2
       resources:
