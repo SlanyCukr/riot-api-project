@@ -114,19 +114,21 @@ class StatsService:
                 individual_stats.append(
                     {
                         "puuid": str(participant.puuid),
-                        "summoner_name": participant.summoner_name,
-                        "champion_name": participant.champion_name,
-                        "team_id": participant.team_id,
-                        "kills": participant.kills,
-                        "deaths": participant.deaths,
-                        "assists": participant.assists,
+                        "summoner_name": str(participant.summoner_name),
+                        "champion_name": str(participant.champion_name),
+                        "team_id": int(participant.team_id),
+                        "kills": int(participant.kills),
+                        "deaths": int(participant.deaths),
+                        "assists": int(participant.assists),
                         "kda": float(participant.kda) if participant.kda else 0.0,
-                        "cs": participant.cs,
-                        "gold_earned": participant.gold_earned,
-                        "vision_score": participant.vision_score,
-                        "damage_dealt": participant.total_damage_dealt_to_champions,
-                        "damage_taken": participant.total_damage_taken,
-                        "win": participant.win,
+                        "cs": int(participant.cs),
+                        "gold_earned": int(participant.gold_earned),
+                        "vision_score": int(participant.vision_score),
+                        "damage_dealt": int(
+                            participant.total_damage_dealt_to_champions
+                        ),
+                        "damage_taken": int(participant.total_damage_taken),
+                        "win": bool(participant.win),
                     }
                 )
 
@@ -175,7 +177,7 @@ class StatsService:
 
             for participant in participants:
                 match_participants = await self._get_match_participants(
-                    participant.match_id
+                    str(participant.match_id)
                 )
 
                 for other_participant in match_participants:
@@ -183,19 +185,21 @@ class StatsService:
                         continue
 
                     other_puuid = str(other_participant.puuid)
-                    is_teammate = other_participant.team_id == participant.team_id
+                    is_teammate = int(other_participant.team_id) == int(
+                        participant.team_id
+                    )
 
                     encounter_data[other_puuid][
                         "as_teammate" if is_teammate else "as_opponent"
                     ] += 1
                     encounter_data[other_puuid]["matches"].append(
                         {
-                            "match_id": participant.match_id,
-                            "summoner_name": other_participant.summoner_name,
-                            "champion_name": other_participant.champion_name,
-                            "team_id": other_participant.team_id,
+                            "match_id": str(participant.match_id),
+                            "summoner_name": str(other_participant.summoner_name),
+                            "champion_name": str(other_participant.champion_name),
+                            "team_id": int(other_participant.team_id),
                             "is_teammate": is_teammate,
-                            "win": other_participant.win,
+                            "win": bool(other_participant.win),
                             "kda": (
                                 float(other_participant.kda)
                                 if other_participant.kda
@@ -289,16 +293,16 @@ class StatsService:
             return self._get_empty_basic_stats()
 
         total_matches = len(participants)
-        wins = sum(1 for p in participants if p.win)
+        wins = sum(1 for p in participants if bool(p.win))
         losses = total_matches - wins
 
-        total_kills = sum(p.kills for p in participants)
-        total_deaths = sum(p.deaths for p in participants)
-        total_assists = sum(p.assists for p in participants)
-        total_cs = sum(p.cs for p in participants)
-        total_vision = sum(p.vision_score for p in participants)
-        total_gold = sum(p.gold_earned for p in participants)
-        total_damage = sum(p.total_damage_dealt_to_champions for p in participants)
+        total_kills = sum(int(p.kills) for p in participants)
+        total_deaths = sum(int(p.deaths) for p in participants)
+        total_assists = sum(int(p.assists) for p in participants)
+        total_cs = sum(int(p.cs) for p in participants)
+        total_vision = sum(int(p.vision_score) for p in participants)
+        total_gold = sum(int(p.gold_earned) for p in participants)
+        total_damage = sum(int(p.total_damage_dealt_to_champions) for p in participants)
 
         return {
             "total_matches": total_matches,
@@ -343,14 +347,14 @@ class StatsService:
         )
 
         for participant in participants:
-            champ_name = participant.champion_name
+            champ_name = str(participant.champion_name)
             champion_stats[champ_name]["matches"] += 1
-            if participant.win:
+            if bool(participant.win):
                 champion_stats[champ_name]["wins"] += 1
-            champion_stats[champ_name]["kills"] += participant.kills
-            champion_stats[champ_name]["deaths"] += participant.deaths
-            champion_stats[champ_name]["assists"] += participant.assists
-            champion_stats[champ_name]["cs"] += participant.cs
+            champion_stats[champ_name]["kills"] += int(participant.kills)
+            champion_stats[champ_name]["deaths"] += int(participant.deaths)
+            champion_stats[champ_name]["assists"] += int(participant.assists)
+            champion_stats[champ_name]["cs"] += int(participant.cs)
 
         # Process champion stats
         processed_stats = {}
@@ -380,13 +384,17 @@ class StatsService:
         )
 
         for participant in participants:
-            position = participant.individual_position or "UNKNOWN"
+            position = (
+                str(participant.individual_position)
+                if participant.individual_position
+                else "UNKNOWN"
+            )
             position_stats[position]["matches"] += 1
-            if participant.win:
+            if bool(participant.win):
                 position_stats[position]["wins"] += 1
-            position_stats[position]["kills"] += participant.kills
-            position_stats[position]["deaths"] += participant.deaths
-            position_stats[position]["assists"] += participant.assists
+            position_stats[position]["kills"] += int(participant.kills)
+            position_stats[position]["deaths"] += int(participant.deaths)
+            position_stats[position]["assists"] += int(participant.assists)
 
         # Process position stats
         processed_stats = {}
@@ -420,12 +428,12 @@ class StatsService:
 
         # Recent form (last 5 games)
         recent_5 = sorted_participants[:5]
-        recent_5_wins = sum(1 for p in recent_5 if p.win)
+        recent_5_wins = sum(1 for p in recent_5 if bool(p.win))
         recent_5_wr = recent_5_wins / len(recent_5)
 
         # Last 10 games
         recent_10 = sorted_participants[:10]
-        recent_10_wins = sum(1 for p in recent_10 if p.win)
+        recent_10_wins = sum(1 for p in recent_10 if bool(p.win))
         recent_10_wr = recent_10_wins / len(recent_10)
 
         # Overall trend
@@ -433,10 +441,12 @@ class StatsService:
         second_half = sorted_participants[: len(sorted_participants) // 2]
 
         first_half_wr = (
-            sum(1 for p in first_half if p.win) / len(first_half) if first_half else 0.0
+            sum(1 for p in first_half if bool(p.win)) / len(first_half)
+            if first_half
+            else 0.0
         )
         second_half_wr = (
-            sum(1 for p in second_half if p.win) / len(second_half)
+            sum(1 for p in second_half if bool(p.win)) / len(second_half)
             if second_half
             else 0.0
         )
@@ -471,12 +481,12 @@ class StatsService:
         )
 
         for participant in participants:
-            team_id = participant.team_id
+            team_id = int(participant.team_id)
             team_stats[team_id]["matches"] += 1
-            if participant.win:
+            if bool(participant.win):
                 team_stats[team_id]["wins"] += 1
-            team_stats[team_id]["kills"] += participant.kills
-            team_stats[team_id]["deaths"] += participant.deaths
+            team_stats[team_id]["kills"] += int(participant.kills)
+            team_stats[team_id]["deaths"] += int(participant.deaths)
 
         processed_stats = {}
         for team_id, stats in team_stats.items():
@@ -498,21 +508,21 @@ class StatsService:
         if not team_participants:
             return {}
 
-        wins = sum(1 for p in team_participants if p.win)
+        wins = sum(1 for p in team_participants if bool(p.win))
         return {
             "wins": wins,
             "losses": len(team_participants) - wins,
             "win_rate": wins / len(team_participants),
-            "total_kills": sum(p.kills for p in team_participants),
-            "total_deaths": sum(p.deaths for p in team_participants),
-            "total_assists": sum(p.assists for p in team_participants),
-            "total_gold": sum(p.gold_earned for p in team_participants),
+            "total_kills": sum(int(p.kills) for p in team_participants),
+            "total_deaths": sum(int(p.deaths) for p in team_participants),
+            "total_assists": sum(int(p.assists) for p in team_participants),
+            "total_gold": sum(int(p.gold_earned) for p in team_participants),
             "total_damage": sum(
-                p.total_damage_dealt_to_champions for p in team_participants
+                int(p.total_damage_dealt_to_champions) for p in team_participants
             ),
             "avg_kda": self._safe_divide(
-                sum(p.kills + p.assists for p in team_participants),
-                sum(p.deaths for p in team_participants),
+                sum(float(p.kills + p.assists) for p in team_participants),
+                sum(float(p.deaths) for p in team_participants),
             ),
         }
 

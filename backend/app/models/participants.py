@@ -2,19 +2,19 @@
 
 from decimal import Decimal
 from typing import Optional
+from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     Numeric as SQLDecimal,
     ForeignKey,
     Integer,
     String,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
@@ -26,10 +26,12 @@ class MatchParticipant(Base):
     __tablename__ = "match_participants"
 
     # Primary key
-    id = Column(BigInteger, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Foreign keys
-    match_id = Column(
+    match_id: Mapped[str] = mapped_column(
         String(64),
         ForeignKey("matches.match_id", ondelete="CASCADE"),
         nullable=False,
@@ -37,7 +39,7 @@ class MatchParticipant(Base):
         comment="Reference to the match this participant belongs to",
     )
 
-    puuid = Column(
+    puuid: Mapped[str] = mapped_column(
         String(78),
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
@@ -46,11 +48,11 @@ class MatchParticipant(Base):
     )
 
     # Participant information
-    summoner_name = Column(
+    summoner_name: Mapped[str] = mapped_column(
         String(32), nullable=False, comment="Summoner name at the time of the match"
     )
 
-    team_id = Column(
+    team_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         index=True,
@@ -58,14 +60,14 @@ class MatchParticipant(Base):
     )
 
     # Champion information
-    champion_id = Column(
+    champion_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         index=True,
         comment="Champion ID played by the participant",
     )
 
-    champion_name = Column(
+    champion_name: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         index=True,
@@ -73,63 +75,73 @@ class MatchParticipant(Base):
     )
 
     # Performance statistics
-    kills = Column(Integer, nullable=False, default=0, comment="Number of kills")
+    kills: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Number of kills"
+    )
 
-    deaths = Column(Integer, nullable=False, default=0, comment="Number of deaths")
+    deaths: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Number of deaths"
+    )
 
-    assists = Column(Integer, nullable=False, default=0, comment="Number of assists")
+    assists: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Number of assists"
+    )
 
-    win = Column(
+    win: Mapped[bool] = mapped_column(
         Boolean, nullable=False, comment="Whether the participant won the match"
     )
 
-    gold_earned = Column(
+    gold_earned: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, comment="Total gold earned"
     )
 
-    vision_score = Column(Integer, nullable=False, default=0, comment="Vision score")
+    vision_score: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, comment="Vision score"
+    )
 
-    cs = Column(
+    cs: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, comment="Total creep score (minions killed)"
     )
 
-    kda = Column(SQLDecimal(5, 2), nullable=True, comment="Kill-death-assist ratio")
+    kda: Mapped[Optional[Decimal]] = mapped_column(
+        SQLDecimal(5, 2), nullable=True, comment="Kill-death-assist ratio"
+    )
 
     # Additional performance metrics
-    champ_level = Column(
+    champ_level: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, comment="Champion level achieved"
     )
 
-    total_damage_dealt = Column(
+    total_damage_dealt: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, comment="Total damage dealt"
     )
 
-    total_damage_dealt_to_champions = Column(
+    total_damage_dealt_to_champions: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, comment="Total damage dealt to champions"
     )
 
-    total_damage_taken = Column(
+    total_damage_taken: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, comment="Total damage taken"
     )
 
-    total_heal = Column(
+    total_heal: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, comment="Total healing done"
     )
 
     # Position information
-    individual_position = Column(
+    individual_position: Mapped[Optional[str]] = mapped_column(
         String(16),
         nullable=True,
         index=True,
         comment="Individual position (e.g., 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
     )
 
-    team_position = Column(
+    team_position: Mapped[Optional[str]] = mapped_column(
         String(16), nullable=True, index=True, comment="Team position"
     )
 
     # Role information
-    role = Column(
+    role: Mapped[Optional[str]] = mapped_column(
         String(16),
         nullable=True,
         index=True,
@@ -137,15 +149,15 @@ class MatchParticipant(Base):
     )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="When this participant record was created",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),

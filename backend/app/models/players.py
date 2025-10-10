@@ -1,16 +1,16 @@
 """Player data model for storing player information."""
 
 from typing import Optional
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     Integer,
     String,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
@@ -23,7 +23,7 @@ class Player(Base):
 
     # Primary key - PUUID is the unique identifier from Riot API
     # Note: Riot PUUID is a base64-encoded string, not a standard UUID
-    puuid = Column(
+    puuid: Mapped[str] = mapped_column(
         String(78),  # Riot PUUIDs are 78 characters
         primary_key=True,
         index=True,
@@ -31,23 +31,23 @@ class Player(Base):
     )
 
     # Riot ID information
-    riot_id = Column(
+    riot_id: Mapped[Optional[str]] = mapped_column(
         String(128), nullable=True, index=True, comment="Player's Riot ID (game name)"
     )
 
-    tag_line = Column(
+    tag_line: Mapped[Optional[str]] = mapped_column(
         String(8), nullable=True, comment="Player's tag line (region identifier)"
     )
 
     # Summoner information (may change over time)
-    summoner_name = Column(
+    summoner_name: Mapped[Optional[str]] = mapped_column(
         String(32),
         nullable=True,
         index=True,
         comment="Current summoner name (can change)",
     )
 
-    platform = Column(
+    platform: Mapped[str] = mapped_column(
         String(8),
         nullable=False,
         index=True,
@@ -55,26 +55,28 @@ class Player(Base):
     )
 
     # Player statistics
-    account_level = Column(Integer, nullable=True, comment="Player's account level")
+    account_level: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Player's account level"
+    )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="When this player record was first created",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
         comment="When this player record was last updated",
     )
 
-    last_seen = Column(
-        DateTime(timezone=True),
+    last_seen: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         index=True,
@@ -82,7 +84,7 @@ class Player(Base):
     )
 
     # Soft deletion flag
-    is_active = Column(
+    is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
@@ -91,9 +93,11 @@ class Player(Base):
     )
 
     # Additional metadata fields
-    profile_icon_id = Column(Integer, nullable=True, comment="Profile icon ID")
+    profile_icon_id: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Profile icon ID"
+    )
 
-    summoner_id = Column(
+    summoner_id: Mapped[Optional[str]] = mapped_column(
         String(64),
         nullable=True,
         index=True,

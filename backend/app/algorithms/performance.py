@@ -86,9 +86,9 @@ class PerformanceAnalyzer:
             )
 
         # Extract performance metrics
-        kda_values = []
-        cs_values = []
-        vision_scores = []
+        kda_values: List[float] = []
+        cs_values: List[float] = []
+        vision_scores: List[float] = []
 
         for match in recent_matches:
             kda = self._calculate_match_kda(match)
@@ -116,30 +116,34 @@ class PerformanceAnalyzer:
             )
 
         # Calculate statistics
-        avg_kda = statistics.mean(kda_values)
-        kda_std_dev = statistics.stdev(kda_values) if len(kda_values) > 1 else 0.0
+        avg_kda: float = statistics.mean(kda_values)
+        kda_std_dev: float = (
+            statistics.stdev(kda_values) if len(kda_values) > 1 else 0.0
+        )
 
-        avg_cs = statistics.mean(cs_values) if cs_values else 0.0
-        cs_std_dev = statistics.stdev(cs_values) if len(cs_values) > 1 else 0.0
+        avg_cs: float = statistics.mean(cs_values) if cs_values else 0.0
+        cs_std_dev: float = statistics.stdev(cs_values) if len(cs_values) > 1 else 0.0
 
-        avg_vision_score = statistics.mean(vision_scores) if vision_scores else 0.0
+        avg_vision_score: float = (
+            statistics.mean(vision_scores) if vision_scores else 0.0
+        )
 
         # Calculate consistency metrics
-        kda_consistency = self._calculate_consistency(avg_kda, kda_std_dev)
-        cs_consistency = (
+        kda_consistency: float = self._calculate_consistency(avg_kda, kda_std_dev)
+        cs_consistency: float = (
             self._calculate_consistency(avg_cs, cs_std_dev) if cs_values else 0.0
         )
 
         # Overall consistency score (weighted average)
-        consistency_score = kda_consistency * 0.7 + cs_consistency * 0.3
+        consistency_score: float = kda_consistency * 0.7 + cs_consistency * 0.3
 
         # Determine if threshold is met
-        meets_threshold = self._meets_smurf_threshold(
+        meets_threshold: bool = self._meets_smurf_threshold(
             avg_kda, consistency_score, len(recent_matches)
         )
 
-        confidence = self._calculate_confidence(len(recent_matches))
-        description = self._generate_description(
+        confidence: float = self._calculate_confidence(len(recent_matches))
+        description: str = self._generate_description(
             avg_kda, consistency_score, meets_threshold, len(recent_matches)
         )
 
@@ -215,7 +219,7 @@ class PerformanceAnalyzer:
         num_games: int,
     ) -> str:
         """Generate human-readable description of performance analysis."""
-        consistency_pct = consistency_score * 100
+        consistency_pct: float = consistency_score * 100
 
         if meets_threshold:
             return f"Consistently high performance: {avg_kda:.1f} KDA, {consistency_pct:.0f}% consistency ({num_games} games)"
@@ -243,44 +247,48 @@ class PerformanceAnalyzer:
             return {"trend": "insufficient_data", "score": 0.0}
 
         # Calculate performance for each match
-        match_performances = []
+        match_performances: List[float] = []
         for match in recent_matches:
             kda = self._calculate_match_kda(match)
             cs = match.get("cs", 0)
             vision = match.get("vision_score", 0)
 
             # Simple performance score (can be enhanced)
-            performance_score = (
+            performance_score: float = (
                 kda * 0.6 + min(cs / 200, 1.0) * 0.3 + min(vision / 50, 1.0) * 0.1
             )
             match_performances.append(performance_score)
 
         # Analyze trend
-        early_performance = match_performances[-5:]  # Last 5 matches (oldest)
-        recent_performance = match_performances[:5]  # First 5 matches (newest)
+        early_performance: List[float] = match_performances[
+            -5:
+        ]  # Last 5 matches (oldest)
+        recent_performance: List[float] = match_performances[
+            :5
+        ]  # First 5 matches (newest)
 
-        early_avg = statistics.mean(early_performance)
-        recent_avg = statistics.mean(recent_performance)
+        early_avg: float = statistics.mean(early_performance)
+        recent_avg: float = statistics.mean(recent_performance)
 
-        performance_change = recent_avg - early_avg
+        performance_change: float = recent_avg - early_avg
 
         # Calculate trend score
         if performance_change > 0.2:  # 20% improvement
-            trend_score = min(1.0, performance_change * 2)
-            trend_type = "improving"
+            trend_score: float = min(1.0, performance_change * 2)
+            trend_type: str = "improving"
         elif performance_change < -0.2:
-            trend_score = min(1.0, abs(performance_change) * 1.5)
-            trend_type = "declining"
+            trend_score: float = min(1.0, abs(performance_change) * 1.5)
+            trend_type: str = "declining"
         else:
-            trend_score = 0.0
-            trend_type = "stable"
+            trend_score: float = 0.0
+            trend_type: str = "stable"
 
         # Check for unusually stable high performance (smurf indicator)
-        all_avg = statistics.mean(match_performances)
-        all_std = statistics.stdev(match_performances)
-        stability_score = self._calculate_consistency(all_avg, all_std)
+        all_avg: float = statistics.mean(match_performances)
+        all_std: float = statistics.stdev(match_performances)
+        stability_score: float = self._calculate_consistency(all_avg, all_std)
 
-        is_suspiciously_stable = (
+        is_suspiciously_stable: bool = (
             all_avg > 0.7  # High average performance
             and stability_score > 0.8  # Very consistent
         )
@@ -308,18 +316,18 @@ class PerformanceAnalyzer:
         Returns:
             Dictionary with role-based performance analysis
         """
-        role_performances = {}
+        role_performances: Dict[str, List[float]] = {}
 
         for match in recent_matches:
-            role = match.get("role", "UNKNOWN")
-            kda = self._calculate_match_kda(match)
+            role: str = match.get("role", "UNKNOWN")
+            kda: float = self._calculate_match_kda(match)
 
             if role not in role_performances:
                 role_performances[role] = []
             role_performances[role].append(kda)
 
         # Calculate statistics for each role
-        role_stats = {}
+        role_stats: Dict[str, Dict[str, Any]] = {}
         for role, kdas in role_performances.items():
             if len(kdas) >= 3:  # Only analyze roles with sufficient data
                 role_stats[role] = {
@@ -333,10 +341,10 @@ class PerformanceAnalyzer:
                 }
 
         # Check for suspicious patterns
-        suspicious_patterns = []
+        suspicious_patterns: List[str] = []
         if len(role_stats) >= 3:
             # Check if player performs exceptionally well across multiple roles
-            high_performance_roles = [
+            high_performance_roles: List[str] = [
                 role
                 for role, stats in role_stats.items()
                 if stats["avg_kda"] > self.high_kda_threshold

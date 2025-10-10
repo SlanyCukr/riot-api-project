@@ -2,11 +2,12 @@
 
 from decimal import Decimal
 from enum import Enum
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     ForeignKey,
     Integer,
     Numeric,
@@ -14,7 +15,7 @@ from sqlalchemy import (
     Text,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
@@ -50,10 +51,12 @@ class SmurfDetection(Base):
     __tablename__ = "smurf_detections"
 
     # Primary key
-    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Foreign key
-    puuid = Column(
+    puuid: Mapped[str] = mapped_column(
         String(78),
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
@@ -62,7 +65,7 @@ class SmurfDetection(Base):
     )
 
     # Detection results
-    is_smurf = Column(
+    is_smurf: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
@@ -70,14 +73,14 @@ class SmurfDetection(Base):
         comment="Whether the player is detected as a smurf",
     )
 
-    confidence = Column(
+    confidence: Mapped[Optional[str]] = mapped_column(
         String(16),
         nullable=True,
         index=True,
         comment="Confidence level in the smurf detection",
     )
 
-    smurf_score = Column(
+    smurf_score: Mapped[Decimal] = mapped_column(
         Numeric(5, 3),
         nullable=False,
         default=0.0,
@@ -86,89 +89,93 @@ class SmurfDetection(Base):
     )
 
     # Signal breakdown
-    win_rate_score = Column(
+    win_rate_score: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3), nullable=True, comment="Win rate based smurf score component"
     )
 
-    kda_score = Column(
+    kda_score: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3), nullable=True, comment="KDA based smurf score component"
     )
 
-    account_level_score = Column(
+    account_level_score: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3),
         nullable=True,
         comment="Account level based smurf score component",
     )
 
-    rank_discrepancy_score = Column(
+    rank_discrepancy_score: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3),
         nullable=True,
         comment="Rank discrepancy based smurf score component",
     )
 
     # Analysis parameters
-    games_analyzed = Column(
+    games_analyzed: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         comment="Number of games analyzed for this detection",
     )
 
-    queue_type = Column(
+    queue_type: Mapped[Optional[str]] = mapped_column(
         String(32),
         nullable=True,
         index=True,
         comment="Queue type analyzed (e.g., RANKED_SOLO_5x5)",
     )
 
-    time_period_days = Column(
+    time_period_days: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="Time period in days analyzed"
     )
 
     # Detection thresholds
-    win_rate_threshold = Column(
+    win_rate_threshold: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3), nullable=True, comment="Win rate threshold used for detection"
     )
 
-    kda_threshold = Column(
+    kda_threshold: Mapped[Optional[Decimal]] = mapped_column(
         Numeric(5, 3), nullable=True, comment="KDA threshold used for detection"
     )
 
     # Additional signals
-    account_level = Column(
+    account_level: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="Account level at time of analysis"
     )
 
-    current_tier = Column(
+    current_tier: Mapped[Optional[str]] = mapped_column(
         String(16), nullable=True, comment="Current tier at time of analysis"
     )
 
-    current_rank = Column(
+    current_rank: Mapped[Optional[str]] = mapped_column(
         String(4), nullable=True, comment="Current rank at time of analysis"
     )
 
-    peak_tier = Column(String(16), nullable=True, comment="Peak tier observed")
+    peak_tier: Mapped[Optional[str]] = mapped_column(
+        String(16), nullable=True, comment="Peak tier observed"
+    )
 
-    peak_rank = Column(String(4), nullable=True, comment="Peak rank observed")
+    peak_rank: Mapped[Optional[str]] = mapped_column(
+        String(4), nullable=True, comment="Peak rank observed"
+    )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="When this smurf detection was created",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
         comment="When this smurf detection was last updated",
     )
 
-    last_analysis = Column(
-        DateTime(timezone=True),
+    last_analysis: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         index=True,
@@ -176,11 +183,11 @@ class SmurfDetection(Base):
     )
 
     # Metadata
-    analysis_version = Column(
+    analysis_version: Mapped[Optional[str]] = mapped_column(
         String(16), nullable=True, comment="Version of the smurf detection algorithm"
     )
 
-    false_positive_reported = Column(
+    false_positive_reported: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
@@ -188,7 +195,7 @@ class SmurfDetection(Base):
         comment="Whether this detection was reported as false positive",
     )
 
-    manually_verified = Column(
+    manually_verified: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
@@ -196,7 +203,9 @@ class SmurfDetection(Base):
         comment="Whether this detection was manually verified",
     )
 
-    notes = Column(Text, nullable=True, comment="Additional notes about this detection")
+    notes: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True, comment="Additional notes about this detection"
+    )
 
     # Relationships
     player = relationship("Player", back_populates="smurf_detections")

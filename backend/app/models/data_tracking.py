@@ -5,14 +5,14 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     Integer,
     String,
     Text,
     Index,
     UniqueConstraint,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from . import Base
@@ -28,17 +28,19 @@ class DataTracking(Base):
     __tablename__ = "data_tracking"
 
     # Primary key
-    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Data identification
-    data_type = Column(
+    data_type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         index=True,
         comment="Type of data (account, summoner, match, rank, etc.)",
     )
 
-    identifier = Column(
+    identifier: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         index=True,
@@ -46,28 +48,28 @@ class DataTracking(Base):
     )
 
     # Timestamps
-    last_fetched = Column(
-        DateTime(timezone=True),
+    last_fetched: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         comment="Last time data was fetched from Riot API",
     )
 
-    last_updated = Column(
-        DateTime(timezone=True),
+    last_updated: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         comment="Last time this record was updated",
     )
 
     # Usage statistics
-    fetch_count = Column(
+    fetch_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=1,
         comment="Number of times this data has been fetched",
     )
 
-    hit_count = Column(
+    hit_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
@@ -75,29 +77,29 @@ class DataTracking(Base):
     )
 
     # Status tracking
-    is_active = Column(
+    is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
         comment="Whether this data is still actively tracked",
     )
 
-    last_hit = Column(
-        DateTime(timezone=True),
+    last_hit: Mapped[Optional[datetime]] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=True,
         comment="Last time this data was requested",
     )
 
     # Metadata
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         comment="When this tracking record was created",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         onupdate=func.now(),
@@ -160,17 +162,19 @@ class APIRequestQueue(Base):
     __tablename__ = "api_request_queue"
 
     # Primary key
-    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Request identification
-    data_type = Column(
+    data_type: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
         index=True,
         comment="Type of data to fetch",
     )
 
-    identifier = Column(
+    identifier: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         index=True,
@@ -178,7 +182,7 @@ class APIRequestQueue(Base):
     )
 
     # Priority and scheduling
-    priority = Column(
+    priority: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="normal",
@@ -186,8 +190,8 @@ class APIRequestQueue(Base):
         comment="Priority level (low, normal, high, urgent)",
     )
 
-    scheduled_at = Column(
-        DateTime(timezone=True),
+    scheduled_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         index=True,
@@ -195,14 +199,14 @@ class APIRequestQueue(Base):
     )
 
     # Retry handling
-    retry_count = Column(
+    retry_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,
         comment="Number of times this request has been retried",
     )
 
-    max_retries = Column(
+    max_retries: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=3,
@@ -210,7 +214,7 @@ class APIRequestQueue(Base):
     )
 
     # Status tracking
-    status = Column(
+    status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         default="pending",
@@ -219,50 +223,50 @@ class APIRequestQueue(Base):
     )
 
     # Error handling
-    error_message = Column(
+    error_message: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Error message if request failed",
     )
 
-    last_error_at = Column(
-        DateTime(timezone=True),
+    last_error_at: Mapped[Optional[datetime]] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=True,
         comment="When the last error occurred",
     )
 
     # Request metadata
-    request_data = Column(
+    request_data: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Additional request parameters (JSON string)",
     )
 
-    response_data = Column(
+    response_data: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Response data for successful requests (JSON string)",
     )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         index=True,
         comment="When this request was queued",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         onupdate=func.now(),
         comment="When this request was last updated",
     )
 
-    processed_at = Column(
-        DateTime(timezone=True),
+    processed_at: Mapped[Optional[datetime]] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=True,
         comment="When this request was processed",
     )
@@ -315,17 +319,19 @@ class RateLimitLog(Base):
     __tablename__ = "rate_limit_log"
 
     # Primary key
-    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Rate limit details
-    limit_type = Column(
+    limit_type: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
         index=True,
         comment="Type of rate limit (app, method, service)",
     )
 
-    endpoint = Column(
+    endpoint: Mapped[Optional[str]] = mapped_column(
         String(255),
         nullable=True,
         index=True,
@@ -333,40 +339,40 @@ class RateLimitLog(Base):
     )
 
     # Rate limit values
-    limit_count = Column(
+    limit_count: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
         comment="Rate limit count (requests allowed)",
     )
 
-    limit_window = Column(
+    limit_window: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
         comment="Rate limit window (seconds)",
     )
 
-    current_usage = Column(
+    current_usage: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
         comment="Current usage when rate limit was hit",
     )
 
-    retry_after = Column(
+    retry_after: Mapped[Optional[int]] = mapped_column(
         Integer,
         nullable=True,
         comment="Retry-After header value in seconds",
     )
 
     # Request context
-    request_data = Column(
+    request_data: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
         comment="Context about the request that hit the limit",
     )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         default=func.now(),
         index=True,

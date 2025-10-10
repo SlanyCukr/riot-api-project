@@ -1,5 +1,6 @@
 """FastAPI dependencies for the Riot API application."""
 
+from collections.abc import AsyncGenerator
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
@@ -15,7 +16,7 @@ from ..services.detection import SmurfDetectionService
 from ..config import settings
 
 
-async def get_riot_client() -> RiotAPIClient:
+async def get_riot_client() -> AsyncGenerator[RiotAPIClient, None]:
     """Get Riot API client instance."""
     if not settings.riot_api_key:
         raise HTTPException(status_code=500, detail="Riot API key not configured")

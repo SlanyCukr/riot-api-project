@@ -5,14 +5,13 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     Integer,
     String,
     Boolean,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
@@ -24,7 +23,7 @@ class Match(Base):
     __tablename__ = "matches"
 
     # Primary key - match ID from Riot API
-    match_id = Column(
+    match_id: Mapped[str] = mapped_column(
         String(64),
         primary_key=True,
         index=True,
@@ -32,7 +31,7 @@ class Match(Base):
     )
 
     # Platform and routing information
-    platform_id = Column(
+    platform_id: Mapped[str] = mapped_column(
         String(8),
         nullable=False,
         index=True,
@@ -40,42 +39,44 @@ class Match(Base):
     )
 
     # Game information
-    game_creation = Column(
+    game_creation: Mapped[int] = mapped_column(
         BigInteger,
         nullable=False,
         index=True,
         comment="Game creation timestamp in milliseconds since epoch",
     )
 
-    game_duration = Column(Integer, nullable=False, comment="Game duration in seconds")
+    game_duration: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="Game duration in seconds"
+    )
 
-    queue_id = Column(
+    queue_id: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         index=True,
         comment="Queue type ID (e.g., 420=Ranked Solo, 440=Ranked Flex)",
     )
 
-    game_version = Column(
+    game_version: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         index=True,
         comment="Game version (e.g., '14.20.555.5555')",
     )
 
-    map_id = Column(
+    map_id: Mapped[int] = mapped_column(
         Integer, nullable=False, comment="Map ID (e.g., 11=Summoner's Rift)"
     )
 
     # Game mode information
-    game_mode = Column(
+    game_mode: Mapped[Optional[str]] = mapped_column(
         String(32),
         nullable=True,
         index=True,
         comment="Game mode (e.g., 'CLASSIC', 'ARAM')",
     )
 
-    game_type = Column(
+    game_type: Mapped[Optional[str]] = mapped_column(
         String(32),
         nullable=True,
         index=True,
@@ -83,22 +84,22 @@ class Match(Base):
     )
 
     # Match result
-    game_end_timestamp = Column(
+    game_end_timestamp: Mapped[Optional[int]] = mapped_column(
         BigInteger,
         nullable=True,
         comment="Game end timestamp in milliseconds since epoch",
     )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="When this match record was created in our database",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
@@ -106,7 +107,7 @@ class Match(Base):
     )
 
     # Additional match metadata
-    tournament_id = Column(
+    tournament_id: Mapped[Optional[str]] = mapped_column(
         String(64),
         nullable=True,
         index=True,
@@ -114,7 +115,7 @@ class Match(Base):
     )
 
     # Processing flags
-    is_processed = Column(
+    is_processed: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
@@ -122,7 +123,7 @@ class Match(Base):
         comment="Whether this match has been processed for smurf detection",
     )
 
-    processing_error = Column(
+    processing_error: Mapped[Optional[str]] = mapped_column(
         String(256), nullable=True, comment="Error message if match processing failed"
     )
 

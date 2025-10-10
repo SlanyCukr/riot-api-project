@@ -1,17 +1,18 @@
 """Player rank model for storing ranked information."""
 
 from enum import Enum
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
-    Column,
-    DateTime,
+    DateTime as SQLDateTime,
     ForeignKey,
     Integer,
     String,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
@@ -55,10 +56,12 @@ class PlayerRank(Base):
     __tablename__ = "player_ranks"
 
     # Primary key
-    id = Column(Integer, primary_key=True, comment="Auto-incrementing primary key")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, comment="Auto-incrementing primary key"
+    )
 
     # Foreign key
-    puuid = Column(
+    puuid: Mapped[str] = mapped_column(
         String(78),
         ForeignKey("players.puuid", ondelete="CASCADE"),
         nullable=False,
@@ -67,55 +70,55 @@ class PlayerRank(Base):
     )
 
     # Queue and rank information
-    queue_type = Column(
+    queue_type: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         index=True,
         comment="Queue type (e.g., RANKED_SOLO_5x5, RANKED_FLEX_SR)",
     )
 
-    tier = Column(
+    tier: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         index=True,
         comment="Rank tier (e.g., GOLD, PLATINUM, DIAMOND)",
     )
 
-    rank = Column(
+    rank: Mapped[Optional[str]] = mapped_column(
         String(4), nullable=True, index=True, comment="Rank division (I, II, III, IV)"
     )
 
-    league_points = Column(
+    league_points: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, comment="League points (0-100)"
     )
 
-    wins = Column(
+    wins: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, comment="Number of wins in this queue"
     )
 
-    losses = Column(
+    losses: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, comment="Number of losses in this queue"
     )
 
-    veteran = Column(
+    veteran: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
         comment="Whether the player is a veteran",
     )
 
-    inactive = Column(
+    inactive: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, comment="Whether the player is inactive"
     )
 
-    fresh_blood = Column(
+    fresh_blood: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
         comment="Whether the player is fresh blood",
     )
 
-    hot_streak = Column(
+    hot_streak: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
@@ -123,20 +126,24 @@ class PlayerRank(Base):
     )
 
     # League information
-    league_id = Column(String(64), nullable=True, index=True, comment="League ID")
+    league_id: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, index=True, comment="League ID"
+    )
 
-    league_name = Column(String(64), nullable=True, comment="League name")
+    league_name: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, comment="League name"
+    )
 
     # Timestamps
-    created_at = Column(
-        DateTime(timezone=True),
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="When this rank record was created",
     )
 
-    updated_at = Column(
-        DateTime(timezone=True),
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
@@ -144,12 +151,12 @@ class PlayerRank(Base):
     )
 
     # Season information
-    season_id = Column(
+    season_id: Mapped[Optional[str]] = mapped_column(
         String(16), nullable=True, index=True, comment="Season identifier"
     )
 
     # Is current rank flag
-    is_current = Column(
+    is_current: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
