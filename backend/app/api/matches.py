@@ -134,7 +134,7 @@ async def get_player_encounter_stats(
 
 @router.get("/{match_id}/stats")
 async def get_match_stats(match_id: str, stats_service: StatsServiceDep):
-    """Get detailed statistics for a specific match"""
+    """Get detailed statistics for a specific match."""
     try:
         stats = await stats_service.calculate_match_statistics(match_id)
         if not stats:
@@ -168,7 +168,7 @@ async def search_matches(
 
 @router.get("/{match_id}/participants")
 async def get_match_participants(match_id: str, match_service: MatchServiceDep):
-    """Get all participants in a match with their details"""
+    """Get all participants in a match with their details."""
     try:
         match_data = await match_service.get_match_by_id_with_participants(match_id)
         if not match_data:

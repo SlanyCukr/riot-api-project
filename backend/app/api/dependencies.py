@@ -1,6 +1,4 @@
-"""
-FastAPI dependencies for the Riot API application.
-"""
+"""FastAPI dependencies for the Riot API application."""
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession

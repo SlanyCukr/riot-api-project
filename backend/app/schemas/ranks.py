@@ -1,6 +1,4 @@
-"""
-Pydantic schemas for PlayerRank model.
-"""
+"""Pydantic schemas for PlayerRank model."""
 
 import uuid
 from datetime import datetime

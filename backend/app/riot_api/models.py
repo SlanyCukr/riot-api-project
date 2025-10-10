@@ -1,6 +1,4 @@
-"""
-Pydantic models for Riot API response data.
-"""
+"""Pydantic models for Riot API response data."""
 
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator, ConfigDict
@@ -30,6 +28,7 @@ class SummonerDTO(BaseModel):
     @field_validator("revision_date", mode="before")
     @classmethod
     def parse_timestamp(cls, v):
+        """Parse timestamp from milliseconds to datetime."""
         if v is None:
             return None
         if isinstance(v, (int, float)):

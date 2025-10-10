@@ -1,6 +1,4 @@
-"""
-Data transformation utilities for Riot API match data.
-"""
+"""Data transformation utilities for Riot API match data."""
 
 from typing import Dict, List, Any
 import structlog
@@ -323,17 +321,17 @@ class MatchTransformer:
                 "losses": total_matches - wins,
                 "win_rate": wins / total_matches if total_matches > 0 else 0.0,
                 "avg_kills": total_kills / total_matches if total_matches > 0 else 0.0,
-                "avg_deaths": total_deaths / total_matches
-                if total_matches > 0
-                else 0.0,
-                "avg_assists": total_assists / total_matches
-                if total_matches > 0
-                else 0.0,
+                "avg_deaths": (
+                    total_deaths / total_matches if total_matches > 0 else 0.0
+                ),
+                "avg_assists": (
+                    total_assists / total_matches if total_matches > 0 else 0.0
+                ),
                 "avg_kda": avg_kda,
                 "avg_cs": total_cs / total_matches if total_matches > 0 else 0.0,
-                "avg_vision_score": total_vision / total_matches
-                if total_matches > 0
-                else 0.0,
+                "avg_vision_score": (
+                    total_vision / total_matches if total_matches > 0 else 0.0
+                ),
             }
         except Exception as e:
             logger.error("Failed to aggregate match statistics", error=str(e))

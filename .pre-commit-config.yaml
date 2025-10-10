@@ -32,19 +32,24 @@ repos:
         args: ["-c", "backend/pyproject.toml"]
         exclude: ^(tests/|tools/)
 
-  # pydocstyle - Documentation quality checker (temporarily disabled due to many violations)
-  # - repo: https://github.com/PyCQA/pydocstyle
-  #   rev: 6.3.0
-  #   hooks:
-  #     - id: pydocstyle
-  #       exclude: ^(tests/|tools/)
+  # pydocstyle - Documentation quality checker
+  - repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        exclude: |
+          (?x)^(
+            .*/migrations/versions/.*|
+            .*/alembic/versions/.*
+          )$
 
-  # Pyright - Fast static type checker (3-5x faster than MyPy) (temporarily disabled due to import issues)
+  # Pyright - Fast static type checker (3-5x faster than MyPy) (temporarily disabled)
   # - repo: https://github.com/RobertCraigie/pyright-python
   #   rev: v1.1.405
   #   hooks:
   #     - id: pyright
-  #       exclude: ^(tests/|docs/)
+  #       args: ["--project", "backend/pyproject.toml"]
+  #       exclude: ^(tests/|docs/|backend/alembic/versions/|backend/app/migrations/versions/)
 
   # TypeScript/React hooks for frontend
   - repo: https://github.com/pre-commit/mirrors-eslint
@@ -73,21 +78,21 @@ repos:
           - "prettier-plugin-tailwindcss@0.6.11"
 
   # Check for frontend package.json consistency (temporarily disabled due to version issues)
-  # - repo: https://github.com/pre-commit/mirrors-eslint
-  #   rev: v8.57.0
-  #   hooks:
-  #     - id: eslint
-  #       name: ESLint for frontend package.json
-  #       files: ^frontend/package\.json$
-  #       additional_dependencies:
-  #         - "eslint@8.57.0"
-  #       args:
-  #         [
-  #           --rule,
-  #           "package-json/valid-package-def: error",
-  #           --rule,
-  #           "package-json/sort-keys: error",
-  #         ]
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.18.0
+    hooks:
+      - id: eslint
+        name: ESLint for frontend package.json
+        files: ^frontend/package\.json$
+        additional_dependencies:
+          - "eslint@8.57.0"
+        args:
+          [
+            --rule,
+            "package-json/valid-package-def: error",
+            --rule,
+            "package-json/sort-keys: error",
+          ]
 
 # Configuration for pre-commit
 default_stages: [pre-commit]

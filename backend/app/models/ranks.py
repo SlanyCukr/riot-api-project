@@ -1,6 +1,4 @@
-"""
-Player rank model for storing ranked information.
-"""
+"""Player rank model for storing ranked information."""
 
 from enum import Enum
 
@@ -163,7 +161,7 @@ class PlayerRank(Base):
     player = relationship("Player", back_populates="ranks")
 
     def __repr__(self) -> str:
-        """String representation of the player rank."""
+        """Return string representation of the player rank."""
         return f"<PlayerRank(puuid='{self.puuid}', queue='{self.queue_type}', tier='{self.tier}', rank='{self.rank}')>"
 
     def to_dict(self) -> dict:

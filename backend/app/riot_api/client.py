@@ -116,9 +116,9 @@ class RiotAPIClient:
                         "Riot API client session started",
                         region=self.region.value,
                         platform=self.platform.value,
-                        api_key_prefix=self.api_key[:10] + "..."
-                        if self.api_key
-                        else "None",
+                        api_key_prefix=(
+                            self.api_key[:10] + "..." if self.api_key else "None"
+                        ),
                     )
 
     async def close(self) -> None:

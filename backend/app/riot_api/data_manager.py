@@ -343,7 +343,7 @@ class SmartFetchStrategy:
         **kwargs,
     ) -> Union[Any, StaleDataWarning]:
         """
-        Main intelligent data retrieval method.
+        Retrieve data using intelligent caching and rate limit management.
 
         Args:
             data_type: Type of data to fetch (account, summoner, match, etc.)
@@ -895,9 +895,9 @@ class RiotDataManager:
                         "total_records": total_records,
                         "total_hits": total_hits,
                         "total_fetches": total_fetches,
-                        "hit_rate": total_hits / total_fetches
-                        if total_fetches > 0
-                        else 0,
+                        "hit_rate": (
+                            total_hits / total_fetches if total_fetches > 0 else 0
+                        ),
                         "avg_age_hours": avg_age,
                     }
                 else:

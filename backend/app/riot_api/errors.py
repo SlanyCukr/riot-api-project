@@ -197,6 +197,7 @@ def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
     Returns:
         Appropriate RiotAPIError subclass
     """
+    response_data = {}
     try:
         response_data = json.loads(response_text) if response_text else {}
         message = response_data.get("status", {}).get("message", str(response_text))

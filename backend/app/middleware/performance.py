@@ -216,9 +216,11 @@ class RequestMetricsCollector:
                 "endpoint_stats": self.endpoint_stats,
                 "error_rates": {
                     endpoint: {
-                        "error_rate": (stats["errors"] / stats["total"]) * 100
-                        if stats["total"] > 0
-                        else 0,
+                        "error_rate": (
+                            (stats["errors"] / stats["total"]) * 100
+                            if stats["total"] > 0
+                            else 0
+                        ),
                         "errors": stats["errors"],
                         "total": stats["total"],
                     }

@@ -1,6 +1,4 @@
-"""
-Match participant model for storing individual player performance in matches.
-"""
+"""Match participant model for storing individual player performance in matches."""
 
 from decimal import Decimal
 from typing import Optional
@@ -159,7 +157,7 @@ class MatchParticipant(Base):
     player = relationship("Player", back_populates="match_participations")
 
     def __repr__(self) -> str:
-        """String representation of the match participant."""
+        """Return string representation of the match participant."""
         return f"<MatchParticipant(match_id='{self.match_id}', summoner_name='{self.summoner_name}', champion='{self.champion_name}')>"
 
     def to_dict(self) -> dict:
@@ -200,7 +198,6 @@ class MatchParticipant(Base):
 
     def calculate_cs_per_minute(self) -> Optional[float]:
         """Calculate CS per minute."""
-
         # This would need to be calculated after fetching the match
         # For now, we'll return None
         return None

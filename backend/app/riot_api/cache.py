@@ -1,6 +1,4 @@
-"""
-Caching layer for Riot API responses using TTL-based in-memory cache.
-"""
+"""Caching layer for Riot API responses using TTL-based in-memory cache."""
 
 import time
 import threading
@@ -123,9 +121,7 @@ shard_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour - shards rarely change
 
 
 class RiotAPICache:
-    """
-    Unified cache interface for all Riot API data types.
-    """
+    """Unified cache interface for all Riot API data types."""
 
     @staticmethod
     def get_account_by_riot_id(

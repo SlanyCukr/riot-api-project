@@ -1,6 +1,4 @@
-"""
-Statistics calculation service for match data analysis.
-"""
+"""Statistics calculation service for match data analysis."""
 
 from typing import Dict, List, Any, Optional
 import structlog
@@ -19,6 +17,7 @@ class StatsService:
     """Service for calculating various statistics from match data."""
 
     def __init__(self, db: AsyncSession):
+        """Initialize statistics service."""
         self.db = db
 
     async def calculate_player_statistics(
@@ -197,9 +196,11 @@ class StatsService:
                             "team_id": other_participant.team_id,
                             "is_teammate": is_teammate,
                             "win": other_participant.win,
-                            "kda": float(other_participant.kda)
-                            if other_participant.kda
-                            else 0.0,
+                            "kda": (
+                                float(other_participant.kda)
+                                if other_participant.kda
+                                else 0.0
+                            ),
                         }
                     )
 
@@ -220,12 +221,16 @@ class StatsService:
                         "total_encounters": total_encounters,
                         "as_teammate": data["as_teammate"],
                         "as_opponent": data["as_opponent"],
-                        "teammate_win_rate": teammate_wins / data["as_teammate"]
-                        if data["as_teammate"] > 0
-                        else 0.0,
-                        "opponent_win_rate": opponent_wins / data["as_opponent"]
-                        if data["as_opponent"] > 0
-                        else 0.0,
+                        "teammate_win_rate": (
+                            teammate_wins / data["as_teammate"]
+                            if data["as_teammate"] > 0
+                            else 0.0
+                        ),
+                        "opponent_win_rate": (
+                            opponent_wins / data["as_opponent"]
+                            if data["as_opponent"] > 0
+                            else 0.0
+                        ),
                         "avg_kda": sum(m["kda"] for m in data["matches"])
                         / len(data["matches"]),
                         "recent_matches": data["matches"][-5:],  # Last 5 encounters
@@ -305,13 +310,13 @@ class StatsService:
             "avg_assists": total_assists / total_matches if total_matches > 0 else 0.0,
             "avg_kda": self._safe_divide(total_kills + total_assists, total_deaths),
             "avg_cs": total_cs / total_matches if total_matches > 0 else 0.0,
-            "avg_vision_score": total_vision / total_matches
-            if total_matches > 0
-            else 0.0,
+            "avg_vision_score": (
+                total_vision / total_matches if total_matches > 0 else 0.0
+            ),
             "avg_gold_earned": total_gold / total_matches if total_matches > 0 else 0.0,
-            "avg_damage_dealt": total_damage / total_matches
-            if total_matches > 0
-            else 0.0,
+            "avg_damage_dealt": (
+                total_damage / total_matches if total_matches > 0 else 0.0
+            ),
             "max_kills": max(p.kills for p in participants),
             "max_deaths": max(p.deaths for p in participants),
             "max_assists": max(p.assists for p in participants),
@@ -437,20 +442,20 @@ class StatsService:
         )
 
         return {
-            "recent_form": "hot"
-            if recent_5_wr >= 0.8
-            else "cold"
-            if recent_5_wr <= 0.2
-            else "neutral",
+            "recent_form": (
+                "hot"
+                if recent_5_wr >= 0.8
+                else "cold" if recent_5_wr <= 0.2 else "neutral"
+            ),
             "last_5_games_win_rate": recent_5_wr,
             "last_10_games_win_rate": recent_10_wr,
             "first_half_win_rate": first_half_wr,
             "second_half_win_rate": second_half_wr,
-            "improvement_trend": "improving"
-            if second_half_wr > first_half_wr
-            else "declining"
-            if second_half_wr < first_half_wr
-            else "stable",
+            "improvement_trend": (
+                "improving"
+                if second_half_wr > first_half_wr
+                else "declining" if second_half_wr < first_half_wr else "stable"
+            ),
         }
 
     async def _calculate_team_performance(

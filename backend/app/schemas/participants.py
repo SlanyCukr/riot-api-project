@@ -1,6 +1,4 @@
-"""
-Pydantic schemas for MatchParticipant model.
-"""
+"""Pydantic schemas for MatchParticipant model."""
 
 import uuid
 from datetime import datetime

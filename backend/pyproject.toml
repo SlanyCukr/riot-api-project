@@ -3,24 +3,24 @@ name = "riot-api-backend"
 version = "0.1.0"
 description = "Riot API backend for match history and smurf detection"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Marek Hovadík", email = "marek.hovadik@seznam.cz"},
 ]
 dependencies = [
-    "fastapi>=0.104.1",
-    "uvicorn[standard]>=0.24.0",
-    "sqlalchemy>=2.0.23",
-    "alembic>=1.12.1",
-    "asyncpg>=0.29.0",
-    "pydantic>=2.5.0",
-    "pydantic-settings>=2.1.0",
-    "python-dotenv>=1.0.0",
-    "httpx>=0.25.2",
-    "aiohttp>=3.9.1",
-    "tenacity>=8.2.3",
-    "structlog>=23.2.0",
-    "python-multipart>=0.0.6",
+    "fastapi>=0.118.2",
+    "uvicorn[standard]>=0.37.0",
+    "sqlalchemy>=2.0.43",
+    "alembic>=1.16.5",
+    "asyncpg>=0.30.0",
+    "pydantic>=2.12.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.1.1",
+    "httpx>=0.28.1",
+    "aiohttp>=3.13.0",
+    "tenacity>=9.1.2",
+    "structlog>=25.4.0",
+    "python-multipart>=0.0.20",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 readme = "README.md"
 license = {text = "MIT"}
 
@@ -33,18 +33,18 @@ packages = ["app"]
 
 [dependency-groups]
 dev = [
-    "pytest>=7.4.3",
-    "pytest-asyncio>=0.21.1",
-    "pytest-cov>=4.1.0",
-    "black>=23.11.0",
-    "isort>=5.12.0",
-    "flake8>=6.1.0",
-    "mypy>=1.7.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "black>=25.9.0",
+    "isort>=6.1.0",
+    "flake8>=7.3.0",
+    "mypy>=1.18.2",
 ]
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ['py313']
 
 [tool.isort]
 profile = "black"
@@ -53,3 +53,42 @@ multi_line_output = 3
 [tool.bandit]
 exclude_dirs = ["tests", "tools"]
 skips = ["B101", "B601", "B104", "B311"]
+
+[tool.pyright]
+include = ["app", "alembic/env.py", "main.py"]
+exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/node_modules",
+    "**/migrations/versions",
+    "**/alembic/versions",
+    "**/tests",
+    ".venv"
+]
+
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+stubPath = "typings"
+
+# Keep these strict-but-gentle nudges
+reportMissingImports = true
+reportMissingTypeStubs = "warning"
+
+# Helpful for gradual typing; flip to "error" later in strict areas
+reportUnknownArgumentType = "warning"
+reportUnknownParameterType = "warning"
+reportUnknownVariableType = "warning"
+reportUnknownMemberType = "warning"
+reportUntypedFunctionDecorator = "warning"
+reportUntypedClassDef = "warning"
+reportUntypedNamedTuple = "warning"
+reportUntypedBaseClass = "warning"
+
+# Strict typing for high-value areas
+strict = [
+    "app/algorithms/**/*.py",
+    "app/services/**/*.py",
+    "app/models/**/*.py"
+]

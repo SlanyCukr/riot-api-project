@@ -1,6 +1,4 @@
-"""
-Match data model for storing League of Legends match information.
-"""
+"""Match data model for storing League of Legends match information."""
 
 from datetime import datetime
 from typing import Optional
@@ -134,7 +132,7 @@ class Match(Base):
     )
 
     def __repr__(self) -> str:
-        """String representation of the match."""
+        """Return string representation of the match."""
         return f"<Match(match_id='{self.match_id}', queue_id={self.queue_id}, game_creation={self.game_creation})>"
 
     def to_dict(self) -> dict:

@@ -1,3 +1,1 @@
-"""
-Database migrations package.
-"""
+"""Database migrations package."""

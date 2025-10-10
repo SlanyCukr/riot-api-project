@@ -1,6 +1,4 @@
-"""
-Middleware package for performance monitoring.
-"""
+"""Middleware package for performance monitoring."""
 
 from .performance import PerformanceMiddleware
 

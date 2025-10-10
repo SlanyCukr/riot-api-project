@@ -1,3 +1,1 @@
-"""
-Test package for Riot API client.
-"""
+"""Test package for Riot API client."""

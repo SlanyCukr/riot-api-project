@@ -1,6 +1,4 @@
-"""
-Player data model for storing player information.
-"""
+"""Player data model for storing player information."""
 
 from typing import Optional
 
@@ -114,7 +112,7 @@ class Player(Base):
     )
 
     def __repr__(self) -> str:
-        """String representation of the player."""
+        """Return string representation of the player."""
         return f"<Player(puuid='{self.puuid}', summoner_name='{self.summoner_name}', platform='{self.platform}')>"
 
     def to_dict(self) -> dict:

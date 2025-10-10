@@ -1,6 +1,4 @@
-"""
-Pydantic schemas for Match model.
-"""
+"""Pydantic schemas for Match model."""
 
 from datetime import datetime
 from typing import Optional, List

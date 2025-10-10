@@ -1,6 +1,4 @@
-"""
-Riot API endpoint definitions and routing information.
-"""
+"""Riot API endpoint definitions and routing information."""
 
 from typing import Dict, List, Optional
 from enum import Enum

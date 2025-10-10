@@ -1,6 +1,4 @@
-"""
-Match service for handling match data operations.
-"""
+"""Match service for handling match data operations."""
 
 from typing import Optional, List, Dict, Any
 import structlog
@@ -23,6 +21,7 @@ class MatchService:
     """Service for handling match data operations."""
 
     def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
+        """Initialize match service."""
         self.db = db
         self.data_manager = data_manager
         self.transformer = MatchTransformer()
@@ -175,9 +174,9 @@ class MatchService:
                 avg_assists=total_assists / total_matches if total_matches > 0 else 0.0,
                 avg_kda=avg_kda,
                 avg_cs=total_cs / total_matches if total_matches > 0 else 0.0,
-                avg_vision_score=total_vision / total_matches
-                if total_matches > 0
-                else 0.0,
+                avg_vision_score=(
+                    total_vision / total_matches if total_matches > 0 else 0.0
+                ),
             )
         except Exception as e:
             logger.error("Failed to get player stats", puuid=puuid, error=str(e))

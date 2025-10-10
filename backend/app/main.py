@@ -1,6 +1,4 @@
-"""
-Main FastAPI application for the Riot API Backend
-"""
+"""Main FastAPI application for the Riot API Backend."""
 
 import logging
 from contextlib import asynccontextmanager

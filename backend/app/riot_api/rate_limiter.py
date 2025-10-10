@@ -1,6 +1,4 @@
-"""
-Rate limiting implementation for Riot API with exponential backoff.
-"""
+"""Rate limiting implementation for Riot API with exponential backoff."""
 
 import asyncio
 import time
@@ -454,9 +452,11 @@ class RateLimiter:
                 "state": breaker.state,
                 "failure_count": breaker.failure_count,
                 "last_failure_time": breaker.last_failure_time,
-                "time_since_failure": now - breaker.last_failure_time
-                if breaker.last_failure_time > 0
-                else None,
+                "time_since_failure": (
+                    now - breaker.last_failure_time
+                    if breaker.last_failure_time > 0
+                    else None
+                ),
             }
 
         # Last request times

@@ -35,6 +35,7 @@ class SmurfDetectionService:
     """Service for comprehensive smurf detection analysis."""
 
     def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
+        """Initialize smurf detection service."""
         self.db = db
         self.data_manager = data_manager
 
@@ -208,9 +209,11 @@ class SmurfDetectionService:
             <= self.thresholds["low_account_level"],
             weight=self.weights["account_level"],
             description=f"Account level: {player.account_level or 'Unknown'}",
-            score=0.15
-            if (player.account_level or 0) <= self.thresholds["low_account_level"]
-            else 0.0,
+            score=(
+                0.15
+                if (player.account_level or 0) <= self.thresholds["low_account_level"]
+                else 0.0
+            ),
         )
         factors.append(account_level_factor)
 
@@ -555,10 +558,12 @@ class SmurfDetectionService:
                 <= self.thresholds["low_account_level"],
                 weight=self.weights["account_level"],
                 description=f"Account level: {detection.account_level}",
-                score=0.15
-                if (detection.account_level or 0)
-                <= self.thresholds["low_account_level"]
-                else 0.0,
+                score=(
+                    0.15
+                    if (detection.account_level or 0)
+                    <= self.thresholds["low_account_level"]
+                    else 0.0
+                ),
             ),
         ]
 
@@ -641,9 +646,9 @@ class SmurfDetectionService:
         return DetectionStatsResponse(
             total_analyses=total_analyses,
             smurf_count=smurf_count,
-            smurf_detection_rate=smurf_count / total_analyses
-            if total_analyses > 0
-            else 0.0,
+            smurf_detection_rate=(
+                smurf_count / total_analyses if total_analyses > 0 else 0.0
+            ),
             average_score=average_score,
             confidence_distribution=confidence_distribution,
             factor_trigger_rates=factor_trigger_rates,

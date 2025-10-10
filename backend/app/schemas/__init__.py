@@ -1,6 +1,4 @@
-"""
-Pydantic schemas package for API request/response validation.
-"""
+"""Pydantic schemas package for API request/response validation."""
 
 from .players import (
     PlayerCreate,

@@ -308,7 +308,9 @@ async def bulk_analyze_players(
 async def get_detailed_detection(
     puuid: str,
     detection_service: DetectionServiceDep,
-    include_trends: bool = Query(default=True, description="Include trend analysis"),  # noqa: ARG001
+    include_trends: bool = Query(
+        default=True, description="Include trend analysis"
+    ),  # noqa: ARG001
     include_recommendations: bool = Query(
         default=True, description="Include recommendations"
     ),  # noqa: ARG001

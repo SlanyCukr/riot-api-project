@@ -1,6 +1,4 @@
-"""
-Data tracking models for monitoring freshness and API usage patterns.
-"""
+"""Data tracking models for monitoring freshness and API usage patterns."""
 
 from datetime import datetime, timezone
 from typing import Optional
@@ -23,6 +21,7 @@ from . import Base
 class DataTracking(Base):
     """
     Tracks data freshness and API usage patterns for optimization.
+
     Records when data was last fetched and updated for monitoring.
     """
 
@@ -126,6 +125,7 @@ class DataTracking(Base):
     )
 
     def __repr__(self) -> str:
+        """Return string representation of the data tracking."""
         return f"<DataTracking(type={self.data_type}, id={self.identifier[:8]}...)>"
 
     @property
@@ -153,6 +153,7 @@ class DataTracking(Base):
 class APIRequestQueue(Base):
     """
     Queue system for API requests during rate limit periods.
+
     Allows intelligent batching and prioritization of API calls.
     """
 
@@ -285,6 +286,7 @@ class APIRequestQueue(Base):
     )
 
     def __repr__(self) -> str:
+        """Return string representation of the API request queue."""
         return f"<APIRequestQueue(type={self.data_type}, id={self.identifier[:8]}..., status={self.status})>"
 
     @property
@@ -306,6 +308,7 @@ class APIRequestQueue(Base):
 class RateLimitLog(Base):
     """
     Logs rate limit events for analysis and optimization.
+
     Helps understand usage patterns and optimize request strategies.
     """
 
@@ -387,6 +390,7 @@ class RateLimitLog(Base):
     )
 
     def __repr__(self) -> str:
+        """Return string representation of the rate limit log."""
         return f"<RateLimitLog(type={self.limit_type}, endpoint={self.endpoint}, retry_after={self.retry_after}s)>"
 
 
