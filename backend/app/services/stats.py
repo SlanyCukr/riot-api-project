@@ -445,7 +445,9 @@ class StatsService:
             "recent_form": (
                 "hot"
                 if recent_5_wr >= 0.8
-                else "cold" if recent_5_wr <= 0.2 else "neutral"
+                else "cold"
+                if recent_5_wr <= 0.2
+                else "neutral"
             ),
             "last_5_games_win_rate": recent_5_wr,
             "last_10_games_win_rate": recent_10_wr,
@@ -454,7 +456,9 @@ class StatsService:
             "improvement_trend": (
                 "improving"
                 if second_half_wr > first_half_wr
-                else "declining" if second_half_wr < first_half_wr else "stable"
+                else "declining"
+                if second_half_wr < first_half_wr
+                else "stable"
             ),
         }
 
