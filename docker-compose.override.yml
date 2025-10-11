@@ -11,7 +11,7 @@ services:
       - /app/node_modules
       - /app/dist
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT}:3000"
     command: ["npm", "run", "dev"]
 
   backend:
@@ -30,7 +30,7 @@ services:
       - ./backend:/app
       - /app/.venv
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -40,7 +40,7 @@ services:
 
   postgres:
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
