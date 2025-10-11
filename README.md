@@ -12,17 +12,18 @@ A comprehensive application for analyzing League of Legends match history and de
 
 ## Architecture
 
-This project follows a modern microservices architecture designed for Docker-only deployment:
+This project runs as a Docker-first stack composed of the following services:
 
-- **Backend**: Python-based API server with PostgreSQL database
-- **Frontend**: React-based web interface for user interaction
-- **Docker**: Containerized deployment with Docker Compose (exclusive execution method)
+- **Backend**: FastAPI application with PostgreSQL persistence and Riot API integration
+- **Frontend**: React + TypeScript interface served through Vite
+- **Database**: PostgreSQL 18 instance configured via Docker Compose
+- **Tooling**: Optional utility scripts in `scripts/` for cleanup and data seeding
 
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker Engine with Compose v2 (`docker compose` CLI)
 - Riot API Key (obtainable from [Riot Developer Portal](https://developer.riotgames.com/))
-- uv (for local code quality tools - `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Optional: [uv](https://github.com/astral-sh/uv) for running backend tooling outside containers
 
 ## Setup Instructions
 
@@ -51,39 +52,40 @@ Edit `.env` file with your configuration:
 Build and start all services:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-The application will be available at:
+With the development override (`docker-compose.override.yml`) in place the services expose:
+
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:3000
 
 ### 4. Development Commands
 
-This project runs exclusively through Docker containers:
+This project runs through Docker containers:
 
 ```bash
 # Start development environment
-docker-compose up --build
+docker compose up --build
 
 # Start specific service
-docker-compose up backend
-docker-compose up frontend
+docker compose up backend
+docker compose up frontend
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
+docker compose logs -f backend
+docker compose logs -f frontend
 
 # Database operations
-docker-compose exec backend alembic upgrade head
-docker-compose exec postgres psql -U riot_api_user -d riot_api_db
+docker compose exec backend alembic upgrade head
+docker compose exec postgres psql -U riot_api_user -d riot_api_db
 
 # Run tests (inside containers)
-docker-compose exec backend uv run pytest
-docker-compose exec frontend npm run lint
+docker compose exec backend uv run pytest
+docker compose exec frontend npm run lint
 
 # Backend linting and formatting (local - requires uv)
 cd backend
@@ -119,11 +121,22 @@ The application provides the following main endpoints:
 | `RIOT_API_KEY` | Your Riot Games API key | Required |
 | `RIOT_REGION` | Regional routing (e.g., europe, americas) | europe |
 | `RIOT_PLATFORM` | Platform routing (e.g., eun1, euw1) | eun1 |
+| `API_URL` | Backend URL exposed to the frontend | http://localhost:8000 |
 | `POSTGRES_DB` | Database name | riot_api_db |
 | `POSTGRES_USER` | Database username | riot_api_user |
 | `POSTGRES_PASSWORD` | Database password | Required |
-| `DEBUG` | Debug mode | false |
-| `LOG_LEVEL` | Logging level | INFO |
+| `POSTGRES_PORT` | Host port for PostgreSQL | 5432 |
+| `BACKEND_PORT` | Host port for backend service | 8000 |
+| `FRONTEND_PORT` | Host port for frontend service | 3000 |
+| `DATABASE_URL` | SQLAlchemy connection string | See `.env.example` |
+| `DEBUG` | Backend debug mode | false |
+| `LOG_LEVEL` | Backend logging level | INFO |
+| `DB_POOL_SIZE` | Connection pool size | 10 |
+| `DB_MAX_OVERFLOW` | Additional connections beyond pool | 20 |
+| `DB_POOL_TIMEOUT` | Pool timeout (seconds) | 30 |
+| `DB_POOL_RECYCLE` | Pool recycle interval (seconds) | 1800 |
+| `CORS_ORIGINS` | Allowed origins for frontend requests | http://localhost:3000,http://127.0.0.1:3000 |
+| `COMPOSE_PROJECT_NAME` | Docker Compose project prefix | riot_api_app |
 
 ## Rate Limiting
 

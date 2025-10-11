@@ -239,6 +239,6 @@ docker compose down -v
 docker compose up --build
 
 # Reset without losing code/configs (just database)
-docker volume rm riot-api-project_postgres_data
+docker volume rm ${COMPOSE_PROJECT_NAME}_postgres-data
 docker compose up postgres
 ```

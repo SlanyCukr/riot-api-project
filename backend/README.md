@@ -6,7 +6,7 @@ Backend service for Riot API match history and smurf detection.
 
 - FastAPI-based REST API
 - PostgreSQL database with async support
-- Redis caching
+- In-memory Riot API response caching with TTL controls
 - Riot API integration
 - Smurf detection algorithms
 - Match history tracking
@@ -15,8 +15,8 @@ Backend service for Riot API match history and smurf detection.
 
 ### Requirements
 
-- Python 3.11+
-- uv package manager
+- Python 3.13+
+- [uv](https://github.com/astral-sh/uv) package manager
 
 ### Setup
 
@@ -25,6 +25,14 @@ uv sync
 ```
 
 ### Running
+
+```bash
+# Recommended: run via Docker
+docker compose up backend
+
+# Or attach to an existing container shell
+docker compose exec backend bash
+```
 
 ```bash
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -39,3 +47,11 @@ uv run python main.py
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure your environment variables.
+
+Key variables consumed by the backend service:
+
+- `RIOT_API_KEY`
+- `DATABASE_URL`
+- `DEBUG`
+- `LOG_LEVEL`
+- `CORS_ORIGINS`

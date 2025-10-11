@@ -129,21 +129,22 @@ docker compose down --rmi all
 
 ### Volumes
 
-- **`postgres_data`**: Persistent database storage
-- **Source code**: Mounted for development hot reload
+- **`postgres-data`**: Persistent database storage (named `${COMPOSE_PROJECT_NAME}_postgres-data`)
+- **`backend-logs`**: Persisted backend log files (`${COMPOSE_PROJECT_NAME}_backend-logs`)
+- **Source code**: Mounted for development hot reload via `docker-compose.override.yml`
 
 ### Backup & Restore
 
 ```bash
 # Backup database volume
 docker run --rm \
-  -v riot-api-project_postgres_data:/data \
+  -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
   -v $(pwd):/backup \
   alpine tar czf /backup/postgres_backup.tar.gz -C /data .
 
 # Restore database volume
 docker run --rm \
-  -v riot-api-project_postgres_data:/data \
+  -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
   -v $(pwd):/backup \
   alpine tar xzf /backup/postgres_backup.tar.gz -C /data
 
