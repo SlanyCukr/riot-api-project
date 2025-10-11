@@ -2,6 +2,8 @@ services:
   frontend:
     build:
       target: production
+      args:
+        - VITE_API_URL=${VITE_API_URL}
     environment:
       - NODE_ENV=production
       - API_URL=${API_URL}
@@ -9,7 +11,6 @@ services:
     ports:
       - "${FRONTEND_PORT}:80"
     deploy:
-      replicas: 2
       resources:
         limits:
           memory: 256M
@@ -26,11 +27,13 @@ services:
       - LOG_LEVEL=${LOG_LEVEL}
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - RIOT_API_KEY=${RIOT_API_KEY}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     restart: always
     ports:
       - "${BACKEND_PORT}:8000"
     deploy:
-      replicas: 2
       resources:
         limits:
           memory: 512M

@@ -4,6 +4,8 @@ services:
       context: ./frontend
       dockerfile: ../docker/frontend/Dockerfile
       target: production
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     restart: unless-stopped
     networks:
       - app-network
@@ -36,6 +38,9 @@ services:
       - RIOT_API_KEY=${RIOT_API_KEY}
       - DEBUG=${DEBUG}
       - LOG_LEVEL=${LOG_LEVEL}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "${BACKEND_PORT}:8000"
     volumes:
@@ -50,7 +55,6 @@ services:
   postgres:
     image: postgres:18
     restart: unless-stopped
-    user: postgres
     networks:
       - app-network
     volumes:
