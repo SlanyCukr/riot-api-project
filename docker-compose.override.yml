@@ -2,10 +2,10 @@ services:
   frontend:
     build:
       target: development
-    container_name: ${COMPOSE_PROJECT_NAME:-riot_api}_frontend_dev
+    container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
     environment:
       - NODE_ENV=development
-      - API_URL=${API_URL:-http://localhost:8000}
+      - API_URL=${API_URL}
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -13,11 +13,19 @@ services:
     ports:
       - "${FRONTEND_PORT}:3000"
     command: ["npm", "run", "dev"]
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   backend:
     build:
       target: development
-    container_name: ${COMPOSE_PROJECT_NAME:-riot_api}_backend_dev
+    container_name: ${COMPOSE_PROJECT_NAME}_backend_dev
     environment:
       - DEBUG=true
       - LOG_LEVEL=DEBUG
@@ -31,6 +39,8 @@ services:
       - /app/.venv
     ports:
       - "${BACKEND_PORT}:8000"
+    networks:
+      - app-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -44,3 +54,5 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network

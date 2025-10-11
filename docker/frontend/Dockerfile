@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:24-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -12,8 +12,8 @@ COPY package*.json ./
 # Development stage
 FROM base AS development
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install curl and wget for health checks
+RUN apk add --no-cache curl wget
 
 # Install dependencies
 RUN npm ci

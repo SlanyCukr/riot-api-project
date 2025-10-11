@@ -4,7 +4,7 @@ services:
       target: production
     environment:
       - NODE_ENV=production
-      - API_URL=${API_URL:-http://backend:8000}
+      - API_URL=${API_URL}
     restart: always
     ports:
       - "${FRONTEND_PORT}:80"
@@ -23,7 +23,7 @@ services:
       target: production
     environment:
       - DEBUG=false
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_LEVEL=${LOG_LEVEL}
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - RIOT_API_KEY=${RIOT_API_KEY}
     restart: always
