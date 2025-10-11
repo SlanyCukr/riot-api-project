@@ -34,6 +34,10 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
 # Build stage
 FROM base AS build
 
+# Accept build arguments
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Install dependencies
 RUN npm ci
 
