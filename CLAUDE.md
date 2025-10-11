@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Full-stack Riot API application for League of Legends match analysis and smurf detection. Python FastAPI backend + React TypeScript frontend + PostgreSQL, containerized with Docker.
+Full-stack Riot API application for League of Legends match analysis and smurf detection. Features include player search, match analysis, smurf detection algorithms, and encounter tracking with Riot API integration.
+
+## Technology Stack
+
+- **Backend**: Python 3.13 + FastAPI + SQLAlchemy
+- **Frontend**: React 19 + TypeScript + Tailwind CSS + Vite
+- **Database**: PostgreSQL 18
+- **Infrastructure**: Docker + Docker Compose
 
 ## Project Structure
 
@@ -15,35 +22,38 @@ Full-stack Riot API application for League of Legends match analysis and smurf d
 
 ## Specialized Documentation
 
-- **Backend**: `backend/CLAUDE.md` - FastAPI, services, Riot API integration
-- **Frontend**: `frontend/CLAUDE.md` - React, TypeScript, styling
-- **Database**: `docker/postgres/CLAUDE.md` - PostgreSQL schema, migrations, optimization
-- **Docker**: `docker/CLAUDE.md` - Container management, production deployment
+**Always refer to these specialized docs for detailed implementation guidance:**
+
+- **Backend**: `backend/CLAUDE.md` - API structure, services, Riot API client, smurf detection algorithms
+- **Frontend**: `frontend/CLAUDE.md` - Component architecture, API integration, styling patterns
+- **Database**: `docker/postgres/CLAUDE.md` - Schema design, migrations, performance optimization
+- **Docker**: `docker/CLAUDE.md` - Container management, commands, production deployment
 
 ## Quick Start
 
 ```bash
 docker compose up --build  # Start all services
+docker compose up backend  # Start specific service
+docker compose down        # Stop all services
 ```
 
-See `docker/CLAUDE.md` for detailed Docker commands and development workflow.
+**Hot Reload**: Both backend and frontend support hot reload. Changes to source files are automatically detected and applied without restarting containers.
 
-## Technology Stack
+See `docker/CLAUDE.md` for complete Docker workflow and troubleshooting.
 
-Python FastAPI + React TypeScript + PostgreSQL, containerized with Docker
+## Environment Configuration
 
-## Features
+Copy `.env.example` to `.env` and configure:
+- `RIOT_API_KEY` - Get from https://developer.riotgames.com (expires every 24h for dev keys)
+- Database credentials and connection settings
+- Service ports and URLs
 
-Player search, match analysis, smurf detection, and encounter tracking with Riot API integration
-
-## Environment
-
-See `.env.example` for required variables (RIOT_API_KEY, database config)
-
-## Development
-
-Docker-based development with hot reload. See specialized docs for implementation details.
+See specialized docs for service-specific environment variables.
 
 ## Code Quality
 
-Pre-commit hooks (ruff, ruff-format, pyright) ensure code quality. Run `uvx pre-commit run --all-files` to check.
+Pre-commit hooks ensure code quality.
+
+Run manually: `uvx pre-commit run --all-files`
+
+Hooks run automatically on git commit. Update hooks: `uvx pre-commit autoupdate`
