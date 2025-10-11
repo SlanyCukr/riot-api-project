@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import your models here
-from app.config import settings
+from app.config import get_global_settings
 from app.models import Base
 
 # this is the Alembic Config object, which provides
@@ -34,6 +34,7 @@ target_metadata = Base.metadata
 
 def get_url():
     """Get database URL from settings."""
+    settings = get_global_settings()
     # Convert synchronous database URL to asynchronous
     return settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
 

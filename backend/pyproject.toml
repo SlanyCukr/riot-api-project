@@ -40,7 +40,6 @@ dev = [
     "isort>=6.1.0",
     "flake8>=7.3.0",
     "mypy>=1.18.2",
-    "types-sqlalchemy>=1.4.53.38",
 ]
 
 [tool.black]
@@ -56,7 +55,7 @@ exclude_dirs = ["tests", "tools"]
 skips = ["B101", "B601", "B104", "B311"]
 
 [tool.pyright]
-include = ["app", "alembic/env.py", "main.py"]
+include = ["app", "app/migrations/env.py", "main.py"]
 exclude = [
     "**/__pycache__",
     "**/.pytest_cache",
@@ -67,7 +66,7 @@ exclude = [
     ".venv"
 ]
 
-pythonVersion = "3.13"
+pythonVersion = "3.11"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
@@ -80,10 +79,10 @@ reportMissingTypeStubs = "warning"
 # Helpful for gradual typing; flip to "error" later in strict areas
 reportUnknownArgumentType = "warning"
 reportUnknownParameterType = "warning"
-reportUnknownVariableType = "warning"
+reportUnknownVariableType = "error"  # Promoted to error for better type safety
 reportUnknownMemberType = "warning"
 reportUntypedFunctionDecorator = "warning"
-reportUntypedClassDef = "warning"
+reportUntypedClassDef = "error"  # Promoted to error for better type safety
 reportUntypedNamedTuple = "warning"
 reportUntypedBaseClass = "warning"
 
@@ -91,5 +90,9 @@ reportUntypedBaseClass = "warning"
 strict = [
     "app/algorithms/**/*.py",
     "app/services/**/*.py",
-    "app/models/**/*.py"
+    "app/models/**/*.py",
+    "app/config.py",
+    "app/database.py",
+    "app/schemas/**/*.py",
+    "app/middleware/**/*.py"
 ]

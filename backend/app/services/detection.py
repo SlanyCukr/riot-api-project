@@ -170,7 +170,7 @@ class SmurfDetectionService:
         self, puuid: str, recent_matches: List[Dict[str, Any]], player: Player
     ) -> List[DetectionFactor]:
         """Analyze all detection factors."""
-        factors = []
+        factors: List[DetectionFactor] = []
 
         # Win rate analysis
         try:
@@ -319,7 +319,7 @@ class SmurfDetectionService:
         if not triggered_factors:
             return "No smurf indicators detected"
 
-        reasons = []
+        reasons: List[str] = []
         for factor in triggered_factors[:3]:  # Top 3 factors
             reasons.append(factor.description.split(":")[0])
 
@@ -372,7 +372,7 @@ class SmurfDetectionService:
             query = query.where(Match.game_creation >= cutoff_time)
 
         result = await self.db.execute(query)
-        matches_data = []
+        matches_data: List[Dict[str, Any]] = []
 
         for match, participant in result:
             match_dict = {
@@ -521,6 +521,7 @@ class SmurfDetectionService:
             reason=f"Insufficient data: only {available} matches found (need {required})",
             sample_size=available,
             analysis_time_seconds=0.0,
+            created_at=None,
         )
 
     def _convert_to_response(self, detection: SmurfDetection) -> DetectionResponse:
@@ -576,6 +577,7 @@ class SmurfDetectionService:
             reason=f"Stored analysis result (score: {float(detection.smurf_score):.2f})",
             sample_size=detection.games_analyzed,
             created_at=detection.created_at,
+            analysis_time_seconds=0.0,
         )
 
     async def get_detection_history(
@@ -661,7 +663,7 @@ class SmurfDetectionService:
         return DetectionConfigResponse(
             thresholds=self.thresholds,
             weights=self.weights,
-            min_games_required=self.thresholds["min_games"],
+            min_games_required=int(self.thresholds["min_games"]),
             analysis_version="1.0",
             last_updated=datetime.now(timezone.utc),
         )
@@ -671,7 +673,7 @@ class SmurfDetectionService:
     ) -> BulkDetectionResponse:
         """Perform bulk smurf detection analysis."""
         start_time = datetime.now(timezone.utc)
-        results = []
+        results: List[DetectionResponse] = []
         successful = 0
         failed = 0
 
@@ -702,13 +704,14 @@ class SmurfDetectionService:
                         reason=f"Analysis failed: {str(e)}",
                         sample_size=0,
                         analysis_time_seconds=0.0,
+                        created_at=None,
                     )
                 )
 
         processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # Create summary
-        smurf_count = sum(1 for r in results if r.is_smurf)
+        smurf_count: int = sum(1 for r in results if r.is_smurf)
         avg_score = (
             sum(r.detection_score for r in results) / len(results) if results else 0.0
         )

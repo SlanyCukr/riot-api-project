@@ -1,6 +1,6 @@
 """Player data model for storing player information."""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 from sqlalchemy import (
@@ -119,7 +119,7 @@ class Player(Base):
         """Return string representation of the player."""
         return f"<Player(puuid='{self.puuid}', summoner_name='{self.summoner_name}', platform='{self.platform}')>"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert player to dictionary representation."""
         return {
             "puuid": str(self.puuid),

@@ -4,7 +4,7 @@ from typing import Optional, List, Dict, Any
 import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
+from sqlalchemy import select, func, and_, desc, ColumnElement
 from sqlalchemy.orm import selectinload
 
 from ..riot_api.data_manager import RiotDataManager
@@ -195,7 +195,7 @@ class MatchService:
         """
         try:
             matches = await self.get_player_matches(puuid, count=limit)
-            encountered_puuids = set()
+            encountered_puuids: set[str] = set()
 
             for match in matches.matches:
                 participants = await self._get_match_participants(match.match_id)
@@ -235,7 +235,7 @@ class MatchService:
             query = query.where(Match.game_creation <= end_time)
 
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def _fetch_matches_from_api(
         self,
@@ -246,9 +246,9 @@ class MatchService:
         start_time: Optional[int],
         end_time: Optional[int],
     ) -> List[str]:
-        """Fetch match IDs from Riot API using RiotDataManager."""
+        """Fetch match IDs from Riot API using API client."""
         try:
-            match_list = await self.data_manager.get_match_list_by_puuid(
+            match_list = await self.data_manager.api_client.get_match_list_by_puuid(
                 puuid=puuid,
                 start=start,
                 count=count,
@@ -261,7 +261,7 @@ class MatchService:
             logger.error("Failed to fetch matches from API", puuid=puuid, error=str(e))
             raise
 
-    async def _store_matches(self, match_ids: List[str]):
+    async def _store_matches(self, match_ids: List[str]) -> None:
         """Store match details in database."""
         for match_id in match_ids:
             try:
@@ -362,7 +362,7 @@ class MatchService:
         """Get all match participants from database."""
         query = select(MatchParticipant).where(MatchParticipant.match_id == match_id)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     def _calculate_kda(self, kills: int, deaths: int, assists: int) -> float:
         """Calculate KDA ratio."""
@@ -412,7 +412,7 @@ class MatchService:
                 query = query.join(MatchParticipant)
                 count_query = count_query.join(MatchParticipant)
 
-                participant_conditions = []
+                participant_conditions: List[ColumnElement[bool]] = []
                 if puuid:
                     participant_conditions.append(MatchParticipant.puuid == puuid)
                 if champion_id:
@@ -443,6 +443,7 @@ class MatchService:
             # Get total count
             total_result = await self.db.execute(count_query)
             total = total_result.scalar()
+            total = total if total is not None else 0
 
             # Get paginated results
             query = query.order_by(desc(Match.game_creation)).offset(offset).limit(size)

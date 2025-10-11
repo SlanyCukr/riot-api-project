@@ -165,7 +165,7 @@ class RankProgressionAnalyzer:
 
     def _calculate_rank_score(self, rank: PlayerRank) -> int:
         """Calculate numeric score for a rank."""
-        tier_score = self.tier_hierarchy.get(rank.tier, 0)
+        tier_score = self.tier_hierarchy.get(Tier(rank.tier), 0)
         rank_score = 4 - (ord(rank.rank) - ord("I")) if rank.rank else 0
         return tier_score * 100 + rank_score * 25 + rank.league_points
 
@@ -197,10 +197,10 @@ class RankProgressionAnalyzer:
             return 0
 
         tier_jumps = 0
-        current_tier_level = self.tier_hierarchy.get(rank_history[0].tier, 0)
+        current_tier_level: int = self.tier_hierarchy.get(Tier(rank_history[0].tier), 0)
 
         for rank in rank_history[1:]:
-            tier_level = self.tier_hierarchy.get(rank.tier, 0)
+            tier_level: int = self.tier_hierarchy.get(Tier(rank.tier), 0)
             if tier_level > current_tier_level:
                 tier_jumps += tier_level - current_tier_level
             current_tier_level = tier_level
@@ -240,7 +240,7 @@ class RankProgressionAnalyzer:
             if (
                 time_to_current
                 and time_to_current < self.rapid_progression_days
-                and self.tier_hierarchy.get(current_rank.tier, 0)
+                and self.tier_hierarchy.get(Tier(current_rank.tier), 0)
                 >= self.tier_hierarchy[Tier.GOLD]
             ):
                 return True
@@ -298,7 +298,7 @@ class RankProgressionAnalyzer:
         Returns:
             Dictionary with discrepancy analysis
         """
-        tier_level = self.tier_hierarchy.get(current_rank.tier, 0)
+        tier_level: int = self.tier_hierarchy.get(Tier(current_rank.tier), 0)
 
         # Expected performance metrics for this tier
         expected_kda = {

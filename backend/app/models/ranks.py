@@ -2,7 +2,7 @@
 
 from enum import Enum
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -171,7 +171,7 @@ class PlayerRank(Base):
         """Return string representation of the player rank."""
         return f"<PlayerRank(puuid='{self.puuid}', queue='{self.queue_type}', tier='{self.tier}', rank='{self.rank}')>"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert player rank to dictionary representation."""
         return {
             "id": self.id,

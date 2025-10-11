@@ -3,7 +3,7 @@
 from decimal import Decimal
 from enum import Enum
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -214,7 +214,7 @@ class SmurfDetection(Base):
         """Return string representation of the smurf detection."""
         return f"<SmurfDetection(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert smurf detection to dictionary representation."""
         return {
             "id": self.id,
@@ -284,9 +284,9 @@ class SmurfDetection(Base):
             SmurfConfidence.VERY_HIGH,
         ]
 
-    def get_top_signals(self, limit: int = 3) -> list[str]:
+    def get_top_signals(self, limit: int = 3) -> List[str]:
         """Get the top contributing signals for this detection."""
-        signals = []
+        signals: List[str] = []
 
         if self.win_rate_score and self.win_rate_score > 0.5:
             signals.append("High Win Rate")
@@ -301,7 +301,7 @@ class SmurfDetection(Base):
 
     def recalculate_smurf_score(self) -> Decimal:
         """Recalculate the overall smurf score from component scores."""
-        scores = []
+        scores: List[float] = []
         weights = {
             "win_rate_score": 0.3,
             "kda_score": 0.2,

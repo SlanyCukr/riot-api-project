@@ -1,7 +1,7 @@
 """Pydantic schemas for Match model."""
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
 
@@ -192,6 +192,6 @@ class MatchProcessingResponse(BaseModel):
 
     processed_count: int
     failed_count: int
-    errors: list[dict] = Field(default_factory=list)
+    errors: List[Dict[str, str]] = []
 
     model_config = ConfigDict(from_attributes=True)

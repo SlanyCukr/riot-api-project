@@ -6,7 +6,7 @@ including player analysis, detection history, statistics, and configuration.
 """
 
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
-from typing import List
+from typing import List, Dict, Any
 import structlog
 
 from ..schemas.detection import (
@@ -384,7 +384,7 @@ async def detection_health_check():
 @router.get("/player/{puuid}/exists")
 async def check_player_analysis_exists(
     puuid: str, detection_service: DetectionServiceDep
-):
+) -> Dict[str, Any]:
     """
     Check if a player has existing smurf detection analysis.
 

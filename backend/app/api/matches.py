@@ -1,7 +1,7 @@
 """Match API endpoints for the Riot API application."""
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from ..schemas.matches import (
     MatchResponse,
@@ -186,7 +186,7 @@ async def get_player_recent_form(
     matches: int = Query(
         10, ge=5, le=20, description="Number of recent matches to analyze"
     ),
-):
+) -> Dict[str, Any]:
     """Get player's recent form and performance trends."""
     try:
         # Get player statistics to include performance trends

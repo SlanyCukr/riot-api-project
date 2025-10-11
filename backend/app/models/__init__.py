@@ -79,7 +79,7 @@ RequiredDateTime = Annotated[datetime, mapped_column(nullable=False)]
 OptionalDateTime = Annotated[Optional[datetime], mapped_column()]
 
 # Common field patterns with specific constraints
-PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True)]
+PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True, index=True)]
 PUUIDForeignKey = Annotated[
     str, mapped_column(String(78), ForeignKey("players.puuid", ondelete="CASCADE"))
 ]
@@ -88,18 +88,32 @@ MatchIDForeignKey = Annotated[
     str, mapped_column(String(64), ForeignKey("matches.match_id", ondelete="CASCADE"))
 ]
 
-# Auto-incrementing primary keys
+# Simple, safe Annotated types for basic field patterns
 AutoIncrementPK = Annotated[int, mapped_column(Integer, primary_key=True)]
+RequiredString = Annotated[str, mapped_column(nullable=False)]
+OptionalString = Annotated[Optional[str], mapped_column()]
+RequiredInt = Annotated[int, mapped_column(nullable=False)]
+OptionalInt = Annotated[Optional[int], mapped_column()]
+RequiredBool = Annotated[bool, mapped_column(nullable=False)]
+OptionalBool = Annotated[Optional[bool], mapped_column()]
+RequiredDecimal = Annotated[Decimal, mapped_column(nullable=False)]
+OptionalDecimal = Annotated[Optional[Decimal], mapped_column()]
+RequiredBigInt = Annotated[int, mapped_column(BigInteger, nullable=False)]
+OptionalBigInt = Annotated[Optional[int], mapped_column(BigInteger)]
+RequiredDateTime = Annotated[datetime, mapped_column(nullable=False)]
+OptionalDateTime = Annotated[Optional[datetime], mapped_column()]
 
-# Common indexed fields
-RiotIDField = Annotated[
-    Optional[str], mapped_column(String(128), nullable=True, index=True)
+# Auto-incrementing primary keys are defined above as AutoIncrementPK
+
+# Basic field patterns that work reliably
+PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True, index=True)]
+PUUIDForeignKey = Annotated[
+    str, mapped_column(String(78), ForeignKey("players.puuid", ondelete="CASCADE"))
 ]
-TagLineField = Annotated[Optional[str], mapped_column(String(8), nullable=True)]
-SummonerNameField = Annotated[
-    Optional[str], mapped_column(String(32), nullable=True, index=True)
+MatchIDField = Annotated[str, mapped_column(String(64), primary_key=True, index=True)]
+MatchIDForeignKey = Annotated[
+    str, mapped_column(String(64), ForeignKey("matches.match_id", ondelete="CASCADE"))
 ]
-PlatformField = Annotated[str, mapped_column(String(8), nullable=False, index=True)]
 
 # Import all models here to ensure they are registered with SQLAlchemy
 # fmt: off (noqa: E402)

@@ -194,7 +194,7 @@ class RiotAPIEndpoints:
         base_url = self.get_base_url(region)
         url = f"{base_url}/lol/match/v5/matches/by-puuid/{puuid}/ids"
 
-        params = []
+        params: list[str] = []
         params.append(f"start={start}")
         params.append(f"count={count}")
 
@@ -402,7 +402,7 @@ def parse_rate_limit_header(header_value: str) -> List[Dict[str, int]]:
     if not header_value:
         return []
 
-    limits = []
+    limits: list[dict[str, int]] = []
     for part in header_value.split(","):
         try:
             requests, window = map(int, part.strip().split(":"))

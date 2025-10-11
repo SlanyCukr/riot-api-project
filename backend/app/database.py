@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 
-from .config import settings
+from .config import get_global_settings
 
 
 class DatabaseManager:
@@ -17,6 +17,7 @@ class DatabaseManager:
 
     def __init__(self):
         """Initialize database manager with async engine."""
+        settings = get_global_settings()
         # Convert synchronous database URL to asynchronous
         self.database_url = settings.database_url.replace(
             "postgresql://", "postgresql+asyncpg://"

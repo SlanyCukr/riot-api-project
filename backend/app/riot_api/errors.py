@@ -1,6 +1,6 @@
 """Custom error classes for Riot API client."""
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, cast
 import json
 
 
@@ -13,13 +13,13 @@ class RiotAPIError(Exception):
         status_code: Optional[int] = None,
         response_data: Optional[Dict[str, Any]] = None,
         retry_after: Optional[float] = None,
-    ):
+    ) -> None:
         """Initialize RiotAPIError."""
         super().__init__(message)
-        self.status_code = status_code
-        self.response_data = response_data or {}
-        self.retry_after = retry_after
-        self.message = message
+        self.status_code: Optional[int] = status_code
+        self.response_data: Dict[str, Any] = response_data or {}
+        self.retry_after: Optional[float] = retry_after
+        self.message: str = message
 
     def __str__(self) -> str:
         """Return string representation of the error."""
@@ -47,11 +47,11 @@ class RateLimitError(RiotAPIError):
         retry_after: Optional[float] = None,
         app_rate_limit: Optional[str] = None,
         method_rate_limit: Optional[str] = None,
-    ):
+    ) -> None:
         """Initialize RateLimitError."""
         super().__init__(message=message, status_code=429, retry_after=retry_after)
-        self.app_rate_limit = app_rate_limit
-        self.method_rate_limit = method_rate_limit
+        self.app_rate_limit: Optional[str] = app_rate_limit
+        self.method_rate_limit: Optional[str] = method_rate_limit
 
     def __str__(self) -> str:
         """Return string representation of the error."""
@@ -77,7 +77,7 @@ class RateLimitError(RiotAPIError):
 class AuthenticationError(RiotAPIError):
     """Exception raised for authentication/authorization failures."""
 
-    def __init__(self, message: str = "Authentication failed"):
+    def __init__(self, message: str = "Authentication failed") -> None:
         """Initialize AuthenticationError."""
         super().__init__(message=message, status_code=401)
 
@@ -98,7 +98,7 @@ class ForbiddenError(RiotAPIError):
     def __init__(
         self,
         message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions",
-    ):
+    ) -> None:
         """Initialize ForbiddenError."""
         super().__init__(message=message, status_code=403)
 
@@ -116,7 +116,7 @@ class ForbiddenError(RiotAPIError):
 class NotFoundError(RiotAPIError):
     """Exception raised when requested resource is not found."""
 
-    def __init__(self, message: str = "Resource not found"):
+    def __init__(self, message: str = "Resource not found") -> None:
         """Initialize NotFoundError."""
         super().__init__(message=message, status_code=404)
 
@@ -134,7 +134,7 @@ class NotFoundError(RiotAPIError):
 class ServiceUnavailableError(RiotAPIError):
     """Exception raised when Riot API service is unavailable."""
 
-    def __init__(self, message: str = "API service unavailable"):
+    def __init__(self, message: str = "API service unavailable") -> None:
         """Initialize ServiceUnavailableError."""
         super().__init__(message=message, status_code=503)
 
@@ -152,7 +152,7 @@ class ServiceUnavailableError(RiotAPIError):
 class BadRequestError(RiotAPIError):
     """Exception raised for malformed requests."""
 
-    def __init__(self, message: str = "Invalid API request"):
+    def __init__(self, message: str = "Invalid API request") -> None:
         """Initialize InvalidRequestError."""
         super().__init__(message=message, status_code=400)
 
@@ -170,7 +170,7 @@ class BadRequestError(RiotAPIError):
 class CircuitBreakerOpenError(RiotAPIError):
     """Exception raised when circuit breaker is open."""
 
-    def __init__(self, message: str = "Circuit breaker is open"):
+    def __init__(self, message: str = "Circuit breaker is open") -> None:
         """Initialize CircuitBreakerOpenError."""
         super().__init__(message=message)
         self.status_code = None  # This is a client-side error
@@ -197,10 +197,24 @@ def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
     Returns:
         Appropriate RiotAPIError subclass
     """
-    response_data = {}
+    response_data: Dict[str, Any] = {}
+    message: str
+
     try:
-        response_data = json.loads(response_text) if response_text else {}
-        message = response_data.get("status", {}).get("message", str(response_text))
+        parsed_response: Union[Dict[str, Any], Any] = (
+            json.loads(response_text) if response_text else {}
+        )
+        if isinstance(parsed_response, dict):
+            response_data = cast(Dict[str, Any], parsed_response)
+            status_obj: Any = response_data.get("status")
+            if isinstance(status_obj, dict):
+                status_dict = cast(Dict[str, Any], status_obj)
+                msg_value: Any = status_dict.get("message", response_text)
+                message = str(msg_value)
+            else:
+                message = str(response_text)
+        else:
+            message = str(response_text)
     except (json.JSONDecodeError, AttributeError):
         message = str(response_text)
 
@@ -213,11 +227,13 @@ def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
     elif status_code == 404:
         return NotFoundError(message)
     elif status_code == 429:
-        retry_after = (
-            response_data.get("status", {}).get("retry_after")
-            if isinstance(response_data, dict)
-            else None
-        )
+        retry_after: Optional[float] = None
+        status_obj_retry: Any = response_data.get("status")
+        if isinstance(status_obj_retry, dict):
+            status_dict_retry = cast(Dict[str, Any], status_obj_retry)
+            retry_value: Any = status_dict_retry.get("retry_after")
+            if isinstance(retry_value, (int, float)):
+                retry_after = float(retry_value)
         return RateLimitError(message, retry_after=retry_after)
     elif status_code == 503:
         return ServiceUnavailableError(message)

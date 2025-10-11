@@ -186,7 +186,7 @@ class ParticipantStatsResponse(BaseModel):
     avg_cs: float
     avg_gold_earned: float
     avg_vision_score: float
-    most_played_champions: list[dict]
-    performance_by_position: dict
+    most_played_champions: list[dict[str, int]]
+    performance_by_position: dict[str, float]
 
     model_config = ConfigDict(from_attributes=True)

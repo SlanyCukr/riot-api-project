@@ -1,6 +1,6 @@
 """Statistics calculation service for match data analysis."""
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, TypedDict
 import structlog
 from collections import defaultdict
 
@@ -11,6 +11,37 @@ from ..models.matches import Match
 from ..models.participants import MatchParticipant
 
 logger = structlog.get_logger(__name__)
+
+
+class ChampionStats(TypedDict):
+    """Type for champion statistics."""
+
+    matches: int
+    wins: int
+    kills: int
+    deaths: int
+    assists: int
+    cs: int
+
+
+class EncounterMatch(TypedDict):
+    """Type for encounter match data."""
+
+    match_id: str
+    summoner_name: str
+    champion_name: str
+    team_id: int
+    win: bool
+    kda: float
+    is_teammate: bool
+
+
+class EncounterData(TypedDict):
+    """Type for encounter aggregation data."""
+
+    as_teammate: int
+    as_opponent: int
+    matches: List[EncounterMatch]
 
 
 class StatsService:
@@ -109,7 +140,7 @@ class StatsService:
             team_200_stats = self._calculate_team_match_stats(team_200)
 
             # Individual performances
-            individual_stats = []
+            individual_stats: List[Dict[str, Any]] = []
             for participant in participants:
                 individual_stats.append(
                     {
@@ -171,8 +202,8 @@ class StatsService:
                 return {"puuid": puuid, "encounters": {}, "total_encounters": 0}
 
             # Collect encounter data
-            encounter_data = defaultdict(
-                lambda: {"as_teammate": 0, "as_opponent": 0, "matches": []}
+            encounter_data: Dict[str, EncounterData] = defaultdict(
+                lambda: EncounterData(as_teammate=0, as_opponent=0, matches=[])
             )
 
             for participant in participants:
@@ -209,7 +240,7 @@ class StatsService:
                     )
 
             # Filter and process encounters
-            processed_encounters = {}
+            processed_encounters: Dict[str, Dict[str, Any]] = {}
             for other_puuid, data in encounter_data.items():
                 total_encounters = data["as_teammate"] + data["as_opponent"]
                 if total_encounters >= min_encounters:
@@ -221,23 +252,30 @@ class StatsService:
                         1 for m in data["matches"] if not m["is_teammate"] and m["win"]
                     )
 
+                    # Type assertions for safer access
+                    as_teammate_count = int(data["as_teammate"])
+                    as_opponent_count = int(data["as_opponent"])
+                    matches_list = data["matches"]
+
                     processed_encounters[other_puuid] = {
                         "total_encounters": total_encounters,
-                        "as_teammate": data["as_teammate"],
-                        "as_opponent": data["as_opponent"],
+                        "as_teammate": as_teammate_count,
+                        "as_opponent": as_opponent_count,
                         "teammate_win_rate": (
-                            teammate_wins / data["as_teammate"]
-                            if data["as_teammate"] > 0
+                            teammate_wins / as_teammate_count
+                            if as_teammate_count > 0
                             else 0.0
                         ),
                         "opponent_win_rate": (
-                            opponent_wins / data["as_opponent"]
-                            if data["as_opponent"] > 0
+                            opponent_wins / as_opponent_count
+                            if as_opponent_count > 0
                             else 0.0
                         ),
-                        "avg_kda": sum(m["kda"] for m in data["matches"])
-                        / len(data["matches"]),
-                        "recent_matches": data["matches"][-5:],  # Last 5 encounters
+                        "avg_kda": sum(m["kda"] for m in matches_list)
+                        / len(matches_list)
+                        if matches_list
+                        else 0.0,
+                        "recent_matches": matches_list[-5:],  # Last 5 encounters
                     }
 
             return {
@@ -277,13 +315,13 @@ class StatsService:
             query = query.where(Match.game_creation <= end_time)
 
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def _get_match_participants(self, match_id: str) -> List[MatchParticipant]:
         """Get all participants in a match."""
         query = select(MatchParticipant).where(MatchParticipant.match_id == match_id)
         result = await self.db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     def _calculate_basic_stats(
         self, participants: List[MatchParticipant]
@@ -335,7 +373,7 @@ class StatsService:
         self, participants: List[MatchParticipant]
     ) -> Dict[str, Any]:
         """Calculate champion-specific statistics."""
-        champion_stats = defaultdict(
+        champion_stats: Dict[str, ChampionStats] = defaultdict(
             lambda: {
                 "matches": 0,
                 "wins": 0,
@@ -357,7 +395,7 @@ class StatsService:
             champion_stats[champ_name]["cs"] += int(participant.cs)
 
         # Process champion stats
-        processed_stats = {}
+        processed_stats: Dict[str, Dict[str, Any]] = {}
         for champ_name, stats in champion_stats.items():
             matches = stats["matches"]
             processed_stats[champ_name] = {
@@ -379,25 +417,29 @@ class StatsService:
         self, participants: List[MatchParticipant]
     ) -> Dict[str, Any]:
         """Calculate position-specific statistics."""
-        position_stats = defaultdict(
-            lambda: {"matches": 0, "wins": 0, "kills": 0, "deaths": 0, "assists": 0}
+        position_stats: Dict[str, ChampionStats] = defaultdict(
+            lambda: {
+                "matches": 0,
+                "wins": 0,
+                "kills": 0,
+                "deaths": 0,
+                "assists": 0,
+                "cs": 0,
+            }
         )
 
         for participant in participants:
-            position = (
-                str(participant.individual_position)
-                if participant.individual_position
-                else "UNKNOWN"
-            )
+            position = str(participant.individual_position or "UNKNOWN")
             position_stats[position]["matches"] += 1
             if bool(participant.win):
                 position_stats[position]["wins"] += 1
             position_stats[position]["kills"] += int(participant.kills)
             position_stats[position]["deaths"] += int(participant.deaths)
             position_stats[position]["assists"] += int(participant.assists)
+            position_stats[position]["cs"] += int(participant.cs)
 
         # Process position stats
-        processed_stats = {}
+        processed_stats: Dict[str, Dict[str, Any]] = {}
         for position, stats in position_stats.items():
             matches = stats["matches"]
             processed_stats[position] = {
@@ -476,19 +518,28 @@ class StatsService:
         self, participants: List[MatchParticipant]
     ) -> Dict[str, Any]:
         """Calculate team performance statistics."""
-        team_stats = defaultdict(
-            lambda: {"matches": 0, "wins": 0, "kills": 0, "deaths": 0}
+        team_stats: Dict[str, ChampionStats] = defaultdict(
+            lambda: {
+                "matches": 0,
+                "wins": 0,
+                "kills": 0,
+                "deaths": 0,
+                "assists": 0,
+                "cs": 0,
+            }
         )
 
         for participant in participants:
-            team_id = int(participant.team_id)
+            team_id = str(participant.team_id)
             team_stats[team_id]["matches"] += 1
             if bool(participant.win):
                 team_stats[team_id]["wins"] += 1
             team_stats[team_id]["kills"] += int(participant.kills)
             team_stats[team_id]["deaths"] += int(participant.deaths)
+            team_stats[team_id]["assists"] += int(participant.assists)
+            team_stats[team_id]["cs"] += int(participant.cs)
 
-        processed_stats = {}
+        processed_stats: Dict[str, Dict[str, Any]] = {}
         for team_id, stats in team_stats.items():
             matches = stats["matches"]
             processed_stats[f"team_{team_id}"] = {

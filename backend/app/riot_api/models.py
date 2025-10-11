@@ -27,13 +27,15 @@ class SummonerDTO(BaseModel):
 
     @field_validator("revision_date", mode="before")
     @classmethod
-    def parse_timestamp(cls, v):
+    def parse_timestamp(cls, v: int | float | datetime | None) -> datetime | None:
         """Parse timestamp from milliseconds to datetime."""
         if v is None:
             return None
+        if isinstance(v, datetime):
+            return v
         if isinstance(v, (int, float)):
             return datetime.fromtimestamp(v / 1000)
-        return v
+        return None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -84,11 +86,16 @@ class ParticipantDTO(BaseModel):
 
     @property
     def cs_per_minute(self) -> float:
-        """Calculate CS per minute."""
-        if not hasattr(self, "_game_duration") or self._game_duration == 0:
-            return 0
+        """Calculate CS per minute.
+
+        Note: This property requires game_duration to be set externally as _game_duration.
+        If not available, returns 0.
+        """
+        game_duration = getattr(self, "_game_duration", None)
+        if game_duration is None or game_duration == 0:
+            return 0.0
         total_cs = self.total_minions_killed + self.neutral_minions_killed
-        return (total_cs * 60) / self._game_duration
+        return (total_cs * 60) / game_duration
 
     model_config = ConfigDict(populate_by_name=True)
 

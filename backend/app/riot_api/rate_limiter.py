@@ -419,7 +419,7 @@ class RateLimiter:
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics."""
         now = time.time()
-        stats = {
+        stats: Dict[str, Dict[str, Any]] = {
             "app_limits": {},
             "method_limits": {},
             "circuit_breakers": {},

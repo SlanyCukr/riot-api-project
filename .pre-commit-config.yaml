@@ -44,12 +44,12 @@ repos:
           )$
 
   # Pyright - Fast static type checker (3-5x faster than MyPy) (temporarily disabled)
-  # - repo: https://github.com/RobertCraigie/pyright-python
-  #   rev: v1.1.405
-  #   hooks:
-  #     - id: pyright
-  #       args: ["--project", "backend/pyproject.toml"]
-  #       exclude: ^(tests/|docs/|backend/alembic/versions/|backend/app/migrations/versions/)
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.405
+    hooks:
+      - id: pyright
+        args: ["--project", "backend/pyproject.toml"]
+        exclude: ^(tests/|docs/|backend/alembic/versions/|backend/app/migrations/versions/)
 
   # TypeScript/React hooks for frontend
   - repo: https://github.com/pre-commit/mirrors-eslint

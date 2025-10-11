@@ -22,7 +22,7 @@ from sqlalchemy import select, update, and_
 from .client import RiotAPIClient
 from .errors import RateLimitError
 from .models import MatchDTO, LeagueEntryDTO
-from .endpoints import Platform
+from .endpoints import Platform, Region
 from ..models.data_tracking import DataTracking, APIRequestQueue, RateLimitLog
 from ..models.players import Player
 from ..models.matches import Match
@@ -340,7 +340,7 @@ class SmartFetchStrategy:
         identifier: str,
         force_refresh: bool = False,
         priority: str = "normal",
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[Any, StaleDataWarning]:
         """
         Retrieve data using intelligent caching and rate limit management.
@@ -398,7 +398,7 @@ class SmartFetchStrategy:
 
                     return StaleDataWarning(
                         data=cached_data,
-                        stale_reason=fetch_status.reason,
+                        stale_reason=fetch_status.reason or "Data is stale",
                         fresh_at=datetime.now(timezone.utc)
                         + timedelta(seconds=fetch_status.wait_time or 60),
                     )
@@ -406,7 +406,11 @@ class SmartFetchStrategy:
                 # Queue the request if no cached data available
                 if priority in ["urgent", "high"]:
                     await self.rate_limit_fetcher.queue_request(
-                        data_type, identifier, priority, **kwargs
+                        data_type,
+                        identifier,
+                        priority,
+                        scheduled_at=None,
+                        request_data=kwargs,
                     )
 
                 raise RateLimitError(
@@ -455,7 +459,11 @@ class SmartFetchStrategy:
 
                 # Queue for retry if API fails completely
                 await self.rate_limit_fetcher.queue_request(
-                    data_type, identifier, priority, **kwargs
+                    data_type,
+                    identifier,
+                    priority,
+                    scheduled_at=None,
+                    request_data=kwargs,
                 )
 
                 raise
@@ -526,12 +534,15 @@ class SmartFetchStrategy:
             )
             return None
 
-    async def _fetch_from_api(self, data_type: str, identifier: str, **kwargs) -> Any:
+    async def _fetch_from_api(
+        self, data_type: str, identifier: str, **kwargs: Any
+    ) -> Any:
         """Fetch data from Riot API based on type."""
         if data_type == "player":
             if "#" in identifier:  # riot_id format
                 game_name, tag_line = identifier.split("#", 1)
-                platform = kwargs.get("platform", "eun1")
+                platform_str: str = str(kwargs.get("platform", "eun1"))
+                platform = Platform(platform_str)
                 account = await self.api_client.get_account_by_riot_id(
                     game_name, tag_line
                 )
@@ -551,13 +562,14 @@ class SmartFetchStrategy:
                     "summoner_id": summoner.id,
                 }
             else:  # puuid format
-                platform = kwargs.get("platform", "eun1")
+                platform_str: str = str(kwargs.get("platform", "eun1"))
+                platform = Platform(platform_str)
                 summoner = await self.api_client.get_summoner_by_puuid(
                     identifier, platform
                 )
                 return {
                     "puuid": identifier,
-                    "summoner_name": summoner.summoner_name,
+                    "summoner_name": summoner.name,
                     "platform": platform,
                     "account_level": summoner.summoner_level,
                     "profile_icon_id": summoner.profile_icon_id,
@@ -565,13 +577,17 @@ class SmartFetchStrategy:
                 }
 
         elif data_type == "match":
-            region = kwargs.get("region", "europe")
+            region_str: str = str(kwargs.get("region", "europe"))
+            region = Region(region_str)
             return await self.api_client.get_match(identifier, region)
 
         elif data_type == "rank":
-            platform = kwargs.get("platform", "eun1")
+            platform_str: str = str(kwargs.get("platform", "eun1"))
+            platform = Platform(platform_str)
             # Need summoner_id for league entries
             summoner = await self.api_client.get_summoner_by_puuid(identifier, platform)
+            if summoner.id is None:
+                raise ValueError(f"Summoner ID is None for PUUID: {identifier}")
             return await self.api_client.get_league_entries_by_summoner(
                 summoner.id, platform
             )
@@ -793,8 +809,10 @@ class RiotDataManager:
     ) -> Optional[Any]:
         """Get active game (always fresh, no caching)."""
         try:
+            # Convert platform string to Platform enum
+            platform_enum = Platform(platform.lower())
             # For real-time data, always call API directly
-            return await self.api_client.get_active_game(summoner_id, platform)
+            return await self.api_client.get_active_game(summoner_id, platform_enum)
 
         except Exception as e:
             logger.error(

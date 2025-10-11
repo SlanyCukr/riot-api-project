@@ -79,7 +79,7 @@ class TTLCache:
             self._misses = 0
             logger.info("Cache cleared", entries_removed=count)
 
-    def stats(self) -> Dict[str, int]:
+    def stats(self) -> Dict[str, int | float]:
         """Get cache statistics."""
         with self.lock:
             total = self._hits + self._misses

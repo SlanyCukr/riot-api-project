@@ -13,11 +13,12 @@ from ..services.players import PlayerService
 from ..services.matches import MatchService
 from ..services.stats import StatsService
 from ..services.detection import SmurfDetectionService
-from ..config import settings
+from ..config import get_global_settings
 
 
 async def get_riot_client() -> AsyncGenerator[RiotAPIClient, None]:
     """Get Riot API client instance."""
+    settings = get_global_settings()
     if not settings.riot_api_key:
         raise HTTPException(status_code=500, detail="Riot API key not configured")
 

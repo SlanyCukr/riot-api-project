@@ -2,11 +2,11 @@
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 from typing import Any
 import time
 import threading
 import structlog
-from fastapi import FastAPI
 from starlette.middleware.base import RequestResponseEndpoint
 
 logger = structlog.get_logger(__name__)
@@ -15,12 +15,12 @@ logger = structlog.get_logger(__name__)
 class PerformanceMiddleware(BaseHTTPMiddleware):
     """Middleware for monitoring API performance and collecting metrics."""
 
-    def __init__(self, app: FastAPI):
+    def __init__(self, app: ASGIApp):
         """
         Initialize performance middleware.
 
         Args:
-            app: FastAPI application
+            app: ASGI application
         """
         super().__init__(app)
         self.slow_request_threshold: float = 2.0  # seconds
@@ -239,7 +239,7 @@ class RequestMetricsCollector:
 
     def _get_slow_endpoints(self) -> list[dict[str, Any]]:
         """Get list of slow endpoints sorted by average duration."""
-        slow_endpoints = []
+        slow_endpoints: list[dict[str, Any]] = []
         for endpoint, stats in self.endpoint_stats.items():
             if stats["avg_duration"] > 1.0:  # Slower than 1 second
                 slow_endpoints.append(
@@ -313,7 +313,7 @@ class DatabaseQueryMonitor:
     def get_stats(self) -> dict[str, Any]:
         """Get database query performance statistics."""
         with self._lock:
-            return {
+            result: dict[str, Any] = {
                 "query_stats": self.query_stats.copy(),
                 "recent_slow_queries": [
                     {
@@ -329,6 +329,7 @@ class DatabaseQueryMonitor:
                     else 0
                 ),
             }
+            return result
 
     def reset(self) -> None:
         """Reset all query statistics."""
@@ -385,7 +386,7 @@ class CacheMetricsCollector:
     def get_metrics(self) -> dict[str, Any]:
         """Get cache performance metrics."""
         with self._lock:
-            metrics = {}
+            metrics: dict[str, Any] = {}
             for operation, cache_types in self.operations.items():
                 metrics[operation] = {}
                 for cache_type, stats in cache_types.items():
@@ -412,9 +413,18 @@ class CacheMetricsCollector:
     def reset(self):
         """Reset all cache metrics."""
         with self._lock:
-            for operation in self.operations:
-                for cache_type in self.operations[operation]:
-                    stats = self.operations[operation][cache_type]
-                    for key in stats:
-                        if isinstance(stats[key], (int, float)):
-                            stats[key] = 0 if key != "avg_time" else 0.0
+            # Reinitialize operations dict to reset all values
+            self.operations = {
+                "get": {
+                    "local": {"hits": 0, "misses": 0, "total_time": 0.0},
+                    "redis": {"hits": 0, "misses": 0, "total_time": 0.0},
+                },
+                "set": {
+                    "local": {"count": 0, "total_time": 0.0},
+                    "redis": {"count": 0, "total_time": 0.0},
+                },
+                "delete": {
+                    "local": {"count": 0, "total_time": 0.0},
+                    "redis": {"count": 0, "total_time": 0.0},
+                },
+            }

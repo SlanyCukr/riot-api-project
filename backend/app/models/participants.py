@@ -1,7 +1,7 @@
 """Match participant model for storing individual player performance in matches."""
 
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 from sqlalchemy import (
@@ -172,7 +172,7 @@ class MatchParticipant(Base):
         """Return string representation of the match participant."""
         return f"<MatchParticipant(match_id='{self.match_id}', summoner_name='{self.summoner_name}', champion='{self.champion_name}')>"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert match participant to dictionary representation."""
         return {
             "id": self.id,

@@ -2,11 +2,12 @@
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Dict, Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import get_global_settings
 from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
@@ -17,6 +18,7 @@ import structlog
 
 
 # Configure logging
+settings = get_global_settings()
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -140,7 +142,7 @@ async def root():
 
 
 @app.get("/health", tags=["health"])
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """
     Health check endpoint.
 
@@ -161,7 +163,7 @@ async def health_check():
 
 
 @app.get("/api/v1/health", tags=["health"])
-async def api_health_check():
+async def api_health_check() -> Dict[str, str]:
     """
     Check API v1 health status.
 
@@ -177,7 +179,7 @@ async def api_health_check():
 
 
 @app.get("/api/v1/health/cache-stats", tags=["health"])
-async def get_cache_stats():
+async def get_cache_stats() -> Dict[str, Any]:
     """
     Get cache statistics for monitoring and debugging.
 
@@ -210,7 +212,9 @@ async def get_cache_stats():
 
 
 @app.get("/api/v1/health/rate-limit-status", tags=["health"])
-async def get_rate_limit_status(riot_data_manager: RiotDataManagerDep):
+async def get_rate_limit_status(
+    riot_data_manager: RiotDataManagerDep,
+) -> Dict[str, Any]:
     """
     Get current rate limit status for monitoring and user feedback.
 
@@ -247,7 +251,7 @@ async def get_rate_limit_status(riot_data_manager: RiotDataManagerDep):
 
 
 @app.get("/api/v1/health/data-stats", tags=["health"])
-async def get_data_stats(riot_data_manager: RiotDataManagerDep):
+async def get_data_stats(riot_data_manager: RiotDataManagerDep) -> Dict[str, Any]:
     """
     Get comprehensive data management statistics.
 

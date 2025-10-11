@@ -62,11 +62,11 @@ class MatchTransformer:
         self, match_id: str, participants: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Transform participant data."""
-        transformed_participants = []
+        transformed_participants: List[Dict[str, Any]] = []
 
         for participant in participants:
             try:
-                participant_dict = {
+                participant_dict: Dict[str, Any] = {
                     "match_id": match_id,
                     "puuid": participant.get("puuid"),
                     "summoner_name": participant.get("summonerName"),
@@ -148,7 +148,7 @@ class MatchTransformer:
             if not target_participant:
                 return {"match_id": metadata.get("matchId"), "encounters": []}
 
-            encounters = []
+            encounters: List[Dict[str, Any]] = []
             for participant in participants:
                 if participant.get("puuid") == target_puuid:
                     continue
@@ -158,7 +158,7 @@ class MatchTransformer:
                     "teamId"
                 )
 
-                encounter = {
+                encounter: Dict[str, Any] = {
                     "puuid": participant.get("puuid"),
                     "summoner_name": participant.get("summonerName"),
                     "champion_name": participant.get("championName"),

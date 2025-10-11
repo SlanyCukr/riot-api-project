@@ -1,7 +1,7 @@
 """Match data model for storing League of Legends match information."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -136,7 +136,7 @@ class Match(Base):
         """Return string representation of the match."""
         return f"<Match(match_id='{self.match_id}', queue_id={self.queue_id}, game_creation={self.game_creation})>"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert match to dictionary representation."""
         return {
             "match_id": self.match_id,

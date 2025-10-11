@@ -1,7 +1,7 @@
 """Player service for handling player data operations."""
 
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -118,7 +118,10 @@ class PlayerService:
 
         # If exact match found, return it
         for player in players:
-            if player.summoner_name.lower() == summoner_name.lower():
+            if (
+                player.summoner_name
+                and player.summoner_name.lower() == summoner_name.lower()
+            ):
                 logger.info(
                     "Found exact match for summoner name",
                     summoner_name=summoner_name,
@@ -138,7 +141,7 @@ class PlayerService:
 
         # If multiple partial matches, return error with suggestions
         if len(players) > 1:
-            matched_names = [p.summoner_name for p in players]
+            matched_names = [p.summoner_name for p in players if p.summoner_name]
             logger.info(
                 "Found multiple matches for summoner name",
                 summoner_name=summoner_name,
@@ -199,7 +202,7 @@ class PlayerService:
         return []
 
     async def _get_player_from_db(
-        self, riot_id: str = None, puuid: str = None
+        self, riot_id: Optional[str] = None, puuid: Optional[str] = None
     ) -> Optional[Player]:
         """Get player from database by Riot ID or PUUID."""
         query = select(Player).where(Player.is_active)
@@ -228,9 +231,9 @@ class PlayerService:
                 account_level=player_data.account_level,
                 profile_icon_id=player_data.profile_icon_id,
                 summoner_id=player_data.summoner_id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                last_seen=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                last_seen=datetime.now(timezone.utc),
             )
             .on_conflict_do_update(
                 index_elements=["puuid"],
@@ -242,8 +245,8 @@ class PlayerService:
                     account_level=player_data.account_level,
                     profile_icon_id=player_data.profile_icon_id,
                     summoner_id=player_data.summoner_id,
-                    updated_at=datetime.utcnow(),
-                    last_seen=datetime.utcnow(),
+                    updated_at=datetime.now(timezone.utc),
+                    last_seen=datetime.now(timezone.utc),
                 ),
             )
             .returning(Player)
@@ -257,13 +260,13 @@ class PlayerService:
         self, puuid: UUID, update_data: PlayerUpdate
     ) -> Optional[Player]:
         """Update existing player record."""
-        update_dict = update_data.dict(exclude_unset=True)
+        update_dict = update_data.model_dump(exclude_unset=True)
         if not update_dict:
             return None
 
-        update_dict["updated_at"] = datetime.utcnow()
+        update_dict["updated_at"] = datetime.now(timezone.utc)
         if "last_seen" not in update_dict:
-            update_dict["last_seen"] = datetime.utcnow()
+            update_dict["last_seen"] = datetime.now(timezone.utc)
 
         stmt = (
             update(Player)

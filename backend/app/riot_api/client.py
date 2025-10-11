@@ -2,11 +2,11 @@
 
 import asyncio
 import json
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Union, cast
 import aiohttp
 import structlog
 
-from ..config import settings
+from ..config import get_global_settings
 from .rate_limiter import RateLimiter
 from .errors import (
     RiotAPIError,
@@ -56,6 +56,7 @@ class RiotAPIClient:
             cache_size: Maximum cache size
             enable_logging: Enable request/response logging
         """
+        settings = get_global_settings()
         self.api_key = api_key or settings.riot_api_key
         self.region = region or Region(settings.riot_region.lower())
         self.platform = platform or Platform(settings.riot_platform.lower())
@@ -85,7 +86,12 @@ class RiotAPIClient:
         await self.start_session()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object | None,
+    ) -> None:
         """Async context manager exit."""
         await self.close()
 
@@ -135,7 +141,7 @@ class RiotAPIClient:
         data: Optional[Dict[str, Any]] = None,
         use_cache: bool = True,
         retry_on_failure: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """
         Make HTTP request with rate limiting, caching, and retry logic.
 
@@ -148,12 +154,15 @@ class RiotAPIClient:
             retry_on_failure: Retry on transient failures
 
         Returns:
-            Response data as dictionary
+            Response data as dictionary or list
 
         Raises:
             RiotAPIError: For API errors
         """
         await self.start_session()
+
+        if self.session is None:
+            raise RiotAPIError("Session not initialized")
 
         # Cache checking is done at the method level (get_account_by_riot_id, get_match, etc.)
         # Generic request caching removed to use endpoint-specific caching
@@ -306,7 +315,9 @@ class RiotAPIClient:
                 return AccountDTO(**cached)
 
         url = self.endpoints.account_by_riot_id(game_name, tag_line, region)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for account"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_account_by_riot_id(game_name, tag_line, data)
@@ -323,7 +334,9 @@ class RiotAPIClient:
                 return AccountDTO(**cached)
 
         url = self.endpoints.account_by_puuid(puuid, region)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for account"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_account_by_puuid(puuid, data)
@@ -340,10 +353,12 @@ class RiotAPIClient:
                 return ActiveShardDTO(**cached)
 
         url = self.endpoints.active_shard(puuid, game, region)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for active shard"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
-            self.cache.set_active_shard(puuid, game, data)
+            self.cache.set_active_shard(puuid, data, game)
 
         return ActiveShardDTO(**data)
 
@@ -358,7 +373,9 @@ class RiotAPIClient:
                 return SummonerDTO(**cached)
 
         url = self.endpoints.summoner_by_name(summoner_name, platform)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for summoner"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_summoner_by_name(summoner_name, data)
@@ -375,7 +392,9 @@ class RiotAPIClient:
                 return SummonerDTO(**cached)
 
         url = self.endpoints.summoner_by_puuid(puuid, platform)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for summoner"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_summoner_by_puuid(puuid, data)
@@ -403,7 +422,7 @@ class RiotAPIClient:
                 puuid,
                 start,
                 count,
-                queue_type.value if queue_type else None,
+                int(queue_type.value) if queue_type else None,
                 start_time,
                 end_time,
             )
@@ -415,20 +434,28 @@ class RiotAPIClient:
         url = self.endpoints.match_list_by_puuid(
             puuid, start, count, queue_type, type, start_time, end_time, region
         )
-        data = await self._make_request(url)
+        response_data = await self._make_request(url)
+
+        # Extract match IDs from response
+        match_ids: list[str]
+        if isinstance(response_data, list):
+            match_ids = cast(list[str], response_data)
+        else:
+            response_dict = cast(dict[str, Any], response_data)
+            match_ids = cast(list[str], response_dict.get("matchIds", []))
 
         if self.cache:
             self.cache.set_match_list(
                 puuid,
                 start,
                 count,
-                data,
-                queue_type.value if queue_type else None,
+                match_ids,
+                int(queue_type.value) if queue_type else None,
                 start_time,
                 end_time,
             )
 
-        return MatchListDTO(match_ids=data, start=start, count=count, puuid=puuid)
+        return MatchListDTO(match_ids=match_ids, start=start, count=count, puuid=puuid)
 
     async def get_match(
         self, match_id: str, region: Optional[Region] = None
@@ -440,7 +467,9 @@ class RiotAPIClient:
                 return MatchDTO(**cached)
 
         url = self.endpoints.match_by_id(match_id, region)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for match"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_match(match_id, data)
@@ -452,7 +481,9 @@ class RiotAPIClient:
     ) -> Dict[str, Any]:
         """Get match timeline by match ID."""
         url = self.endpoints.match_timeline_by_id(match_id, region)
-        return await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for match timeline"
+        return cast(dict[str, Any], response)
 
     # League endpoints
     async def get_league_entries_by_summoner(
@@ -465,7 +496,15 @@ class RiotAPIClient:
                 return [LeagueEntryDTO(**entry) for entry in cached]
 
         url = self.endpoints.league_entries_by_summoner(summoner_id, platform)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+
+        # API returns a list of league entries
+        if not isinstance(response, list):
+            raise RiotAPIError(
+                f"Expected list response for league entries, got {type(response)}"
+            )
+
+        data = cast(list[dict[str, Any]], response)
 
         if self.cache:
             self.cache.set_league_entries(summoner_id, data)
@@ -485,7 +524,9 @@ class RiotAPIClient:
         url = self.endpoints.active_game_by_summoner(summoner_id, platform)
 
         try:
-            data = await self._make_request(url)
+            response = await self._make_request(url)
+            assert isinstance(response, dict), "Expected dict response for active game"
+            data = cast(dict[str, Any], response)
             if self.cache:
                 self.cache.set_active_game(summoner_id, data)
             return CurrentGameInfoDTO(**data)
@@ -503,7 +544,9 @@ class RiotAPIClient:
                 return FeaturedGamesDTO(**cached)
 
         url = self.endpoints.featured_games(platform)
-        data = await self._make_request(url)
+        response = await self._make_request(url)
+        assert isinstance(response, dict), "Expected dict response for featured games"
+        data = cast(dict[str, Any], response)
 
         if self.cache:
             self.cache.set_featured_games(data)
@@ -530,6 +573,8 @@ class RiotAPIClient:
     ) -> str:
         """Get summoner ID from PUUID."""
         summoner = await self.get_summoner_by_puuid(puuid, platform)
+        if summoner.id is None:
+            raise ValueError(f"Summoner ID is None for PUUID: {puuid}")
         return summoner.id
 
     @staticmethod
@@ -606,7 +651,7 @@ class RiotAPIClient:
         )
 
         # Get match details for each match
-        matches = []
+        matches: list[MatchDTO] = []
         wins = 0
         kills = 0
         deaths = 0
