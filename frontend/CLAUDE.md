@@ -15,11 +15,13 @@ React 19.2.0 + TypeScript + Tailwind CSS, built with Vite. See `package.json` fo
 ## Development Guidelines
 
 ### Code Style & Components
+
 - Use functional components with TypeScript interfaces
 - Follow existing patterns and naming conventions
 - ESLint + Prettier for formatting
 
 ### API Integration
+
 - Use TanStack Query + Axios for data fetching
 - Centralized API client in `src/services/`
 - Implement proper loading/error states and caching
@@ -39,6 +41,7 @@ React 19.2.0 + TypeScript + Tailwind CSS, built with Vite. See `package.json` fo
 ## Development
 
 ### Commands
+
 ```bash
 # Start frontend with hot reload
 docker-compose up frontend
@@ -51,6 +54,7 @@ docker-compose exec frontend npm run lint
 ```
 
 ### Environment
+
 - `VITE_API_URL`: Backend API endpoint
 - `VITE_ENVIRONMENT`: Development/production environment
 
