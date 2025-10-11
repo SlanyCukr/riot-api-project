@@ -9,7 +9,6 @@
 - **`app/models/`** - SQLAlchemy models (see `docker/postgres/CLAUDE.md` for schema details)
 - **`app/riot_api/`** - HTTP client with rate limiting and caching
 - **`app/algorithms/`** - Smurf detection algorithms (win_rate, rank_progression, performance)
-- **`app/middleware/`** - Performance tracking, CORS configuration
 - **`app/config.py`** - Pydantic settings for environment configuration
 
 ### Core Data Flow

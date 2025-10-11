@@ -93,6 +93,5 @@ strict = [
     "app/models/**/*.py",
     "app/config.py",
     "app/database.py",
-    "app/schemas/**/*.py",
-    "app/middleware/**/*.py"
+    "app/schemas/**/*.py"
 ]

@@ -12,7 +12,6 @@ from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
 from app.api.dependencies import RiotDataManagerDep
-from app.middleware.performance import PerformanceMiddleware
 from app.riot_api.cache import RiotAPICache
 import structlog
 
@@ -25,7 +24,7 @@ logging.basicConfig(
 )
 logger = structlog.get_logger(__name__)
 
-# Configure structlog for better performance logging
+# Configure structlog
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -121,9 +120,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure performance monitoring middleware
-app.add_middleware(PerformanceMiddleware)
 
 # Include API routers
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
