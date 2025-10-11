@@ -1,7 +1,5 @@
 # Database Guide
 
-This file provides guidance for working with the PostgreSQL database and schema.
-
 ## Database Schema
 
 ### Core Tables
@@ -19,108 +17,67 @@ This file provides guidance for working with the PostgreSQL database and schema.
 
 ## Database Initialization
 
-### Init SQL Script
-The database is initialized using `/docker/postgres/init.sql` (mounted in docker-compose.yml):
-
-- Sets up database infrastructure (schemas, permissions, privileges)
-- Creates `app` schema
-- Configures user permissions and search paths
-- **Note**: Does NOT create tables - tables are created by Alembic migrations
-- **Note**: Does not use `uuid-ossp` extension - not needed since PUUIDs are stored as strings
+Database initialized via `/docker/postgres/init.sql` (mounted in docker-compose.yml):
+- Creates `app` schema and user permissions
+- Does NOT create tables (handled by Alembic migrations)
+- PUUIDs stored as strings (no uuid-ossp extension needed)
 
 ### Execution Order
-When PostgreSQL container starts for the first time:
 1. `init.sql` runs → creates database infrastructure
-2. Backend starts → Alembic creates all tables
+2. Backend starts → Alembic creates tables
 
-**Important**: Init scripts only run on first container creation. To re-run:
+**To re-initialize:** `docker-compose down -v && docker-compose up`
+
+### Development Data
 ```bash
-docker-compose down -v  # Remove volume
-docker-compose up       # Fresh database
-```
-
-### Development Seed Data
-For development and testing, use the seed script instead of SQL files:
-
-```bash
-# Seed test player data into the database
+# Seed test data (Jim Morioriarty#2434 from EUNE, Level 794)
 ./scripts/seed-dev-data.sh
 ```
 
-This script inserts a real test player (Jim Morioriarty#2434 from EUNE, Level 794) into the database. The script can be run multiple times safely (uses `ON CONFLICT DO UPDATE`).
+Can be run multiple times safely. On-demand seeding is easier than SQL files.
 
-**Benefits over SQL files**:
-- No need to modify docker-compose.yml
-- Can be run on-demand, anytime after migrations
-- Easier to maintain and extend
-- Clear separation from initialization logic
-
-## Database Operations (via Docker)
+## Database Operations
 
 ### Migrations
 ```bash
-# Create database migrations
+# Create/apply migrations
 docker-compose exec backend alembic revision --autogenerate -m "description"
-
-# Apply migrations
 docker-compose exec backend alembic upgrade head
 
-# Rollback migrations
+# Rollback
 docker-compose exec backend alembic downgrade -1
-
-# View migration history
-docker-compose exec backend alembic history
-
-# Check current revision
 docker-compose exec backend alembic current
 ```
 
-### Database Shell
+### Database Access
 ```bash
 # Database shell
 docker-compose exec postgres psql -U riot_api_user -d riot_api_db
 
-# Alternative connection
-docker-compose exec postgres psql -h localhost -U riot_api_user -d riot_api_db
-```
-
-### Backup and Restore
-```bash
-# Create backup
+# Backup/restore
 docker-compose exec postgres pg_dump -U riot_api_user -d riot_api_db > backup.sql
-
-# Restore from backup
 docker-compose exec -T postgres psql -U riot_api_user -d riot_api_db < backup.sql
-
-# Copy backup out of container
-docker cp postgres_container:/backup.sql ./backup.sql
 ```
 
-## Schema Design Principles
+## Schema Design
 
-### Normalization
-- Follow third normal form where practical
-- Use foreign keys for referential integrity
-- Implement proper indexing strategy
-
-### Performance Considerations
+### Design Principles
+- Third normal form where practical
+- Foreign keys for referential integrity
 - Connection pooling with SQLAlchemy
-- Proper indexing on frequently queried fields
-- Read replicas for scaling (future enhancement)
-- Query optimization for large datasets
+- Proper indexing strategy
 
-### Indexing Strategy
-- Primary keys automatically indexed
-- Foreign keys should be indexed
+### Indexing
+- Primary keys auto-indexed
+- Foreign keys indexed
 - Composite indexes for common query patterns
 - Partial indexes for filtered queries
 
-## Database Optimization
+## Performance
 
 ### Connection Management
-- Use SQLAlchemy connection pooling
-- Configure appropriate pool size
-- Implement connection timeout handling
+- SQLAlchemy connection pooling
+- Configured pool size and timeouts
 - Monitor connection usage
 
 ### Query Optimization
@@ -129,53 +86,15 @@ docker cp postgres_container:/backup.sql ./backup.sql
 - Avoid SELECT * in production
 - Implement proper pagination
 
-### Monitoring
-- Monitor query performance
-- Track database size growth
-- Monitor connection pool usage
-- Set up alerts for unusual activity
+## Security
 
-## Security Considerations
+- Environment variables for credentials
+- Proper user roles and permissions
+- SSL connections in production
+- Parameterized queries to prevent SQL injection
+- Regular security updates
 
-### Access Control
-- Use environment variables for credentials
-- Implement proper user roles and permissions
-- Never commit database credentials to version control
-- Use SSL connections in production
-
-### Data Protection
-- Encrypt sensitive data at rest
-- Implement proper backup strategy
-- Use parameterized queries to prevent SQL injection
-- Sanitize all user inputs
-
-### Best Practices
-- Regular database maintenance
-- Implement proper backup strategy
-- Monitor database performance
-- Keep software up to date
-
-## Development Environment
-
-### Local Development
-- Database runs in Docker container
-- Volume mounted for data persistence
-- Environment variables for configuration
-- Health checks for container monitoring
-
-### Testing Database
-- Separate test database for unit tests
-- Test data cleanup between runs
-- Mock database for integration tests
-- Database migrations included in CI/CD
-
-## Troubleshooting
-
-### Common Issues
-- Connection timeouts: Check pool configuration
-- Slow queries: Use EXPLAIN ANALYZE
-- Migration failures: Check migration scripts
-- Disk space: Monitor database size
+## Monitoring
 
 ### Debug Commands
 ```bash
@@ -187,7 +106,10 @@ docker-compose exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT sch
 
 # Check active connections
 docker-compose exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT count(*) FROM pg_stat_activity;"
-
-# Check slow queries
-docker-compose exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT query, mean_time, calls FROM pg_stat_statements ORDER BY mean_time DESC LIMIT 10;"
 ```
+
+## Troubleshooting
+
+Common issues: connection timeouts, slow queries, migration failures, disk space.
+
+Use EXPLAIN ANALYZE for query optimization and monitor database size growth.
