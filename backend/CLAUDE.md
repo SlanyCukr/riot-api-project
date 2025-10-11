@@ -46,12 +46,13 @@
 
 Regional and platform routing handled automatically. See `app/riot_api/endpoints.py` for complete endpoint mapping.
 
-### Caching Strategy
+### Data Management Strategy
 
-- **In-memory TTL cache** for Riot API responses (`app/riot_api/cache.py`)
-- Configurable cache sizes and TTL per data type (PUUID, matches, summoner data)
-- Cache statistics available at `/api/v1/health/cache-stats`
-- Reduces API calls and improves response times
+- **Database-first approach** - PostgreSQL is the primary cache
+- **Simple flow**: Database → Riot API (if miss) → Store in DB → Return
+- **Rate limiting** - RiotAPIClient handles rate limits and returns `None` or raises `RateLimitError` when throttled
+- **No TTL caching** - Data in database is considered valid (PostgreSQL is fast enough)
+- Services handle `None` responses from rate limiting gracefully
 
 ## Smurf Detection Algorithms
 
@@ -129,6 +130,5 @@ Backend-specific environment variables (loaded via `app/config.py`):
 - **`DATABASE_URL`** - PostgreSQL connection string
 - **`API_HOST`** / **`API_PORT`** - Backend server binding
 - **`LOG_LEVEL`** - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
-- **`CACHE_*`** - Cache configuration (TTL, sizes)
 
 See root `CLAUDE.md` for general environment setup.

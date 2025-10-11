@@ -2,7 +2,7 @@
 Riot API client package for League of Legends API integration.
 
 This package provides a comprehensive HTTP client for interacting with the Riot API,
-including proper rate limiting, error handling, authentication, and caching.
+including proper rate limiting, error handling, and authentication.
 """
 
 from .client import RiotAPIClient
@@ -24,7 +24,6 @@ from .models import (
     LeagueEntryDTO,
     CurrentGameInfoDTO,
 )
-from .cache import RiotAPICache
 from .endpoints import RiotAPIEndpoints
 
 __all__ = [
@@ -43,6 +42,5 @@ __all__ = [
     "MatchDTO",
     "LeagueEntryDTO",
     "CurrentGameInfoDTO",
-    "RiotAPICache",
     "RiotAPIEndpoints",
 ]
