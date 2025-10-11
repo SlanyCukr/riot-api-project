@@ -40,7 +40,7 @@ services:
           cpus: '0.5'
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     restart: always
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
