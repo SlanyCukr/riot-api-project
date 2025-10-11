@@ -44,4 +44,3 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./docker/postgres/dev-data.sql:/docker-entrypoint-initdb.d/dev-data.sql:ro
