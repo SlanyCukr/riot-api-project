@@ -2,6 +2,10 @@
 
 A comprehensive application for analyzing League of Legends match history and detecting potential smurf accounts using Riot API data.
 
+## Project Scope
+
+- Current project scope is described in `docs/project-scope.md` 
+
 ## Features
 
 - **Player Analysis**: Retrieve and analyze match histories for League of Legends players

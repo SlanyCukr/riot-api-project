@@ -219,6 +219,8 @@ temp/
 
 # Editor directories and files
 .vscode/
+!.vscode/extensions.json
+!.vscode/.prettierignore
 .idea
 *.swp
 *.swo

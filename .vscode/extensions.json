@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "bierner.markdown-mermaid",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
+    "github.vscode-github-actions",
+    "ms-azuretools.vscode-docker",
+    "ms-python.black-formatter",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "vscode-icons-team.vscode-icons"
+  ],
+  "unwantedRecommendations": []
+}
