@@ -5,6 +5,15 @@
 
 /* Define theme tokens as CSS custom properties */
 @theme {
+  /* LeagueYesPy Custom Colors */
+  --color-navy-darkest: #03005b;
+  --color-navy-dark: #00017a;
+  --color-navy-base: #151e46;
+  --color-navy-light: #2c3e6f;
+  --color-gold-dark: #fed701;
+  --color-gold-base: #c8aa6e;
+  --color-gold-light: #fcb305;
+
   /* Light mode colors (default) */
   --color-background: oklch(100% 0 0);
   --color-foreground: oklch(9.8% 0.038 285.88);

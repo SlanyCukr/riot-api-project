@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SidebarNav } from "@/components/sidebar-nav";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,7 +30,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Providers>{children}</Providers>
+          <Providers>
+            <div className="flex min-h-screen">
+              <SidebarNav />
+              <main className="flex-1 bg-background">{children}</main>
+            </div>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
