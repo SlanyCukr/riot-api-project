@@ -1,62 +1,36 @@
-# Docker Deployment Guide
+# Docker Operations Guide
 
-## Overview
-
-All services run exclusively through Docker containers. Hot reload, database migrations, and health checks are configured automatically for development.
+Agent-specific Docker commands. See root `README.md` for project context.
 
 **Use `docker compose` (v2) not `docker-compose` (v1).**
 
-## Development Workflow
+## Service Management
 
-### Starting Services
-
+### Start/Stop
 ```bash
-# Start all services
-docker compose up --build
-
-# Start specific service
-docker compose up backend
-docker compose up frontend
-
-# Start in background (detached)
-docker compose up -d
-
-# Stop all services
-docker compose down
+docker compose up --build              # Start all with rebuild
+docker compose up -d                   # Start detached (background)
+docker compose up backend frontend     # Start specific services
+docker compose down                    # Stop all
+docker compose down -v                 # Stop and remove volumes (WARNING: deletes data)
+docker compose restart backend         # Restart specific service
 ```
 
-### Service Management
-
+### Status & Logs
 ```bash
-# Check service status
-docker compose ps
-
-# View resource usage
-docker compose stats
-
-# Restart specific service
-docker compose restart backend
-
-# View logs (follow mode)
-docker compose logs -f backend frontend
-
-# View recent logs
-docker compose logs --tail=100 backend
+docker compose ps                      # Service status
+docker compose stats                   # Resource usage
+docker compose logs -f backend         # Follow logs
+docker compose logs --tail=100 postgres
 ```
 
 ### Container Access
-
 ```bash
-# Access backend shell
-docker compose exec backend bash
-
-# Access frontend shell
-docker compose exec frontend bash
-
-# Access database shell
+docker compose exec backend bash       # Backend shell
+docker compose exec frontend bash      # Frontend shell
 docker compose exec postgres psql -U riot_api_user -d riot_api_db
 
-# Execute one-off commands
+# One-off commands
 docker compose exec backend uv run python --version
 docker compose exec frontend node --version
 ```
@@ -64,182 +38,128 @@ docker compose exec frontend node --version
 ## Production Deployment
 
 ### Production Commands
-
 ```bash
-# Start production deployment
+# Start production stack
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 
-# Scale services horizontally
+# Scale services
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale backend=3 --scale frontend=2
 
-# View production logs
+# View logs
 docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
 
-# Stop production services
+# Stop production
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 ```
 
-### Production Configuration
-
+### Production Checklist
 - Set environment variables in `.env` or export them
-- Use specific image tags, not `latest`
-- Enable HTTPS (configure reverse proxy like nginx or Traefik)
-- Configure proper resource limits and health checks
-- Run containers as non-root users (already configured)
-
-## Networking
-
-Services communicate through Docker internal networking:
-
-- **Backend**: Accessible at `http://localhost:8000` (dev) or configured port
-- **Frontend**: Accessible at `http://localhost:3000` (dev) or configured port
-- **Database**: Internal service at `postgres:5432` (not exposed externally)
-
-Backend and frontend services reference database via hostname `postgres`.
+- Use specific image tags (not `latest`)
+- Enable HTTPS (use reverse proxy like nginx/Traefik)
+- Configure resource limits and health checks
+- Containers run as non-root (already configured)
 
 ## Image Management
 
-### Building Images
-
+### Building
 ```bash
-# Build all images
-docker compose build
-
-# Build specific service
-docker compose build backend
-
-# Force rebuild without cache
-docker compose build --no-cache
+docker compose build                   # Build all
+docker compose build backend           # Build specific service
+docker compose build --no-cache        # Force rebuild without cache
 ```
 
-### Cleaning Images
-
+### Cleaning
 ```bash
-# List images
-docker images
-
-# Remove unused images
-docker image prune -a
-
-# Remove all project images
-docker compose down --rmi all
+docker images                          # List images
+docker image prune -a                  # Remove unused images
+docker compose down --rmi all          # Remove all project images
 ```
 
 ## Volume Management
 
 ### Volumes
+- `postgres-data` - Database storage (persistent)
+- `backend-logs` - Backend logs (persistent)
+- Source code - Mounted for hot reload (dev only)
 
-- **`postgres-data`**: Persistent database storage (named `${COMPOSE_PROJECT_NAME}_postgres-data`)
-- **`backend-logs`**: Persisted backend log files (`${COMPOSE_PROJECT_NAME}_backend-logs`)
-- **Source code**: Mounted for development hot reload via `docker-compose.override.yml`
-
-### Backup & Restore
-
+### Backup Database
 ```bash
-# Backup database volume
+# Backup volume
 docker run --rm \
   -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
   -v $(pwd):/backup \
   alpine tar czf /backup/postgres_backup.tar.gz -C /data .
 
-# Restore database volume
+# Restore volume
 docker run --rm \
   -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
   -v $(pwd):/backup \
   alpine tar xzf /backup/postgres_backup.tar.gz -C /data
 
-# Alternative: Use pg_dump (see docker/postgres/CLAUDE.md)
+# pg_dump backup (see docker/postgres/CLAUDE.md)
+docker compose exec postgres pg_dump -U riot_api_user -d riot_api_db > backup.sql
 ```
 
 ### Reset Database
-
 ```bash
-# Remove volume and restart (WARNING: deletes all data)
+# WARNING: Deletes all data
 docker compose down -v
 docker compose up --build
 ```
 
 ## Utility Scripts
-
-Located in `scripts/` directory:
-
 ```bash
-# Clean local development artifacts
-./scripts/clean-local.sh
-
-# Seed development test data (Jim Morioriarty#2434 from EUNE, Level 794)
-./scripts/seed-dev-data.sh
+./scripts/clean-local.sh               # Clean local artifacts
+./scripts/seed-dev-data.sh             # Seed test data (Jim Morioriarty#2434, Level 794)
 ```
 
-See `docker/postgres/CLAUDE.md` for database-specific operations.
-
 ## Environment Configuration
-
 ```bash
-# Use custom .env file
+# Custom .env file
 docker compose --env-file .env.custom up
 
-# Override specific variables
-export RIOT_API_KEY=your_api_key
+# Override variables
+export RIOT_API_KEY=your_key
 docker compose up
 ```
 
-See root `CLAUDE.md` for required environment variables.
+See root `CLAUDE.md` for required variables.
 
 ## Health Checks
-
 Health checks configured for all services:
-
-- **Backend**: HTTP health check at `/health`
-- **Frontend**: Application readiness check
-- **Database**: PostgreSQL connection test
+- **Backend**: HTTP check at `/health`
+- **Frontend**: Application readiness
+- **Database**: PostgreSQL connection
 
 ```bash
-# Check container health status
-docker compose ps
-
-# View health check logs
-docker compose logs --tail=50
+docker compose ps                      # View health status
+docker compose logs --tail=50          # Check health logs
 ```
 
 ## Troubleshooting
 
 ### Common Issues
-
-1. **Port conflicts**: Check if ports 8000, 3000, 5432 are available
-2. **Volume permissions**: Ensure Docker has access to project directory
-3. **Network issues**: Check firewall settings and Docker network configuration
-4. **Out of memory**: Increase Docker Desktop memory allocation
+- **Port conflicts**: Ports 8000, 3000, 5432 must be available
+- **Volume permissions**: Ensure Docker has project access
+- **Out of memory**: Increase Docker Desktop memory
 
 ### Debug Commands
-
 ```bash
-# View detailed container info
-docker compose inspect backend
-
-# Check logs for errors
-docker compose logs backend --tail=200
-
-# Restart stuck service
-docker compose restart backend
-
-# Complete reset (removes volumes)
-docker compose down -v && docker compose up --build
+docker compose inspect backend         # Detailed container info
+docker compose logs backend --tail=200 # Check error logs
+docker compose restart backend         # Restart stuck service
+docker compose down -v && docker compose up --build  # Full reset
 ```
 
-### Performance Issues
+## Networking
+Services use Docker internal networking:
+- Backend: http://localhost:8000 (dev)
+- Frontend: http://localhost:3000 (dev)
+- Database: Internal at `postgres:5432` (not exposed externally)
 
-- Check resource usage: `docker compose stats`
-- Review container logs for bottlenecks
-- Ensure sufficient disk space for images and volumes
-- Consider increasing Docker Desktop resource limits
-
-## Security Best Practices
-
-- Run containers as non-root users (already configured)
-- Use specific image tags for reproducible builds
-- Keep base images updated regularly
+## Security Notes
+- Containers run as non-root users (configured)
+- Use specific image tags for production
 - Enable HTTPS in production
-- Never commit secrets to git (use environment variables)
-- Scan images for vulnerabilities: `docker scan <image>`
-- Implement proper network isolation in production
+- Never commit secrets (use env vars)
+- Scan images: `docker scan <image>`

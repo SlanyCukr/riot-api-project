@@ -5,11 +5,11 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
     environment:
       - NODE_ENV=development
-      - API_URL=${API_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/dist
+      - /app/.next
     ports:
       - "${FRONTEND_PORT}:3000"
     command: ["npm", "run", "dev"]

@@ -18,8 +18,8 @@ A comprehensive application for analyzing League of Legends match history and de
 
 This project runs as a Docker-first stack composed of the following services:
 
-- **Backend**: FastAPI application with PostgreSQL persistence and Riot API integration
-- **Frontend**: React + TypeScript interface served through Vite
+- **Backend**: Python 3.13 + FastAPI application with PostgreSQL persistence and Riot API integration
+- **Frontend**: Next.js 15 + React 19 + shadcn/ui + Zod for type-safe UI with runtime validation
 - **Database**: PostgreSQL 18 instance configured via Docker Compose
 - **Tooling**: Optional utility scripts in `scripts/` for cleanup and data seeding
 
