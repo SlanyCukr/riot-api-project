@@ -1,80 +1,60 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --border-radius: var(--radius);
-}
+  /* LeagueYesPy Custom Colors - These generate utility classes */
+  --color-navy-darkest: #03005b;
+  --color-navy-dark: #00017a;
+  --color-navy-base: #151e46;
+  --color-navy-light: #2c3e6f;
+  --color-gold-dark: #fed701;
+  --color-gold-base: #fec203;
+  --color-gold-light: #fcb305;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
+  /* Shadcn UI theme variables */
+  --color-background: oklch(100% 0 0);
+  --color-foreground: oklch(13.24% 0.0201 286.75);
+  --color-border: oklch(91.49% 0.0059 286.53);
+  --color-input: oklch(91.49% 0.0059 286.53);
+  --color-ring: oklch(64.85% 0.1632 263.24);
+  --color-primary: oklch(64.85% 0.1632 263.24);
+  --color-primary-foreground: oklch(98.23% 0.0079 286.36);
+  --color-secondary: oklch(96.27% 0.0079 286.36);
+  --color-secondary-foreground: oklch(13.24% 0.0201 286.75);
+  --color-muted: oklch(96.27% 0.0079 286.36);
+  --color-muted-foreground: oklch(53.84% 0.0248 286.13);
+  --color-accent: oklch(96.27% 0.0079 286.36);
+  --color-accent-foreground: oklch(13.24% 0.0201 286.75);
+  --color-destructive: oklch(62.07% 0.2524 29.23);
+  --color-destructive-foreground: oklch(98.23% 0.0079 286.36);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(13.24% 0.0201 286.75);
+  --color-popover: oklch(100% 0 0);
+  --color-popover-foreground: oklch(13.24% 0.0201 286.75);
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
-  }
+  --radius-sm: calc(0.5rem - 4px);
+  --radius-md: calc(0.5rem - 2px);
+  --radius-lg: 0.5rem;
 }
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
+
   body {
-    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+      "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+      "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: white;
+    color: #333;
+  }
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.12),
+      0 2px 6px -2px rgba(0, 0, 0, 0.08);
   }
 }

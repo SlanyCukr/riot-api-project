@@ -9,7 +9,7 @@ interface PlayerSearchProps {
 
 export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   const [searchType, setSearchType] = useState<"riot_id" | "summoner_name">(
-    "riot_id",
+    "riot_id"
   );
   const [searchValue, setSearchValue] = useState("");
   const [platform, setPlatform] = useState("eun1");
@@ -35,7 +35,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
+    <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-card">
       <div className="flex items-center mb-4">
         <User className="w-6 h-6 mr-2 text-blue-600" />
         <h2 className="text-xl font-semibold">Player Search</h2>

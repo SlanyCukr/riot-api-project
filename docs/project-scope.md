@@ -15,7 +15,7 @@
   - [SPY-004: Player Search - WIP](#spy-004-player-search---wip)
 4. [Modules](#modules)
   - [SPY-005: Smurf Detection - TODO](#spy-005-smurf-detection---todo)
-  - [SPY-006 Trash Detection - TODO](#spy-006-trash-detection---todo)
+  - [SPY-006 Boosted Detection - TODO](#spy-006-trash-detection---todo)
 
 ## Database
 
@@ -53,7 +53,7 @@
   - 2 per row on large screens, 1 per row on smaller screens
   - Will be a sample page until there are at least 2 working modules
 
-### SPY-002: Left Menu - TODO
+### SPY-002: Left Menu - WIP
   - Logo at the top-left
   - Navigation with links to individual views
     - Links could have an arrow-down icon next to them, which would open a dropdown when clicked,
@@ -108,7 +108,7 @@ Gathers info about specific player.
 - If the player meets certain criteria, they will be marked as "smurf"
   - If possible, automatic Riot Support ticket creation can be added
 
-### SPY-006: Trash Detection - TODO
+### SPY-006: Boosted Detection - TODO
 - Goal of this module is to detect boosted players (players that perform way worse than expected)
   - The goal is to fetch data about a specific player:
   - Winrate past X games

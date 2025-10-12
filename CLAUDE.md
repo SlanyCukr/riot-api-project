@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Full-stack Riot API application for League of Legends match analysis and smurf detection. Features include player search, match analysis, smurf detection algorithms, and encounter tracking with Riot API integration.
 
+## Project Scope
+
+Overview of what exactly is in project's scope is in `docs/project-scope.md`, as well as tasks labeled as "SPY-XXX" or "BACKLOG", reserved for tasks with the lowest priority, or "EPIC", reserved for labeling a group of tasks. When doing tasks described in `docs/project-scope.md`, mark them as "WIP", instead of "TODO", and after user tests your code and approves it, mark it as done with ✅.
+
 ## Technology Stack
 
 - **Backend**: Python 3.13 + FastAPI + SQLAlchemy
@@ -32,12 +36,17 @@ Full-stack Riot API application for League of Legends match analysis and smurf d
 ## Quick Start
 
 ```bash
-docker compose up --build  # Start all services
-docker compose up backend  # Start specific service
-docker compose down        # Stop all services
+# First time or if you encounter port conflicts:
+./scripts/docker-cleanup.sh     # Clean up Docker resources and stop local PostgreSQL
+
+docker compose up --build       # Start all services
+docker compose up backend       # Start specific service
+docker compose down             # Stop all services
 ```
 
 **Hot Reload**: Both backend and frontend support hot reload. Changes to source files are automatically detected and applied without restarting containers.
+
+**Port Conflicts?** See `docs/docker-troubleshooting.md` or run `./scripts/docker-cleanup.sh`
 
 See `docker/CLAUDE.md` for complete Docker workflow and troubleshooting.
 
