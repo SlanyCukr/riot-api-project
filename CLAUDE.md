@@ -85,5 +85,14 @@ Copy `.env.example` to `.env`:
 - `docker/` - Docker configs
 - `scripts/` - Utility scripts
 
-## Hot Reload
-Both backend and frontend support hot reload. Changes apply automatically without restart.
+## Hot Reload (IMPORTANT)
+
+⚠️ **Both backend and frontend support hot reload** - containers do NOT need to be restarted or rebuilt for code changes.
+
+- **Frontend**: Next.js hot reload - saving any file automatically updates in browser
+- **Backend**: FastAPI auto-reload - saving Python files automatically restarts the server
+
+**Simply save your file and the changes will apply immediately.** Only rebuild containers when:
+- Changing dependencies (package.json, pyproject.toml, uv.lock)
+- Modifying Dockerfile or docker-compose.yml
+- Adding new system packages

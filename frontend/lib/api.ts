@@ -39,7 +39,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    console.error("API Error:", error.response?.data || error.message);
+    // Don't log 404 player-not-found as errors (expected behavior)
+    const status = error.response?.status;
+    if (status !== 404) {
+      console.error("API Error:", error.response?.data || error.message);
+    }
     return Promise.reject(error);
   },
 );
@@ -47,6 +51,19 @@ api.interceptors.response.use(
 // Helper to format errors
 function formatError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail;
+
+    // Handle 404 player not found as expected case
+    if (status === 404 && typeof detail === "string") {
+      return {
+        message: detail,
+        code: "PLAYER_NOT_FOUND",
+        status: 404,
+        details: error.response?.data,
+      };
+    }
+
     return {
       message: error.response?.data?.detail || error.message,
       code: error.code,

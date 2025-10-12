@@ -47,17 +47,25 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
         [data.searchType]: data.searchValue.trim(),
         platform: data.platform,
       };
-      return validatedGet(PlayerSchema, "/players/search", params);
-    },
-    onSuccess: (result) => {
-      if (result.success) {
-        onPlayerFound(result.data);
-        form.reset({
-          searchType: form.getValues("searchType"),
-          searchValue: "",
-          platform: form.getValues("platform"),
-        });
+      const result = await validatedGet(
+        PlayerSchema,
+        "/players/search",
+        params,
+      );
+
+      if (!result.success) {
+        throw new Error(result.error.message);
       }
+
+      return result.data;
+    },
+    onSuccess: (player) => {
+      onPlayerFound(player);
+      form.reset({
+        searchType: form.getValues("searchType"),
+        searchValue: "",
+        platform: form.getValues("platform"),
+      });
     },
   });
 
@@ -181,7 +189,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {error instanceof Error
+                  {error instanceof Error && error.message
                     ? error.message
                     : "Failed to search for player. Please check your input and try again."}
                 </AlertDescription>

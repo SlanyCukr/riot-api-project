@@ -53,8 +53,18 @@ async def search_player(
 
         return player
 
-    except Exception as e:
+    except ValueError as e:
+        # Player not found - expected case
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 400 validation errors)
+        raise
+    except Exception:
+        # Unexpected error - log and return 500
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while searching for player",
+        )
 
 
 @router.get("/{puuid}", response_model=PlayerResponse)

@@ -8,7 +8,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from ..riot_api.data_manager import RiotDataManager
-from ..riot_api.errors import RateLimitError
+from ..riot_api.errors import RateLimitError, NotFoundError
 from ..models.players import Player
 from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
 import structlog
@@ -58,6 +58,9 @@ class PlayerService:
                 game_name, tag_line, platform
             )
 
+            if not player_response:
+                raise ValueError(f"Player not found: {game_name}#{tag_line}")
+
             logger.info(
                 "Player data retrieved successfully",
                 extra={
@@ -79,6 +82,10 @@ class PlayerService:
                 },
             )
             raise
+
+        except NotFoundError:
+            # Player not found in Riot API - convert to ValueError for API layer
+            raise ValueError(f"Player not found: {game_name}#{tag_line}")
 
         except ValueError:
             # Re-raise validation errors
@@ -169,6 +176,9 @@ class PlayerService:
             player_response = await self.data_manager.get_player_by_puuid(
                 puuid, platform
             )
+
+            if not player_response:
+                raise ValueError(f"Player not found: {puuid}")
 
             logger.info(
                 "Player data retrieved by PUUID successfully",
