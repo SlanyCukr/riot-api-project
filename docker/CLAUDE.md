@@ -1,39 +1,6 @@
 # Docker Operations Guide
 
-Agent-specific Docker commands. See root `README.md` for project context.
-
-**Use `docker compose` (v2) not `docker-compose` (v1).**
-
-## Service Management
-
-### Start/Stop
-```bash
-docker compose up --build              # Start all with rebuild
-docker compose up -d                   # Start detached (background)
-docker compose up backend frontend     # Start specific services
-docker compose down                    # Stop all
-docker compose down -v                 # Stop and remove volumes (WARNING: deletes data)
-docker compose restart backend         # Restart specific service
-```
-
-### Status & Logs
-```bash
-docker compose ps                      # Service status
-docker compose stats                   # Resource usage
-docker compose logs -f backend         # Follow logs
-docker compose logs --tail=100 postgres
-```
-
-### Container Access
-```bash
-docker compose exec backend bash       # Backend shell
-docker compose exec frontend bash      # Frontend shell
-docker compose exec postgres psql -U riot_api_user -d riot_api_db
-
-# One-off commands
-docker compose exec backend uv run python --version
-docker compose exec frontend node --version
-```
+Advanced Docker operations and production deployment. **See root `CLAUDE.md` for common docker compose commands.**
 
 ## Production Deployment
 
@@ -107,23 +74,32 @@ docker compose down -v
 docker compose up --build
 ```
 
-## Utility Scripts
+## Environment Configuration
+
+### Using Custom .env Files
 ```bash
-./scripts/clean-local.sh               # Clean local artifacts
-./scripts/seed-dev-data.sh             # Seed test data (Jim Morioriarty#2434, Level 794)
+docker compose --env-file .env.prod up
+docker compose --env-file .env.staging up
 ```
 
-## Environment Configuration
+### Runtime Overrides
 ```bash
-# Custom .env file
-docker compose --env-file .env.custom up
-
-# Override variables
-export RIOT_API_KEY=your_key
+export RIOT_API_KEY=<your-riot-api-key>
+export DATABASE_URL=<your-database-url>
 docker compose up
 ```
 
-See root `CLAUDE.md` for required variables.
+### Multi-Environment Setup
+```bash
+# Development (default)
+docker compose up
+
+# Staging
+docker compose -f docker-compose.yml -f docker-compose.staging.yml up
+
+# Production
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+```
 
 ## Health Checks
 Health checks configured for all services:
@@ -136,26 +112,62 @@ docker compose ps                      # View health status
 docker compose logs --tail=50          # Check health logs
 ```
 
-## Troubleshooting
+## Networking
 
-### Common Issues
-- **Port conflicts**: Ports 8000, 3000, 5432 must be available
-- **Volume permissions**: Ensure Docker has project access
-- **Out of memory**: Increase Docker Desktop memory
-
-### Debug Commands
-```bash
-docker compose inspect backend         # Detailed container info
-docker compose logs backend --tail=200 # Check error logs
-docker compose restart backend         # Restart stuck service
-docker compose down -v && docker compose up --build  # Full reset
+### Internal Networking
+Services communicate via Docker internal network:
+```yaml
+backend → postgres:5432      # Database connection
+frontend → backend:8000      # API calls (server-side)
 ```
 
-## Networking
-Services use Docker internal networking:
-- Backend: http://localhost:8000 (dev)
-- Frontend: http://localhost:3000 (dev)
-- Database: Internal at `postgres:5432` (not exposed externally)
+### Port Mapping
+Development ports exposed to host:
+- Backend: `localhost:8000` → container:8000
+- Frontend: `localhost:3000` → container:3000
+- Database: Not exposed (internal only)
+
+### Production Networking
+In production, use reverse proxy (nginx/Traefik) for:
+- SSL/TLS termination
+- Load balancing
+- Rate limiting
+- Domain routing
+
+## Troubleshooting
+
+**Port conflicts:**
+```bash
+# Check what's using ports
+lsof -i :8000
+lsof -i :3000
+lsof -i :5432
+
+# Kill process or change ports in docker-compose.yml
+```
+
+**Volume permissions:**
+```bash
+# Ensure Docker has access to project directory
+# Docker Desktop: Check Settings → Resources → File Sharing
+```
+
+**Out of memory:**
+```bash
+# Increase Docker Desktop memory limit
+# Settings → Resources → Memory (recommend 4GB+)
+
+# Check container memory usage
+docker compose stats
+```
+
+**Container won't start:**
+```bash
+docker compose logs backend --tail=200   # Check logs
+docker compose inspect backend           # Detailed info
+docker compose restart backend           # Try restart
+docker compose down -v && docker compose up --build  # Full reset
+```
 
 ## Security Notes
 - Containers run as non-root users (configured)

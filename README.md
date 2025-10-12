@@ -83,8 +83,8 @@ docker compose down
 docker compose logs -f backend
 docker compose logs -f frontend
 
-# Database operations
-docker compose exec backend alembic upgrade head
+# Database operations (tables are created automatically on startup)
+docker compose exec backend uv run python -m app.init_db init  # Manually create tables
 docker compose exec postgres psql -U riot_api_user -d riot_api_db
 
 # Run tests (inside containers)
@@ -125,7 +125,7 @@ The application provides the following main endpoints:
 | `RIOT_API_KEY` | Your Riot Games API key | Required |
 | `RIOT_REGION` | Regional routing (e.g., europe, americas) | europe |
 | `RIOT_PLATFORM` | Platform routing (e.g., eun1, euw1) | eun1 |
-| `API_URL` | Backend URL exposed to the frontend | http://localhost:8000 |
+| `NEXT_PUBLIC_API_URL` | Backend URL for frontend API calls | http://localhost:8000 |
 | `POSTGRES_DB` | Database name | riot_api_db |
 | `POSTGRES_USER` | Database username | riot_api_user |
 | `POSTGRES_PASSWORD` | Database password | Required |

@@ -9,7 +9,6 @@ dependencies = [
     "fastapi>=0.118.2",
     "uvicorn[standard]>=0.37.0",
     "sqlalchemy>=2.0.43",
-    "alembic>=1.16.5",
     "asyncpg>=0.30.0",
     "pydantic>=2.12.0",
     "pydantic-settings>=2.7.0",
@@ -55,13 +54,11 @@ exclude_dirs = ["tests", "tools"]
 skips = ["B101", "B601", "B104", "B311"]
 
 [tool.pyright]
-include = ["app", "app/migrations/env.py", "main.py"]
+include = ["app", "main.py"]
 exclude = [
     "**/__pycache__",
     "**/.pytest_cache",
     "**/node_modules",
-    "**/migrations/versions",
-    "**/alembic/versions",
     "**/tests",
     ".venv"
 ]

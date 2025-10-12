@@ -1,6 +1,6 @@
 # Backend Development Guide
 
-Agent-specific guidance for backend development. See root `README.md` for project context.
+Backend-specific patterns and implementation details. **See root `CLAUDE.md` for common Docker/testing/database commands.**
 
 ## Directory Structure
 - `app/api/` - FastAPI endpoints (players, matches, detection)
@@ -10,38 +10,47 @@ Agent-specific guidance for backend development. See root `README.md` for projec
 - `app/algorithms/` - Smurf detection (win_rate, rank_progression, performance)
 - `app/config.py` - Pydantic settings
 
-## Development Commands
+## Backend-Specific Patterns
 
-### Running Backend
-```bash
-docker compose up backend              # Start backend service
-docker compose exec backend bash       # Access shell
+### FastAPI Dependency Injection
+Use dependency injection for services and database sessions:
+
+```python
+from fastapi import Depends
+from app.services.player_service import PlayerService
+
+@router.get("/players/{puuid}")
+async def get_player(
+    puuid: str,
+    player_service: PlayerService = Depends()
+):
+    return await player_service.get_player(puuid)
 ```
 
-### Testing
-```bash
-docker compose exec backend uv run pytest                       # All tests
-docker compose exec backend uv run pytest tests/test_file.py    # Specific test file
-docker compose exec backend uv run pytest tests/test_file.py::test_name -v
-docker compose exec backend uv run pytest -k "test_pattern"     # Pattern matching
-docker compose exec backend uv run pytest --lf                  # Last failed tests
+### Error Handling
+Use structured exceptions with proper HTTP status codes:
+
+```python
+from fastapi import HTTPException
+
+# Client errors (400s)
+raise HTTPException(status_code=404, detail="Player not found")
+raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+# Server errors (500s)
+raise HTTPException(status_code=503, detail="Riot API unavailable")
 ```
 
-### Database Migrations
-```bash
-docker compose exec backend alembic revision --autogenerate -m "description"  # Create migration
-docker compose exec backend alembic upgrade head                              # Apply migrations
-docker compose exec backend alembic downgrade -1                              # Rollback one
-docker compose exec backend alembic current                                   # Current version
-docker compose exec backend alembic history                                   # View history
-```
+### Structured Logging
+Use structlog for consistent logging:
 
-### Code Quality
-```bash
-uvx pre-commit run --all-files         # Run all pre-commit hooks
-uvx pre-commit run ruff                # Run specific hook
-uvx pre-commit run ruff-format
-uvx pre-commit run pyright
+```python
+import structlog
+
+logger = structlog.get_logger()
+
+logger.info("player_fetched", puuid=puuid, region=region)
+logger.error("riot_api_error", error=str(e), endpoint=endpoint)
 ```
 
 ## Riot API Integration
@@ -78,24 +87,31 @@ Located in `app/algorithms/`. Each returns confidence score (0-100).
 
 Final detection combines scores with configurable thresholds.
 
-## Error Handling
-- Use `HTTPException` for API errors with proper status codes
-- Structured logging via `structlog`
-- Graceful rate limit handling with backoff
-- User-friendly error messages
-
-## Environment Variables
-- `RIOT_API_KEY` - API key (expires every 24h for dev keys)
-- `DATABASE_URL` - PostgreSQL connection string
-- `API_HOST` / `API_PORT` - Server binding (default: 0.0.0.0:8000)
-- `LOG_LEVEL` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
-- `DEBUG` - Debug mode (true/false)
-
-See root `CLAUDE.md` for general setup.
-
 ## Code Conventions
-- FastAPI dependency injection for services
-- Pydantic models for request/response validation
-- SQLAlchemy ORM for database operations
-- Type hints required (enforced by pyright)
-- Docstrings for public functions
+- **Type hints required** - Enforced by pyright
+- **Pydantic models** - All request/response validation
+- **SQLAlchemy ORM** - All database operations
+- **Docstrings** - Required for public functions
+- **Async/await** - Use async for I/O operations (DB, HTTP)
+- **Service layer** - Business logic separated from API endpoints
+
+Example service pattern:
+```python
+class PlayerService:
+    def __init__(self, db: AsyncSession = Depends(get_db)):
+        self.db = db
+        self.riot_client = RiotAPIClient()
+
+    async def get_or_fetch_player(self, puuid: str) -> Player:
+        # Check DB first
+        player = await self.db.get(Player, puuid)
+        if player:
+            return player
+
+        # Fetch from Riot API
+        data = await self.riot_client.get_account(puuid)
+        player = Player(**data)
+        self.db.add(player)
+        await self.db.commit()
+        return player
+```

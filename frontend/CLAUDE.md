@@ -1,6 +1,6 @@
 # Frontend Development Guide
 
-Agent-specific guidance for frontend development. See root `README.md` for project context.
+Frontend-specific patterns and conventions. **See root `CLAUDE.md` for common Docker/testing/build commands.**
 
 ## Tech Stack
 
@@ -32,46 +32,17 @@ lib/
   └── validations.ts       # Form validation schemas
 ```
 
-## Development Commands
-
-### Running Frontend
-
-```bash
-docker compose up frontend             # Start with Docker
-docker compose exec frontend bash      # Access shell
-
-# Or run directly (requires Node.js 24+)
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend runs on http://localhost:3000
-
-### Building
-
-```bash
-docker compose exec frontend npm run build     # Production build
-cd frontend && npm run build                   # Local build
-```
-
-### Linting & Type Checking
-
-```bash
-docker compose exec frontend npm run lint      # ESLint
-docker compose exec frontend npx tsc --noEmit  # Type check
-```
-
-### Adding shadcn/ui Components
+## Adding shadcn/ui Components
 
 ```bash
 cd frontend
 npx shadcn@latest add button
 npx shadcn@latest add card
 npx shadcn@latest add form
+npx shadcn@latest add input
 ```
 
-Components are added to `components/ui/`.
+Components are auto-generated in `components/ui/`. Always use shadcn/ui for UI primitives.
 
 ## Code Patterns
 
@@ -176,17 +147,14 @@ import { cn } from "@/lib/utils";
 
 ## Environment Variables
 
-Must be prefixed with `NEXT_PUBLIC_`:
+**Must be prefixed with `NEXT_PUBLIC_`** to be accessible in client-side code:
 
-- `NEXT_PUBLIC_API_URL` - Backend API endpoint (e.g., http://localhost:8000)
-
-Create `.env.local` for local overrides (gitignored):
-
-```
+```bash
+# .env.local (gitignored)
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Restart dev server after changing env vars.
+⚠️ **Restart dev server after changing env vars.**
 
 ## Common Tasks
 
@@ -210,23 +178,23 @@ Restart dev server after changing env vars.
 
 ## Troubleshooting
 
-### Module not found
+**Module not found:**
 
 ```bash
-rm -rf .next
-npm run dev
+rm -rf .next && npm run dev
 ```
 
-### Environment variables not working
+**Environment variables not working:**
 
 - Ensure `NEXT_PUBLIC_` prefix
-- Restart dev server
+- Restart dev server (env vars are loaded at build time)
 
-### Hydration errors
+**Hydration errors:**
 
 - Ensure server/client render same content
-- Avoid browser-only APIs during render
-- Use `suppressHydrationWarning` on `<html>` if needed
+- Avoid browser-only APIs (localStorage, window) during initial render
+- Use `useEffect` for client-only code
+- Add `suppressHydrationWarning` on `<html>` if needed
 
 ## Code Conventions
 

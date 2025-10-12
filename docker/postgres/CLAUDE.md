@@ -1,6 +1,6 @@
 # Database Operations Guide
 
-Agent-specific database commands. See root `README.md` for project context.
+Database schema, queries, and performance tuning. **See root `CLAUDE.md` for common database commands.**
 
 ## Schema Overview
 
@@ -17,50 +17,74 @@ Agent-specific database commands. See root `README.md` for project context.
 - Players → Ranks (one-to-many)
 - Players → Smurf Detection (one-to-many)
 
-## Database Access
+## Common psql Commands
 
-### Interactive Shell
-```bash
-docker compose exec postgres psql -U riot_api_user -d riot_api_db
+```sql
+-- Table inspection
+\dt                              -- List all tables
+\d players                       -- Describe table structure
+\d+ participants                 -- Detailed table info with indexes
+\di                              -- List all indexes
+\df                              -- List functions
 
-# Common psql commands
-\dt                         # List all tables
-\d players                  # Describe players table
-\d+ participants            # Detailed table info
+-- Data inspection
 SELECT COUNT(*) FROM players;
+SELECT * FROM players LIMIT 10;
+SELECT match_id, game_creation FROM matches ORDER BY game_creation DESC LIMIT 10;
+
+-- Schema info
+\l                               -- List databases
+\dn                              -- List schemas
+\du                              -- List users/roles
 ```
 
-### Quick Queries
-```bash
-# Total player count
-docker compose exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT COUNT(*) FROM players;"
+## Useful Queries
 
-# Recent matches
-docker compose exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT match_id, game_creation FROM matches ORDER BY game_creation DESC LIMIT 10;"
+### Player Statistics
+```sql
+-- Players by region
+SELECT region, COUNT(*)
+FROM players
+GROUP BY region
+ORDER BY COUNT(*) DESC;
+
+-- High-level players
+SELECT summoner_name, account_level, region
+FROM players
+WHERE account_level > 500
+ORDER BY account_level DESC;
 ```
 
-## Migrations
+### Match Analysis
+```sql
+-- Recent matches with participant count
+SELECT m.match_id, m.game_creation, m.game_duration, COUNT(p.puuid) as players
+FROM matches m
+LEFT JOIN participants p ON m.match_id = p.match_id
+GROUP BY m.match_id
+ORDER BY m.game_creation DESC
+LIMIT 20;
 
-Migrations use **Alembic** (run via backend service):
-
-```bash
-# Create new migration
-docker compose exec backend alembic revision --autogenerate -m "Add new_column to players"
-
-# Apply all pending migrations
-docker compose exec backend alembic upgrade head
-
-# Rollback one migration
-docker compose exec backend alembic downgrade -1
-
-# View current version
-docker compose exec backend alembic current
-
-# View history
-docker compose exec backend alembic history
+-- Win rate by champion
+SELECT champion_name,
+       COUNT(*) as games_played,
+       SUM(CASE WHEN win THEN 1 ELSE 0 END) as wins,
+       ROUND(100.0 * SUM(CASE WHEN win THEN 1 ELSE 0 END) / COUNT(*), 2) as win_rate
+FROM participants
+GROUP BY champion_name
+HAVING COUNT(*) >= 10
+ORDER BY win_rate DESC;
 ```
 
-See `backend/CLAUDE.md` for backend-specific details.
+### Smurf Detection
+```sql
+-- Players with smurf detections
+SELECT p.summoner_name, p.account_level, sd.confidence_score, sd.detection_method
+FROM players p
+JOIN smurf_detection sd ON p.puuid = sd.puuid
+WHERE sd.is_smurf = true
+ORDER BY sd.confidence_score DESC;
+```
 
 ## Backup & Restore
 
@@ -79,22 +103,19 @@ docker compose exec postgres pg_dump -U riot_api_user -d riot_api_db | gzip > ba
 gunzip -c backup.sql.gz | docker compose exec -T postgres psql -U riot_api_user -d riot_api_db
 ```
 
-### Using Docker Volumes
+### Automated Backup Script
 ```bash
-# Backup volume
-docker run --rm \
-  -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/postgres_backup.tar.gz -C /data .
+#!/bin/bash
+# backup-db.sh
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="backup_${TIMESTAMP}.sql.gz"
 
-# Restore volume
-docker run --rm \
-  -v ${COMPOSE_PROJECT_NAME}_postgres-data:/data \
-  -v $(pwd):/backup \
-  alpine tar xzf /backup/postgres_backup.tar.gz -C /data
+docker compose exec postgres pg_dump -U riot_api_user -d riot_api_db | gzip > "$BACKUP_FILE"
+echo "Backup saved to $BACKUP_FILE"
+
+# Keep only last 7 backups
+ls -t backup_*.sql.gz | tail -n +8 | xargs rm -f
 ```
-
-See `docker/CLAUDE.md` for volume management.
 
 ## Performance Analysis
 
@@ -134,70 +155,110 @@ docker compose exec postgres psql -U riot_api_user -d riot_api_db -c \
    WHERE datname = 'riot_api_db';"
 ```
 
-## Database Initialization
+## Indexing Strategy
 
-Initialization happens automatically on first startup:
-1. `/docker/postgres/init.sql` runs (creates DB and user)
-2. Backend starts and Alembic runs migrations (creates tables)
+### Existing Indexes
+```sql
+-- Primary keys (auto-indexed)
+players(puuid)
+matches(match_id)
+participants(id)
 
-### Re-initialize Database
-```bash
-# WARNING: Destroys all data
-docker compose down -v && docker compose up --build
+-- Foreign keys (should be indexed)
+participants(puuid) → players(puuid)
+participants(match_id) → matches(match_id)
+ranks(puuid) → players(puuid)
+smurf_detection(puuid) → players(puuid)
 ```
 
-### Seed Test Data
-```bash
-# Seed test player (Jim Morioriarty#2434 from EUNE, Level 794)
-./scripts/seed-dev-data.sh
+### Adding Custom Indexes
+```sql
+-- For frequent queries by region
+CREATE INDEX idx_players_region ON players(region);
+
+-- For match history queries
+CREATE INDEX idx_participants_puuid_match ON participants(puuid, match_id);
+
+-- For time-based queries
+CREATE INDEX idx_matches_game_creation ON matches(game_creation DESC);
+
+-- For win rate calculations
+CREATE INDEX idx_participants_champion_win ON participants(champion_name, win);
 ```
 
-Can be run multiple times safely.
+### Index Maintenance
+```sql
+-- Check index usage
+SELECT schemaname, tablename, indexname, idx_scan, idx_tup_read
+FROM pg_stat_user_indexes
+ORDER BY idx_scan ASC;
+
+-- Rebuild indexes (if needed)
+REINDEX TABLE players;
+REINDEX DATABASE riot_api_db;  -- Use with caution
+
+-- Analyze tables for query planner
+ANALYZE players;
+ANALYZE matches;
+ANALYZE participants;
+```
 
 ## Troubleshooting
 
-### Common Issues
-- **Connection timeouts**: Check pool settings, increase timeout
-- **Slow queries**: Use `EXPLAIN ANALYZE`, add indexes
-- **Migration failures**: Check Alembic logs, verify model/DB sync
-- **Disk space**: Monitor database size growth
-- **Too many connections**: Check for connection leaks
+**Connection timeouts:**
+```sql
+-- Check active connections
+SELECT count(*) FROM pg_stat_activity WHERE datname = 'riot_api_db';
 
-### Debug Commands
-```bash
-# Check PostgreSQL logs
-docker compose logs postgres --tail=100
-
-# Test connection from backend
-docker compose exec backend python -c "from app.database import engine; print(engine.connect())"
-
-# Verify migrations
-docker compose exec backend alembic current
-docker compose exec backend alembic history
+-- Kill idle connections
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE datname = 'riot_api_db'
+AND state = 'idle'
+AND query_start < NOW() - INTERVAL '5 minutes';
 ```
 
-### Reset Database
-```bash
-# Complete reset (WARNING: deletes all data)
-docker compose down -v
-docker compose up --build
+**Slow queries:**
+```sql
+-- Find slow queries
+SELECT pid, now() - query_start as duration, query
+FROM pg_stat_activity
+WHERE state = 'active'
+AND now() - query_start > INTERVAL '1 minute';
 
-# Reset just database volume
-docker volume rm ${COMPOSE_PROJECT_NAME}_postgres-data
-docker compose up postgres
+-- Enable query logging (PostgreSQL config)
+ALTER DATABASE riot_api_db SET log_min_duration_statement = 1000;  -- Log queries > 1s
 ```
 
-## Indexing Strategy
-- Primary keys: Auto-indexed
-- Foreign keys: Indexed for efficient JOINs
-- Composite indexes: For multi-column queries
-- Partial indexes: For filtered queries
+**Disk space:**
+```bash
+# Check database size
+docker compose exec postgres psql -U riot_api_user -d riot_api_db -c \
+  "SELECT pg_size_pretty(pg_database_size('riot_api_db'));"
 
-Use `EXPLAIN ANALYZE` to identify missing indexes.
+# Check table bloat and vacuum
+docker compose exec postgres psql -U riot_api_user -d riot_api_db -c \
+  "VACUUM ANALYZE;"
+```
 
-## Security Notes
-- Credentials in environment variables (never in code)
-- Database user has limited permissions
-- Enable SSL in production
-- SQLAlchemy prevents SQL injection (parameterized queries)
-- Network isolation (internal Docker network only)
+**Connection pool exhaustion:**
+```python
+# Check SQLAlchemy pool settings in backend
+# app/database.py
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=10,          # Max connections
+    max_overflow=20,       # Extra connections when pool is full
+    pool_timeout=30,       # Seconds to wait for connection
+    pool_pre_ping=True,    # Verify connections before use
+)
+```
+
+## Security Best Practices
+- ✅ Credentials in environment variables only
+- ✅ Database user has limited permissions (no DROP DATABASE)
+- ✅ Network isolation (internal Docker network)
+- ✅ SQLAlchemy uses parameterized queries (prevents SQL injection)
+- 🔒 Enable SSL/TLS in production
+- 🔒 Regular backups (automated script above)
+- 🔒 Row-level security for multi-tenant scenarios (if needed)

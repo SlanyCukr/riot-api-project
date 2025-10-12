@@ -3,7 +3,7 @@
 PostgreSQL database schema for Riot API project tracking League of Legends players, matches, performance statistics, rankings, and smurf detection.
 
 **Database**: PostgreSQL 18
-**ORM**: SQLAlchemy with Alembic migrations
+**ORM**: SQLAlchemy with automatic schema creation
 
 ---
 
@@ -480,38 +480,34 @@ erDiagram
 
 ---
 
-## Migration Management
+## Schema Management
 
-### Alembic Workflow
+Database tables are automatically created on backend startup using SQLAlchemy's `create_all()` method.
 
-Migrations are managed using Alembic in the backend service.
+### Database Operations
 
-**Create Migration**:
+**Initialize Database** (tables created automatically on startup):
 ```bash
-docker compose exec backend alembic revision --autogenerate -m "description"
+docker compose up backend
 ```
 
-**Apply Migrations**:
+**Manual Operations**:
 ```bash
-docker compose exec backend alembic upgrade head
+# Create all tables
+docker compose exec backend uv run python -m app.init_db init
+
+# Reset database (WARNING: deletes all data)
+docker compose exec backend uv run python -m app.init_db reset
+
+# Drop all tables (WARNING: deletes all data)
+docker compose exec backend uv run python -m app.init_db drop
 ```
 
-**Rollback Migration**:
-```bash
-docker compose exec backend alembic downgrade -1
-```
+### Model Definitions
 
-**View Migration History**:
-```bash
-docker compose exec backend alembic history
-docker compose exec backend alembic current
-```
-
-### Migration Files
-
-- Location: `backend/app/migrations/versions/`
-- Initial schema: `81596165fa0c_initial_schema_with_string_puuid.py`
-- Data tracking: `bcccc91a83c7_add_data_tracking_tables.py`
+All table definitions are in SQLAlchemy models:
+- Location: `backend/app/models/`
+- Models: `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `DataTracking`, `APIRequestQueue`, `RateLimitLog`
 
 ---
 

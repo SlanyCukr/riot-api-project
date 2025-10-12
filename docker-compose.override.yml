@@ -5,7 +5,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     volumes:
       - ./frontend:/app
       - /app/node_modules
