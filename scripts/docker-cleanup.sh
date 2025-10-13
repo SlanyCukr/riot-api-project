@@ -22,7 +22,7 @@ fi
 # Stop and remove all project containers
 echo ""
 echo "2. Stopping Docker Compose services..."
-docker compose down 2>/dev/null || echo "   No running compose services found"
+docker compose -f docker/docker-compose.yml down 2>/dev/null || echo "   No running compose services found"
 
 # Find and stop any orphaned containers
 echo ""
@@ -65,5 +65,5 @@ echo ""
 echo "=============================================="
 echo "✅ Cleanup complete!"
 echo ""
-echo "You can now run: docker compose up --build"
+echo "You can now run: ./scripts/dev.sh"
 echo ""

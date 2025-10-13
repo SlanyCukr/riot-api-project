@@ -4,12 +4,6 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      run_setup:
-        description: 'Run production setup script (⚠️ DESTRUCTIVE - deletes all data!)'
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -80,34 +74,13 @@ jobs:
           EOF
           echo "✅ .env file generated successfully"
 
-      - name: Build Docker images
+      - name: Deploy production environment
         run: |
           cd /home/pi/riot-api
-          echo "📦 Building Docker images without cache..."
+          chmod +x scripts/prod.sh
 
-          # Build frontend
-          echo "🎨 Building frontend..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache --pull frontend
-
-          # Build backend
-          echo "🚀 Building backend..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache --pull backend
-
-          echo "✅ All images built successfully"
-
-      - name: Stop existing containers
-        run: |
-          cd /home/pi/riot-api
-          echo "🛑 Stopping existing containers..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans || true
-          echo "✅ Containers stopped"
-
-      - name: Deploy new containers
-        run: |
-          cd /home/pi/riot-api
-          echo "🚀 Deploying new containers..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-          echo "✅ Containers deployed"
+          echo "🚀 Deploying production environment..."
+          ./scripts/prod.sh --build --no-cache --down
 
       - name: Wait for services to start
         run: |
@@ -118,13 +91,13 @@ jobs:
         run: |
           cd /home/pi/riot-api
           echo "📊 Container status:"
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+          docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps
 
           echo "🔍 Running health checks..."
 
           # Test PostgreSQL connectivity
           echo "🗄️  Testing PostgreSQL connectivity..."
-          if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
+          if docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
             echo "✅ PostgreSQL is ready"
           else
             echo "❌ PostgreSQL not ready"
@@ -144,7 +117,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Backend API health check failed after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=50 backend
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 backend
               exit 1
             fi
           done
@@ -162,7 +135,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Frontend not accessible after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=50 frontend
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 frontend
               exit 1
             fi
           done
@@ -176,17 +149,6 @@ jobs:
           echo "   Backend API:    http://localhost:8086"
           echo "   Frontend:       http://localhost:8088"
           echo "   Status:         All services running on RPI5 16GB"
-
-      - name: Run production setup script
-        if: ${{ github.event.inputs.run_setup == 'true' }}
-        run: |
-          cd /home/pi/riot-api
-          echo "⚠️  Running production setup script..."
-          echo "⚠️  This will DELETE ALL DATA in the database!"
-          chmod +x scripts/setup-production.sh
-          # Run setup script with automatic 'yes' confirmation
-          yes | ./scripts/setup-production.sh || true
-          echo "✅ Production setup completed"
 
       - name: Clean up old Docker images
         run: |

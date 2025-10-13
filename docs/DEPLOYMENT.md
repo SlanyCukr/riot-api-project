@@ -468,10 +468,10 @@ Document major deployments here:
 
 ## Additional Resources
 
-- [Backend Documentation](../backend/CLAUDE.md)
-- [Frontend Documentation](../frontend/CLAUDE.md)
-- [Docker Documentation](../docker/CLAUDE.md)
-- [Database Documentation](../docker/postgres/CLAUDE.md)
+- [Backend Documentation](../backend/AGENTS.md)
+- [Frontend Documentation](../frontend/AGENTS.md)
+- [Docker Documentation](../docker/AGENTS.md)
+- [Database Documentation](../docker/postgres/AGENTS.md)
 - [Project README](../README.md)
 
 ---

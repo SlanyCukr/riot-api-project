@@ -444,4 +444,4 @@ For additional help:
 - Backend logs: `docker compose logs -f backend`
 - Database queries: `docker compose exec postgres psql -U riot_api_user -d riot_api_db`
 - API documentation: http://localhost:8000/docs
-- Project documentation: `backend/CLAUDE.md`, `README.md`
+- Project documentation: `backend/AGENTS.md`, `README.md`

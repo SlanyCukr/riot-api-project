@@ -156,7 +156,7 @@ The application includes an automated job system that continuously monitors trac
 - `GET /api/v1/jobs/{id}/executions` - View job execution history
 - `POST /api/v1/jobs/{id}/trigger` - Manually trigger a job
 
-For detailed job configuration and monitoring, see `backend/CLAUDE.md`.
+For detailed job configuration and monitoring, see `backend/AGENTS.md`.
 
 ## Environment Variables
 

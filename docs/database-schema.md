@@ -513,6 +513,6 @@ All table definitions are in SQLAlchemy models:
 
 ## See Also
 
-- [Docker PostgreSQL Guide](/docker/postgres/CLAUDE.md) - Database operations and commands
-- [Backend Guide](/backend/CLAUDE.md) - SQLAlchemy models and database interactions
-- [Docker Guide](/docker/CLAUDE.md) - Container management and deployment
+- [Docker PostgreSQL Guide](/docker/postgres/AGENTS.md) - Database operations and commands
+- [Backend Guide](/backend/AGENTS.md) - SQLAlchemy models and database interactions
+- [Docker Guide](/docker/AGENTS.md) - Container management and deployment

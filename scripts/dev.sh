@@ -1,0 +1,209 @@
+#!/bin/bash
+
+# Development Environment Launcher
+# This script starts the development environment with Docker Compose Watch enabled.
+# Features:
+# - Hot reload for both frontend and backend
+# - Automatic container recreation when .env changes
+# - Development build targets with debug logging
+# - Interactive logs from all services
+#
+# Usage:
+#   ./scripts/dev.sh [OPTIONS] [SERVICE...]
+#
+# Options:
+#   --build        Force rebuild of containers
+#   --down         Stop all services first
+#   --clean        Run docker-cleanup.sh before starting
+#   --reset-db     Wipe database and recreate from SQLAlchemy models (WARNING: deletes all data)
+#   --no-watch     Start without watch mode
+#   --detach, -d   Run in detached mode (background)
+#   --help, -h     Show this help message
+#
+# Examples:
+#   ./scripts/dev.sh                    # Start all services with watch mode
+#   ./scripts/dev.sh --build            # Rebuild and start with watch mode
+#   ./scripts/dev.sh --clean            # Clean up Docker resources and start
+#   ./scripts/dev.sh backend frontend   # Start only backend and frontend
+#   ./scripts/dev.sh --no-watch         # Start without watch mode (just docker compose up)
+#   ./scripts/dev.sh -d backend         # Start backend in background
+
+set -e
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
+
+# Parse arguments
+FORCE_BUILD=false
+STOP_FIRST=false
+CLEAN_FIRST=false
+RESET_DB=false
+USE_WATCH=true
+DETACHED=false
+SERVICES=()
+
+show_help() {
+    head -n 30 "$0" | grep "^#" | sed 's/^# //g' | sed 's/^#//g'
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --build)
+            FORCE_BUILD=true
+            shift
+            ;;
+        --down)
+            STOP_FIRST=true
+            shift
+            ;;
+        --clean)
+            CLEAN_FIRST=true
+            shift
+            ;;
+        --reset-db)
+            RESET_DB=true
+            shift
+            ;;
+        --no-watch)
+            USE_WATCH=false
+            shift
+            ;;
+        --detach|-d)
+            DETACHED=true
+            shift
+            ;;
+        --help|-h)
+            show_help
+            ;;
+        *)
+            SERVICES+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Header
+echo ""
+echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║       Development Environment - Docker Compose Watch          ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Clean up if requested
+if [ "$CLEAN_FIRST" = true ]; then
+    echo -e "${YELLOW}🧹 Running Docker cleanup...${NC}"
+    "$SCRIPT_DIR/docker-cleanup.sh"
+    echo ""
+fi
+
+# Stop services if requested
+if [ "$STOP_FIRST" = true ]; then
+    echo -e "${YELLOW}⏹️  Stopping existing services...${NC}"
+    cd "$PROJECT_ROOT"
+    docker compose -f "$COMPOSE_FILE" down
+    echo ""
+fi
+
+# Build if requested
+if [ "$FORCE_BUILD" = true ]; then
+    echo -e "${YELLOW}🔨 Building containers...${NC}"
+    cd "$PROJECT_ROOT"
+    docker compose -f "$COMPOSE_FILE" build "${SERVICES[@]}"
+    echo ""
+fi
+
+# Check if .env exists
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo -e "${RED}❌ Error: .env file not found${NC}"
+    echo -e "${YELLOW}   Please copy .env.example to .env and configure it${NC}"
+    exit 1
+fi
+
+# Reset database if requested
+if [ "$RESET_DB" = true ]; then
+    echo -e "${RED}⚠️  WARNING: This will DELETE ALL DATA in the database!${NC}"
+    read -p "Are you sure you want to reset the database? (yes/no): " -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
+        echo -e "${YELLOW}Database reset cancelled. Continuing without reset...${NC}"
+        echo ""
+    else
+        echo -e "${YELLOW}🗑️  Resetting database...${NC}"
+
+        # Stop services to ensure clean reset
+        docker compose -f "$COMPOSE_FILE" down -v
+
+        # Start postgres to run reset
+        docker compose -f "$COMPOSE_FILE" up -d postgres
+        echo "Waiting for postgres to be ready..."
+        sleep 5
+
+        # Start backend to run reset (entrypoint will recreate tables)
+        docker compose -f "$COMPOSE_FILE" up -d backend
+        echo "Waiting for database reset to complete..."
+        sleep 10
+
+        # Stop backend after reset
+        docker compose -f "$COMPOSE_FILE" stop backend
+
+        echo -e "${GREEN}✅ Database reset complete${NC}"
+        echo ""
+    fi
+fi
+
+# Start services
+cd "$PROJECT_ROOT"
+
+if [ "$USE_WATCH" = true ]; then
+    echo -e "${GREEN}🚀 Starting development environment with watch mode...${NC}"
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}✨ Features enabled:${NC}"
+    echo -e "   ${GREEN}•${NC} Hot reload for code changes (both frontend and backend)"
+    echo -e "   ${GREEN}•${NC} Automatic container recreation when .env changes"
+    echo -e "   ${GREEN}•${NC} Debug logging enabled"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${YELLOW}💡 Tips:${NC}"
+    echo -e "   ${YELLOW}•${NC} Save any .py file in backend/ → FastAPI auto-reloads"
+    echo -e "   ${YELLOW}•${NC} Save any file in frontend/ → Next.js hot reloads"
+    echo -e "   ${YELLOW}•${NC} Edit .env → containers automatically recreate"
+    echo -e "   ${YELLOW}•${NC} Press Ctrl+C to stop all services"
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+
+    if [ "$DETACHED" = true ]; then
+        docker compose -f "$COMPOSE_FILE" watch -d "${SERVICES[@]}"
+        echo ""
+        echo -e "${GREEN}✅ Services started in background${NC}"
+        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
+        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
+    else
+        # Run in foreground with interactive logs
+        docker compose -f "$COMPOSE_FILE" watch "${SERVICES[@]}"
+    fi
+else
+    echo -e "${GREEN}🚀 Starting development environment...${NC}"
+    echo ""
+
+    if [ "$DETACHED" = true ]; then
+        docker compose -f "$COMPOSE_FILE" up -d "${SERVICES[@]}"
+        echo ""
+        echo -e "${GREEN}✅ Services started in background${NC}"
+        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
+        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
+    else
+        docker compose -f "$COMPOSE_FILE" up "${SERVICES[@]}"
+    fi
+fi
