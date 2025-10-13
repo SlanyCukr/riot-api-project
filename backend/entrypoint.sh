@@ -36,7 +36,144 @@ else
     exit 1
 fi
 
+# Seed job configurations (required for backend to function)
+echo "============================================"
+echo "Checking job configurations..."
+echo "============================================"
+
+JOB_CONFIG_COUNT=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "SELECT COUNT(*) FROM job_configurations" 2>/dev/null || echo "0")
+
+if [ "$JOB_CONFIG_COUNT" -eq "0" ]; then
+    echo "No job configurations found, seeding default configurations..."
+
+    PGPASSWORD=$POSTGRES_PASSWORD psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOF
+-- Insert Tracked Player Updater Job Configuration
+INSERT INTO job_configurations (
+    job_type,
+    name,
+    schedule,
+    is_active,
+    config_json,
+    created_at,
+    updated_at
+)
+VALUES (
+    'TRACKED_PLAYER_UPDATER',
+    'Tracked Player Updater',
+    'interval(seconds=120)',
+    true,
+    '{"max_new_matches_per_player": 20, "max_tracked_players": 10}'::jsonb,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (name) DO UPDATE SET
+    schedule = EXCLUDED.schedule,
+    is_active = EXCLUDED.is_active,
+    config_json = EXCLUDED.config_json,
+    updated_at = NOW();
+
+-- Insert Player Analyzer Job Configuration
+INSERT INTO job_configurations (
+    job_type,
+    name,
+    schedule,
+    is_active,
+    config_json,
+    created_at,
+    updated_at
+)
+VALUES (
+    'PLAYER_ANALYZER',
+    'Player Analyzer',
+    'interval(seconds=120)',
+    true,
+    '{"unanalyzed_players_per_run": 5, "min_smurf_confidence": 0.5, "ban_check_days": 7}'::jsonb,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (name) DO UPDATE SET
+    schedule = EXCLUDED.schedule,
+    is_active = EXCLUDED.is_active,
+    config_json = EXCLUDED.config_json,
+    updated_at = NOW();
+EOF
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Job configurations seeded successfully!"
+        echo "   • Tracked Player Updater (runs every 2 minutes)"
+        echo "   • Player Analyzer (runs every 2 minutes)"
+    else
+        echo "❌ Failed to seed job configurations"
+        exit 1
+    fi
+else
+    echo "Job configurations already exist (count: $JOB_CONFIG_COUNT), skipping seed"
+fi
+
+echo ""
+
+# Seed development data (only in debug mode)
+if [ "$DEBUG" = "true" ]; then
+    echo "============================================"
+    echo "Checking development data (DEBUG mode)..."
+    echo "============================================"
+
+    TRACKED_PLAYER_COUNT=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+      "SELECT COUNT(*) FROM players WHERE is_tracked=true" 2>/dev/null || echo "0")
+
+    if [ "$TRACKED_PLAYER_COUNT" -eq "0" ]; then
+        echo "No tracked players found, seeding development data..."
+
+        PGPASSWORD=$POSTGRES_PASSWORD psql -h "postgres" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOF
+-- Insert 3LosingLanes as tracked player (for automated updates)
+INSERT INTO players (
+    puuid,
+    riot_id,
+    tag_line,
+    summoner_name,
+    platform,
+    is_active,
+    is_tracked,
+    is_analyzed
+)
+VALUES (
+    'Wv8Jx8FgJp-an8egCuGyoOIMKcWPgeqtH4CXhBWa-bbLA1f2HhHdOf1aQuhgZllIta6ddQLS3AUX0w',
+    '3LosingLanes',
+    'AGAIN',
+    '3LosingLanes',
+    'eun1',
+    true,
+    true,
+    false
+)
+ON CONFLICT (puuid) DO UPDATE SET
+    riot_id = EXCLUDED.riot_id,
+    tag_line = EXCLUDED.tag_line,
+    summoner_name = EXCLUDED.summoner_name,
+    platform = EXCLUDED.platform,
+    is_tracked = EXCLUDED.is_tracked,
+    is_analyzed = EXCLUDED.is_analyzed,
+    updated_at = NOW();
+EOF
+
+        if [ $? -eq 0 ]; then
+            echo "✅ Development data seeded successfully!"
+            echo "   • 3LosingLanes#AGAIN (EUN1) - tracked player"
+        else
+            echo "❌ Failed to seed development data"
+            exit 1
+        fi
+    else
+        echo "Tracked players already exist (count: $TRACKED_PLAYER_COUNT), skipping seed"
+    fi
+
+    echo ""
+fi
+
 # Start the application
+echo "============================================"
 echo "Starting application..."
+echo "============================================"
 echo ""
 exec "$@"
