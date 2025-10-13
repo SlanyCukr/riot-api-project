@@ -4,6 +4,12 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      run_setup:
+        description: 'Run production setup script (⚠️ DESTRUCTIVE - deletes all data!)'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -77,15 +83,15 @@ jobs:
       - name: Build Docker images
         run: |
           cd /home/pi/riot-api
-          echo "📦 Building Docker images..."
+          echo "📦 Building Docker images without cache..."
 
           # Build frontend
           echo "🎨 Building frontend..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache --pull frontend
 
           # Build backend
           echo "🚀 Building backend..."
-          docker compose -f docker-compose.yml -f docker-compose.prod.yml build backend
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache --pull backend
 
           echo "✅ All images built successfully"
 
@@ -170,6 +176,17 @@ jobs:
           echo "   Backend API:    http://localhost:8086"
           echo "   Frontend:       http://localhost:8088"
           echo "   Status:         All services running on RPI5 16GB"
+
+      - name: Run production setup script
+        if: ${{ github.event.inputs.run_setup == 'true' }}
+        run: |
+          cd /home/pi/riot-api
+          echo "⚠️  Running production setup script..."
+          echo "⚠️  This will DELETE ALL DATA in the database!"
+          chmod +x scripts/setup-production.sh
+          # Run setup script with automatic 'yes' confirmation
+          yes | ./scripts/setup-production.sh || true
+          echo "✅ Production setup completed"
 
       - name: Clean up old Docker images
         run: |
