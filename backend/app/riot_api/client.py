@@ -105,10 +105,22 @@ class RiotAPIClient:
                         headers=headers, timeout=timeout, connector=connector
                     )
 
+                    # Handle both enum and string types for logging
+                    region_str = (
+                        self.region.value
+                        if isinstance(self.region, Region)
+                        else self.region
+                    )
+                    platform_str = (
+                        self.platform.value
+                        if isinstance(self.platform, Platform)
+                        else self.platform
+                    )
+
                     logger.info(
                         "Riot API client session started",
-                        region=self.region.value,
-                        platform=self.platform.value,
+                        region=region_str,
+                        platform=platform_str,
                         api_key_prefix=(
                             self.api_key[:10] + "..." if self.api_key else "None"
                         ),
