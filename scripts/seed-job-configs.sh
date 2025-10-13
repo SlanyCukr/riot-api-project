@@ -56,7 +56,7 @@ VALUES (
     'Player Analyzer',
     'interval(seconds=120)',
     true,
-    '{"unanalyzed_players_per_run": 15, "min_smurf_confidence": 0.5, "ban_check_days": 7}'::jsonb,
+    '{"unanalyzed_players_per_run": 5, "min_smurf_confidence": 0.5, "ban_check_days": 7}'::jsonb,
     NOW(),
     NOW()
 )

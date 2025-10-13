@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     # Job Scheduler Configuration
     job_scheduler_enabled: bool = Field(default=False)
     job_interval_seconds: int = Field(default=120)
-    job_timeout_seconds: int = Field(default=90)
+    job_timeout_seconds: int = Field(default=600)  # 10 minutes for job execution
     max_tracked_players: int = Field(default=10)
 
     model_config = SettingsConfigDict(
