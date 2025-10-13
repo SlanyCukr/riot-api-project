@@ -64,6 +64,12 @@ class ParticipantDTO(BaseModel):
     gold_earned: int = Field(..., alias="goldEarned")
     total_minions_killed: int = Field(..., alias="totalMinionsKilled")
     neutral_minions_killed: int = Field(..., alias="neutralMinionsKilled")
+
+    # Damage stats
+    total_damage_dealt_to_champions: int = Field(
+        ..., alias="totalDamageDealtToChampions"
+    )
+    total_damage_taken: int = Field(..., alias="totalDamageTaken")
     role: Optional[str] = None
     lane: Optional[str] = None
     individual_position: Optional[str] = Field(None, alias="individualPosition")
