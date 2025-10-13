@@ -411,16 +411,21 @@ class TrackedPlayerUpdaterJob(BaseJob):
                 return
 
             # Extract and mark discovered players FIRST (before creating match participants)
+            # This ensures players exist before we create foreign key references
             await self._mark_discovered_players(db, match_dto)
 
             # Store match in database (this creates match and participants)
             await self._store_match(db, match_dto)
+
+            # Commit the transaction once for all changes
+            await db.commit()
             self.increment_metric("records_created")
 
             logger.debug("Successfully processed match", match_id=match_id)
 
         except RateLimitError:
             logger.warning("Rate limit hit processing match", match_id=match_id)
+            await db.rollback()
             raise
 
         except Exception as e:
@@ -429,6 +434,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
                 match_id=match_id,
                 error=str(e),
             )
+            await db.rollback()
             raise
 
     async def _store_match(self, db: AsyncSession, match_dto: Any) -> None:
@@ -437,66 +443,57 @@ class TrackedPlayerUpdaterJob(BaseJob):
         Args:
             db: Database session.
             match_dto: Match DTO from Riot API.
+
+        Note: Does not commit - caller must commit the transaction.
         """
-        try:
-            # Create Match record
-            platform_id = match_dto.info.platform_id or self.settings.riot_platform
+        # Create Match record
+        platform_id = match_dto.info.platform_id or self.settings.riot_platform
 
-            match = Match(
+        match = Match(
+            match_id=match_dto.metadata.match_id,
+            platform_id=platform_id.upper(),
+            game_creation=match_dto.info.game_creation,
+            game_duration=match_dto.info.game_duration,
+            game_mode=match_dto.info.game_mode,
+            game_type=match_dto.info.game_type,
+            game_version=match_dto.info.game_version,
+            map_id=match_dto.info.map_id,
+            queue_id=match_dto.info.queue_id,
+        )
+
+        db.add(match)
+
+        # Create MatchParticipant records
+        for participant in match_dto.info.participants:
+            # Note: Riot API sometimes returns empty strings for name fields
+            # Convert empty strings to None for proper database storage
+            match_participant = MatchParticipant(
                 match_id=match_dto.metadata.match_id,
-                platform_id=platform_id.upper(),
-                game_creation=match_dto.info.game_creation,
-                game_duration=match_dto.info.game_duration,
-                game_mode=match_dto.info.game_mode,
-                game_type=match_dto.info.game_type,
-                game_version=match_dto.info.game_version,
-                map_id=match_dto.info.map_id,
-                queue_id=match_dto.info.queue_id,
+                puuid=participant.puuid,
+                riot_id_name=participant.riot_id_game_name or None,
+                riot_id_tagline=participant.riot_id_tagline or None,
+                summoner_name=participant.summoner_name or None,
+                summoner_level=participant.summoner_level,
+                champion_id=participant.champion_id,
+                champion_name=participant.champion_name,
+                team_id=participant.team_id,
+                team_position=participant.team_position,
+                win=participant.win,
+                kills=participant.kills,
+                deaths=participant.deaths,
+                assists=participant.assists,
+                gold_earned=participant.gold_earned,
+                cs=participant.total_minions_killed
+                + participant.neutral_minions_killed,
+                vision_score=participant.vision_score or 0,
+                total_damage_dealt_to_champions=participant.total_damage_dealt_to_champions,
+                total_damage_taken=participant.total_damage_taken,
             )
+            db.add(match_participant)
 
-            db.add(match)
-
-            # Create MatchParticipant records
-            for participant in match_dto.info.participants:
-                # Note: Riot API sometimes returns empty strings for name fields
-                # Convert empty strings to None for proper database storage
-                match_participant = MatchParticipant(
-                    match_id=match_dto.metadata.match_id,
-                    puuid=participant.puuid,
-                    riot_id_name=participant.riot_id_game_name or None,
-                    riot_id_tagline=participant.riot_id_tagline or None,
-                    summoner_name=participant.summoner_name or None,
-                    summoner_level=participant.summoner_level,
-                    champion_id=participant.champion_id,
-                    champion_name=participant.champion_name,
-                    team_id=participant.team_id,
-                    team_position=participant.team_position,
-                    win=participant.win,
-                    kills=participant.kills,
-                    deaths=participant.deaths,
-                    assists=participant.assists,
-                    gold_earned=participant.gold_earned,
-                    cs=participant.total_minions_killed
-                    + participant.neutral_minions_killed,
-                    vision_score=participant.vision_score or 0,
-                    total_damage_dealt_to_champions=participant.total_damage_dealt_to_champions,
-                    total_damage_taken=participant.total_damage_taken,
-                )
-                db.add(match_participant)
-
-            await db.commit()
-            logger.debug(
-                "Stored match in database", match_id=match_dto.metadata.match_id
-            )
-
-        except Exception as e:
-            logger.error(
-                "Failed to store match",
-                match_id=match_dto.metadata.match_id,
-                error=str(e),
-            )
-            await db.rollback()
-            raise
+        logger.debug(
+            "Prepared match for database", match_id=match_dto.metadata.match_id
+        )
 
     async def _mark_discovered_players(self, db: AsyncSession, match_dto: Any) -> None:
         """Mark new players discovered in match as needing analysis.
@@ -504,47 +501,38 @@ class TrackedPlayerUpdaterJob(BaseJob):
         Args:
             db: Database session.
             match_dto: Match DTO from Riot API.
+
+        Note: Does not commit - caller must commit the transaction.
         """
-        try:
-            for participant in match_dto.info.participants:
-                # Check if player exists in database
-                stmt = select(Player).where(Player.puuid == participant.puuid)
-                result = await db.execute(stmt)
-                existing_player = result.scalar_one_or_none()
+        for participant in match_dto.info.participants:
+            # Check if player exists in database
+            stmt = select(Player).where(Player.puuid == participant.puuid)
+            result = await db.execute(stmt)
+            existing_player = result.scalar_one_or_none()
 
-                if not existing_player:
-                    # Create new player record marked for analysis
-                    # Note: Riot API sometimes returns empty strings instead of None
-                    # Use "or None" to convert empty strings to None for proper database storage
-                    new_player = Player(
-                        puuid=participant.puuid,
-                        riot_id=participant.riot_id_game_name or None,
-                        tag_line=participant.riot_id_tagline or None,
-                        summoner_name=participant.summoner_name or None,
-                        platform=self.settings.riot_platform,
-                        account_level=participant.summoner_level,
-                        is_tracked=False,  # Discovered, not tracked
-                        is_analyzed=False,  # Needs analysis
-                        is_active=True,
-                    )
-                    db.add(new_player)
-                    self.increment_metric("records_created")
+            if not existing_player:
+                # Create new player record marked for analysis
+                # Note: Riot API sometimes returns empty strings instead of None
+                # Use "or None" to convert empty strings to None for proper database storage
+                new_player = Player(
+                    puuid=participant.puuid,
+                    riot_id=participant.riot_id_game_name or None,
+                    tag_line=participant.riot_id_tagline or None,
+                    summoner_name=participant.summoner_name or None,
+                    platform=self.settings.riot_platform,
+                    account_level=participant.summoner_level,
+                    is_tracked=False,  # Discovered, not tracked
+                    is_analyzed=False,  # Needs analysis
+                    is_active=True,
+                )
+                db.add(new_player)
+                self.increment_metric("records_created")
 
-                    logger.debug(
-                        "Marked new discovered player",
-                        puuid=participant.puuid,
-                        riot_id=f"{participant.riot_id_game_name}#{participant.riot_id_tagline}",
-                    )
-
-            await db.commit()
-
-        except Exception as e:
-            logger.error(
-                "Failed to mark discovered players",
-                error=str(e),
-            )
-            await db.rollback()
-            raise
+                logger.debug(
+                    "Marked new discovered player",
+                    puuid=participant.puuid,
+                    riot_id=f"{participant.riot_id_game_name}#{participant.riot_id_tagline}",
+                )
 
     async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
         """Update player's current rank from Riot API.
