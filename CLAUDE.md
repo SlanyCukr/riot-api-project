@@ -49,6 +49,11 @@ docker compose up --build              # Start all with rebuild
 docker compose up backend frontend     # Start specific services
 docker compose down                    # Stop all
 docker compose down -v                 # Stop and remove volumes (WARNING: deletes data)
+
+# Development with auto-reload (RECOMMENDED):
+docker compose watch                   # Watch for file changes and auto-reload
+                                       # Automatically recreates containers when .env changes
+                                       # Syncs code changes for hot reload
 ```
 
 ### View Logs
@@ -95,23 +100,25 @@ Copy `.env.example` to `.env`:
 ### Updating Riot API Key
 Development API keys expire every 24 hours. To update your key:
 
+**With Docker Compose Watch (RECOMMENDED)** 🚀
 ```bash
-./scripts/update-riot-api-key.sh       # Interactive script to update key
+# Start services with watch mode:
+docker compose watch
+
+# In another terminal, simply edit .env file:
+# The containers will automatically recreate when you save!
+nano .env  # or use your preferred editor
 ```
 
-**Why this is needed:** Docker Compose reads `.env` at container creation time. Simply editing `.env` and restarting the container won't pick up changes. The script handles this by:
-1. Updating the `.env` file
-2. Stopping and removing the backend container
-3. Recreating it fresh (which reads the new `.env` values)
-4. Verifying the new key is loaded
-
-**Manual alternative:**
+**Alternative: Manual update (if not using watch mode)**
 ```bash
 # Edit .env file with new key, then:
 docker compose stop backend
 docker compose rm -f backend
 docker compose up -d backend
 ```
+
+**Why container recreation is needed:** Docker Compose reads `.env` at container creation time. Simply editing `.env` and restarting the container won't pick up changes - the container must be recreated to read new environment variables. Docker Compose Watch handles this automatically!
 
 ## File Organization
 - `backend/` - FastAPI backend (see `backend/CLAUDE.md`)

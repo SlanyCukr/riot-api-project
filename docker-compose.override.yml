@@ -21,6 +21,18 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    develop:
+      watch:
+        # Automatically rebuild frontend when .env changes
+        - path: .env
+          action: rebuild
+        # Hot reload for frontend code changes
+        - path: ./frontend
+          action: sync+restart
+          target: /app
+          ignore:
+            - node_modules/
+            - .next/
 
   backend:
     build:
@@ -51,6 +63,19 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    develop:
+      watch:
+        # Automatically rebuild backend when .env changes
+        - path: .env
+          action: rebuild
+        # Hot reload for backend code changes (FastAPI auto-reload already handles this)
+        - path: ./backend
+          action: sync
+          target: /app
+          ignore:
+            - .venv/
+            - __pycache__/
+            - "*.pyc"
 
   postgres:
     ports:
