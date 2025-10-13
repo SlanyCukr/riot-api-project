@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   EncounterStatsResponseSchema,
-  type EncounterStatsResponse,
   type EncounterData,
 } from "@/lib/schemas";
 import { validatedGet } from "@/lib/api";

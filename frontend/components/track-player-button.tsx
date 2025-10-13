@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Star, StarOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";

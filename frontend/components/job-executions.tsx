@@ -79,10 +79,18 @@ export function JobExecutions({
   }, [jobs]);
 
   // Reset display count when initial data changes
+  const executionKey = initialExecutions?.total ?? 0;
   useEffect(() => {
-    setDisplayCount(20);
+    // This runs when the initial data changes, resetting pagination
     previousExecutionCount.current = 0;
-  }, [initialExecutions]);
+  }, [executionKey]);
+
+  // Derive display count from the execution key to avoid setState in effect
+  const [resetKey, setResetKey] = useState(executionKey);
+  if (resetKey !== executionKey) {
+    setDisplayCount(20);
+    setResetKey(executionKey);
+  }
 
   // Fetch executions with pagination
   const {

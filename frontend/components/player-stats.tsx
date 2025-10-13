@@ -16,7 +16,6 @@ import {
   Heart,
   Target,
   Eye,
-  TrendingUp,
   BarChart3,
   Activity,
 } from "lucide-react";

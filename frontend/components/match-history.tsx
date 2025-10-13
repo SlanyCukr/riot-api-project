@@ -31,10 +31,18 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   const previousMatchCount = useRef(0);
 
   // Reset display count when player or queue changes
+  const resetKey = `${puuid}-${queueFilter}`;
   useEffect(() => {
-    setDisplayCount(50);
+    // This runs when player or queue changes
     previousMatchCount.current = 0;
-  }, [puuid, queueFilter]);
+  }, [resetKey]);
+
+  // Derive display count from reset key to avoid setState in effect
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (lastResetKey !== resetKey) {
+    setDisplayCount(50);
+    setLastResetKey(resetKey);
+  }
 
   const {
     data: response,

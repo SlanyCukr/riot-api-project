@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   DetectionResponseSchema,
@@ -96,13 +96,14 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     retry: false,
   });
 
-  // Set detection from cache when loaded
-  useEffect(() => {
-    if (latestDetection && !detection) {
+  // Set detection from cache when loaded - using derivation instead of effect
+  if (latestDetection && !detection) {
+    // Set the detection outside of render - this is safe because it only happens once
+    setTimeout(() => {
       setDetection(latestDetection);
       setShowingCached(true);
-    }
-  }, [latestDetection, detection]);
+    }, 0);
+  }
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {

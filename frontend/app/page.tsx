@@ -20,7 +20,7 @@ export default function Home() {
         <p className="leading-relaxed">
           Using data from the Riot Games API, we track player performance
           metrics, match history, and rank progression to provide detailed
-          insights into player behavior. Whether you're curious about a
+          insights into player behavior. Whether you&apos;re curious about a
           teammate, investigating a suspicious opponent, or just exploring match
           data, League Eye Spy gives you the tools you need.
         </p>
