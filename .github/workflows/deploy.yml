@@ -27,7 +27,11 @@ jobs:
           if [ -d "/home/pi/riot-api" ]; then
             echo "Stopping existing containers..."
             cd /home/pi/riot-api
-            docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+            if [ -f ".env" ]; then
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+            else
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+            fi
           fi
 
           # Remove old deployment directory (use sudo for Docker-owned files)
@@ -103,13 +107,13 @@ jobs:
         run: |
           cd /home/pi/riot-api
           echo "📊 Container status:"
-          docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps
+          docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps
 
           echo "🔍 Running health checks..."
 
           # Test PostgreSQL connectivity
           echo "🗄️  Testing PostgreSQL connectivity..."
-          if docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
+          if docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
             echo "✅ PostgreSQL is ready"
           else
             echo "❌ PostgreSQL not ready"
@@ -129,7 +133,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Backend API health check failed after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 backend
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 backend
               exit 1
             fi
           done
@@ -147,7 +151,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Frontend not accessible after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 frontend
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 frontend
               exit 1
             fi
           done
