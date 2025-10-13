@@ -330,24 +330,71 @@ class PlayerAnalyzerJob(BaseJob):
                 existing_matches=len(existing_matches),
             )
 
-            # Use the match service to fetch matches
-            from ..services.matches import MatchService
-
-            match_service = MatchService(db, self.data_manager)
-            matches_response = await match_service.get_player_matches(
+            # Fetch match IDs from Riot API
+            match_list = await self.data_manager.api_client.get_match_list_by_puuid(
                 puuid=player.puuid,
                 start=0,
                 count=30,
-                queue=420,  # Ranked Solo/Duo only
+                queue=420,
             )
+            self.increment_metric("api_requests_made")
 
-            # API requests are already tracked by the data manager
-            self.increment_metric("api_requests_made", len(matches_response.matches))
+            if not match_list or not match_list.match_ids:
+                logger.debug(
+                    "No matches available for player",
+                    puuid=player.puuid,
+                )
+                return
+
+            # Store matches one by one until we have enough for analysis
+            # This allows us to stop early if we reach 20 matches
+            stored_count = 0
+            for match_id in match_list.match_ids:
+                try:
+                    # Check if we already have this match
+                    stmt = select(MatchParticipant).where(
+                        MatchParticipant.match_id == match_id,
+                        MatchParticipant.puuid == player.puuid
+                    )
+                    result = await db.execute(stmt)
+                    if result.scalar_one_or_none():
+                        continue  # Already have this match
+
+                    # Fetch and store the match
+                    match_dto = await self.data_manager.get_match(match_id)
+                    self.increment_metric("api_requests_made")
+
+                    if match_dto:
+                        # Store using match service
+                        from ..services.matches import MatchService
+                        match_service = MatchService(db, self.data_manager)
+                        match_data = match_dto.model_dump(by_alias=True, mode="json")
+                        await match_service._store_match_detail(match_data)
+                        stored_count += 1
+
+                        # Check if we have enough matches now
+                        if len(existing_matches) + stored_count >= 20:
+                            logger.debug(
+                                "Player now has sufficient matches for analysis",
+                                puuid=player.puuid,
+                                total_matches=len(existing_matches) + stored_count,
+                                newly_stored=stored_count,
+                            )
+                            break  # Stop fetching more matches
+
+                except Exception as e:
+                    logger.debug(
+                        "Failed to fetch/store match, continuing",
+                        match_id=match_id,
+                        error=str(e),
+                    )
+                    continue
 
             logger.debug(
-                "Match history fetched",
+                "Match history fetch complete",
                 puuid=player.puuid,
-                match_count=len(matches_response.matches),
+                stored_count=stored_count,
+                total_matches=len(existing_matches) + stored_count,
             )
 
         except RateLimitError:
