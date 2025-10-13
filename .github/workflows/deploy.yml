@@ -1,0 +1,179 @@
+name: Deploy to RPI5 16GB
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Production (RPI5 16GB)
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup deployment directory
+        run: |
+          echo "🔄 Setting up deployment directory..."
+          rm -rf /home/pi/riot-api
+          mkdir -p /home/pi
+          cp -r /home/pi/actions-runner/_work/riot-api-project/riot-api-project /home/pi/riot-api
+          echo "✅ Repository copied to /home/pi/riot-api"
+
+      - name: Generate .env file from secrets
+        run: |
+          cd /home/pi/riot-api
+          echo "🔐 Generating .env file from GitHub secrets..."
+          cat > .env << 'EOF'
+          # Riot API Configuration
+          RIOT_API_KEY=${{ secrets.RIOT_API_KEY }}
+          RIOT_REGION=europe
+          RIOT_PLATFORM=eun1
+
+          # Database Configuration
+          POSTGRES_DB=riot_api_db
+          POSTGRES_USER=riot_api_user
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DATABASE_URL=postgresql://riot_api_user:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/riot_api_db
+
+          # Database Pool Configuration
+          DB_POOL_SIZE=10
+          DB_MAX_OVERFLOW=20
+          DB_POOL_TIMEOUT=30
+          DB_POOL_RECYCLE=1800
+
+          # Job Scheduler Configuration
+          JOB_SCHEDULER_ENABLED=true
+          JOB_INTERVAL_SECONDS=120
+          JOB_TIMEOUT_SECONDS=90
+          MAX_TRACKED_PLAYERS=10
+
+          # Application Configuration
+          DEBUG=false
+          LOG_LEVEL=INFO
+
+          # Frontend Configuration
+          NEXT_PUBLIC_API_URL=https://leagueyespy.com
+          NODE_ENV=production
+
+          # CORS Configuration
+          CORS_ORIGINS=https://leagueyespy.com,https://www.leagueyespy.com
+
+          # Docker Configuration
+          COMPOSE_PROJECT_NAME=riot_api_app
+          BACKEND_PORT=8086
+          FRONTEND_PORT=8088
+          POSTGRES_PORT=5433
+          EOF
+          echo "✅ .env file generated successfully"
+
+      - name: Build Docker images
+        run: |
+          cd /home/pi/riot-api
+          echo "📦 Building Docker images..."
+
+          # Build frontend
+          echo "🎨 Building frontend..."
+          docker compose -f docker-compose.yml build frontend
+
+          # Build backend
+          echo "🚀 Building backend..."
+          docker compose -f docker-compose.yml build backend
+
+          echo "✅ All images built successfully"
+
+      - name: Stop existing containers
+        run: |
+          cd /home/pi/riot-api
+          echo "🛑 Stopping existing containers..."
+          docker compose -f docker-compose.yml down --remove-orphans || true
+          echo "✅ Containers stopped"
+
+      - name: Deploy new containers
+        run: |
+          cd /home/pi/riot-api
+          echo "🚀 Deploying new containers..."
+          docker compose -f docker-compose.yml up -d
+          echo "✅ Containers deployed"
+
+      - name: Wait for services to start
+        run: |
+          echo "⏳ Waiting for services to start..."
+          sleep 30
+
+      - name: Verify deployment
+        run: |
+          cd /home/pi/riot-api
+          echo "📊 Container status:"
+          docker compose -f docker-compose.yml ps
+
+          echo "🔍 Running health checks..."
+
+          # Test PostgreSQL connectivity
+          echo "🗄️  Testing PostgreSQL connectivity..."
+          if docker compose -f docker-compose.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
+            echo "✅ PostgreSQL is ready"
+          else
+            echo "❌ PostgreSQL not ready"
+            exit 1
+          fi
+
+          # Test backend API health endpoint
+          echo "🔍 Testing Backend API health endpoint..."
+          for i in {1..10}; do
+            if curl -f -s http://localhost:8086/health > /dev/null; then
+              echo "✅ Backend API health check passed"
+              break
+            else
+              echo "⏳ Attempt $i/10: Backend API not ready yet, waiting..."
+              sleep 5
+            fi
+            if [ $i -eq 10 ]; then
+              echo "❌ Backend API health check failed after 10 attempts"
+              echo "Debug: Container logs"
+              docker compose -f docker-compose.yml logs --tail=50 backend
+              exit 1
+            fi
+          done
+
+          # Test frontend accessibility
+          echo "🔍 Testing Frontend accessibility..."
+          for i in {1..10}; do
+            if curl -f -s http://localhost:8088 > /dev/null; then
+              echo "✅ Frontend accessible"
+              break
+            else
+              echo "⏳ Attempt $i/10: Frontend not ready yet, waiting..."
+              sleep 5
+            fi
+            if [ $i -eq 10 ]; then
+              echo "❌ Frontend not accessible after 10 attempts"
+              echo "Debug: Container logs"
+              docker compose -f docker-compose.yml logs --tail=50 frontend
+              exit 1
+            fi
+          done
+
+          echo "🎉 All health checks passed!"
+
+      - name: Show deployment info
+        run: |
+          echo "🌐 Riot API Project is now deployed:"
+          echo "   Production URL: https://leagueyespy.com"
+          echo "   Backend API:    http://localhost:8086"
+          echo "   Frontend:       http://localhost:8088"
+          echo "   Status:         All services running on RPI5 16GB"
+
+      - name: Clean up old Docker images
+        run: |
+          echo "🧹 Cleaning up old Docker images..."
+          docker image prune -f
+          docker system prune -f
+          echo "✅ Cleanup completed"
