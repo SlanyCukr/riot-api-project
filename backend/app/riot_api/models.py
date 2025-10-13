@@ -46,6 +46,12 @@ class ParticipantDTO(BaseModel):
     puuid: str
     summoner_name: str = Field(..., alias="summonerName")
     summoner_id: Optional[str] = Field(None, alias="summonerId")
+    summoner_level: int = Field(..., alias="summonerLevel")
+
+    # Riot ID fields (newer API format)
+    riot_id_game_name: Optional[str] = Field(None, alias="riotIdGameName")
+    riot_id_tagline: Optional[str] = Field(None, alias="riotIdTagline")
+
     team_id: int = Field(..., alias="teamId")
     win: bool
     champion_id: int = Field(..., alias="championId")
