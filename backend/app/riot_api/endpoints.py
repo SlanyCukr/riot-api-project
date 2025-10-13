@@ -129,12 +129,16 @@ class RiotAPIEndpoints:
     def get_base_url(self, region: Optional[Region] = None) -> str:
         """Get base URL for regional endpoints."""
         region = region or self.region
-        return f"https://{region.value}.api.riotgames.com"
+        # Handle both Region enum and string
+        region_str = region.value if isinstance(region, Region) else region
+        return f"https://{region_str}.api.riotgames.com"
 
     def get_platform_url(self, platform: Optional[Platform] = None) -> str:
         """Get base URL for platform endpoints."""
         platform = platform or self.platform
-        return f"https://{platform.value}.api.riotgames.com"
+        # Handle both Platform enum and string
+        platform_str = platform.value if isinstance(platform, Platform) else platform
+        return f"https://{platform_str}.api.riotgames.com"
 
     # Account endpoints (Regional)
     def account_by_riot_id(
