@@ -43,7 +43,9 @@ class QueueType(str, Enum):
 class PlayerRankBase(BaseModel):
     """Base PlayerRank schema with common attributes."""
 
-    puuid: uuid.UUID = Field(..., description="Reference to the player")
+    puuid: str = Field(
+        ..., max_length=78, description="Reference to the player (Riot PUUID)"
+    )
     queue_type: str = Field(..., max_length=32, description="Queue type")
     tier: str = Field(..., max_length=16, description="Rank tier")
     rank: Optional[str] = Field(None, max_length=4, description="Rank division")

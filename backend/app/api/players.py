@@ -1,11 +1,15 @@
 """Player API endpoints for the Riot API application."""
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..schemas.players import (
     PlayerResponse,
 )
-from ..api.dependencies import PlayerServiceDep, get_player_service
+from ..schemas.ranks import PlayerRankResponse
+from ..models.ranks import PlayerRank
+from ..api.dependencies import PlayerServiceDep, get_player_service, get_db
 
 router = APIRouter(prefix="/players", tags=["players"])
 router.get_player_service = get_player_service  # type: ignore[attr-defined]
@@ -213,4 +217,50 @@ async def get_tracked_players(player_service: PlayerServiceDep):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve tracked players: {str(e)}",
+        )
+
+
+# === Player Rank Endpoints ===
+
+
+@router.get("/{puuid}/rank", response_model=PlayerRankResponse | None)
+async def get_player_current_rank(
+    puuid: str,
+    queue_type: str = Query(
+        "RANKED_SOLO_5x5", description="Queue type to fetch rank for"
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get the current rank for a player.
+
+    Args:
+        puuid: Player's PUUID
+        queue_type: Queue type (default: RANKED_SOLO_5x5)
+
+    Returns:
+        Current rank data or None if no rank data exists
+
+    Raises:
+        500: Database error
+    """
+    try:
+        stmt = (
+            select(PlayerRank)
+            .where(PlayerRank.puuid == puuid)
+            .where(PlayerRank.queue_type == queue_type)
+            .where(PlayerRank.is_current == True)  # noqa: E712
+            .order_by(PlayerRank.updated_at.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        rank = result.scalar_one_or_none()
+
+        if rank:
+            return PlayerRankResponse.model_validate(rank)
+        return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch player rank: {str(e)}",
         )

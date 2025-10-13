@@ -185,8 +185,13 @@ class LeagueEntryDTO(BaseModel):
     """League entry information."""
 
     league_id: str = Field(..., alias="leagueId")
-    summoner_id: str = Field(..., alias="summonerId")
-    summoner_name: str = Field(..., alias="summonerName")
+    summoner_id: Optional[str] = Field(
+        None, alias="summonerId"
+    )  # Optional when using by-puuid endpoint
+    summoner_name: Optional[str] = Field(
+        None, alias="summonerName"
+    )  # Optional when using by-puuid endpoint
+    puuid: Optional[str] = None  # Available when using by-puuid endpoint
     queue_type: str = Field(..., alias="queueType")
     tier: str
     rank: str

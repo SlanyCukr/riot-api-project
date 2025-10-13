@@ -226,10 +226,7 @@ class TestTrackedPlayerUpdaterJob:
             mock_api.close = AsyncMock()
 
             # Mock the API client's endpoints
-            mock_api.endpoints = MagicMock()
-            mock_api.endpoints.get_league_entries_by_summoner = AsyncMock(
-                return_value=[]
-            )
+            mock_api.get_league_entries_by_puuid = AsyncMock(return_value=[])
             mock_client.return_value = mock_api
 
             mock_data_manager = MagicMock()

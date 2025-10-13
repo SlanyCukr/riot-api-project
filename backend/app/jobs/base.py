@@ -198,8 +198,37 @@ class BaseJob(ABC):
                     detailed_logs=detailed_logs,
                 )
             )
-            await db.execute(stmt)
-            await db.commit()
+
+            try:
+                await db.execute(stmt)
+                await db.commit()
+            except Exception as commit_error:
+                logger.error(
+                    "Failed to commit job completion - attempting rollback and retry",
+                    job_name=self.job_config.name,
+                    execution_id=self.job_execution.id,
+                    error=str(commit_error),
+                    error_type=type(commit_error).__name__,
+                )
+                try:
+                    await db.rollback()
+                    # Try one more time with a fresh transaction
+                    await db.execute(stmt)
+                    await db.commit()
+                    logger.info(
+                        "Successfully committed job completion on retry",
+                        execution_id=self.job_execution.id,
+                    )
+                except Exception as retry_error:
+                    logger.error(
+                        "Failed to commit job completion even after retry - job may remain stuck",
+                        job_name=self.job_config.name,
+                        execution_id=self.job_execution.id,
+                        error=str(retry_error),
+                        error_type=type(retry_error).__name__,
+                    )
+                    # Don't raise - we want the job to complete even if logging fails
+                    return
 
             # Update local object for logging purposes
             self.job_execution.completed_at = completed_at

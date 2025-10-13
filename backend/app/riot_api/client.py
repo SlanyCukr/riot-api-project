@@ -354,11 +354,11 @@ class RiotAPIClient:
         return MatchDTO(**data)
 
     # League endpoints
-    async def get_league_entries_by_summoner(
-        self, summoner_id: str, platform: Optional[Platform] = None
+    async def get_league_entries_by_puuid(
+        self, puuid: str, platform: Optional[Platform] = None
     ) -> List[LeagueEntryDTO]:
-        """Get league entries by summoner ID."""
-        url = self.endpoints.league_entries_by_summoner(summoner_id, platform)
+        """Get league entries by PUUID."""
+        url = self.endpoints.league_entries_by_puuid(puuid, platform)
         response = await self._make_request(url)
 
         # API returns a list of league entries

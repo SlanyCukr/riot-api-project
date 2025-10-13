@@ -52,6 +52,20 @@ Edit `.env` file with your configuration:
 - Configure database credentials
 - Set appropriate region and platform for your use case
 
+**⚠️ Important: Development API keys expire every 24 hours!**
+
+To update your API key after expiry, use the provided script:
+
+```bash
+./scripts/update-riot-api-key.sh
+```
+
+This script will:
+- Prompt you for the new API key
+- Update the `.env` file
+- Restart the backend container to apply changes immediately
+- Verify the new key is loaded correctly
+
 ### 3. Docker Deployment
 
 Build and start all services:

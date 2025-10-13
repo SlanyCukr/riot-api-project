@@ -49,6 +49,25 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting up Riot API Backend application")
 
+    # Validate Riot API key
+    try:
+        api_key = settings.riot_api_key
+        if not api_key or api_key == "your_riot_api_key_here":
+            logger.warning(
+                "⚠️  RIOT_API_KEY not configured! Set it in .env file.",
+                hint="Get your key from https://developer.riotgames.com",
+            )
+        elif api_key.startswith("RGAPI-"):
+            logger.info("✓ Riot API key configured (development key detected)")
+            logger.warning(
+                "⚠️  Development API keys expire every 24 hours!",
+                hint="Update with: ./scripts/update-riot-api-key.sh",
+            )
+        else:
+            logger.info("✓ Riot API key configured")
+    except Exception as e:
+        logger.warning("Could not validate API key configuration", error=str(e))
+
     # Start job scheduler if enabled
     try:
         scheduler = await start_scheduler()

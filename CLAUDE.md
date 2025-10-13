@@ -92,6 +92,27 @@ Copy `.env.example` to `.env`:
 - Database credentials
 - Service ports
 
+### Updating Riot API Key
+Development API keys expire every 24 hours. To update your key:
+
+```bash
+./scripts/update-riot-api-key.sh       # Interactive script to update key
+```
+
+**Why this is needed:** Docker Compose reads `.env` at container creation time. Simply editing `.env` and restarting the container won't pick up changes. The script handles this by:
+1. Updating the `.env` file
+2. Stopping and removing the backend container
+3. Recreating it fresh (which reads the new `.env` values)
+4. Verifying the new key is loaded
+
+**Manual alternative:**
+```bash
+# Edit .env file with new key, then:
+docker compose stop backend
+docker compose rm -f backend
+docker compose up -d backend
+```
+
 ## File Organization
 - `backend/` - FastAPI backend (see `backend/CLAUDE.md`)
 - `frontend/` - Next.js frontend (see `frontend/CLAUDE.md`)

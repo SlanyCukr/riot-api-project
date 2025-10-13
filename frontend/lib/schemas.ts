@@ -282,3 +282,34 @@ export type DetectionExistsResponse = z.infer<
 // The backend returns a list of PUUIDs as strings
 export const RecentOpponentsSchema = z.array(z.string());
 export type RecentOpponents = z.infer<typeof RecentOpponentsSchema>;
+
+// ===== PLAYER RANK SCHEMA =====
+export const PlayerRankSchema = z.object({
+  id: z.number(),
+  puuid: z.string(),
+  queue_type: z.string(),
+  tier: z.string(),
+  rank: z.string().nullable(),
+  league_points: z.number(),
+  wins: z.number(),
+  losses: z.number(),
+  veteran: z.boolean(),
+  inactive: z.boolean(),
+  fresh_blood: z.boolean(),
+  hot_streak: z.boolean(),
+  league_id: z.string().nullable(),
+  league_name: z.string().nullable(),
+  season_id: z.string().nullable(),
+  is_current: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  win_rate: z.number(),
+  total_games: z.number(),
+  display_rank: z.string(),
+  display_lp: z.string(),
+  is_high_tier: z.boolean(),
+  is_diamond_plus: z.boolean(),
+  is_platinum_plus: z.boolean(),
+});
+
+export type PlayerRank = z.infer<typeof PlayerRankSchema>;

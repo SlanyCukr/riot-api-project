@@ -1,10 +1,11 @@
 """Player Analyzer Job - Analyzes discovered players for smurf/boosted detection."""
 
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Any
+import asyncio
 import structlog
 
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
@@ -43,7 +44,16 @@ class PlayerAnalyzerJob(BaseJob):
 
         # Extract configuration
         config = job_config.config_json or {}
-        self.unanalyzed_players_per_run = config.get("unanalyzed_players_per_run", 5)
+        # How many discovered players to fetch match history for per run
+        # This controls the rate at which we build up match history for discovered players
+        self.discovered_players_per_run = config.get("discovered_players_per_run", 2)
+        # How many matches to fetch per discovered player PER RUN (not total)
+        # We fetch incrementally to avoid timeouts (e.g., 1 match per run = ultra-conservative)
+        self.matches_per_player_per_run = config.get("matches_per_player_per_run", 1)
+        # Target total matches for each discovered player (for reference)
+        self.target_matches_per_player = config.get("target_matches_per_player", 50)
+        # How many players to analyze per run (only those with sufficient match history)
+        self.unanalyzed_players_per_run = config.get("unanalyzed_players_per_run", 3)
         self.min_smurf_confidence = config.get("min_smurf_confidence", 0.5)
         self.ban_check_days = config.get("ban_check_days", 7)
 
@@ -74,10 +84,24 @@ class PlayerAnalyzerJob(BaseJob):
         self.detection_service = SmurfDetectionService(db, self.data_manager)
 
         try:
-            # Step 1: Analyze unanalyzed discovered players
+            # Step 1: Fetch match history for discovered players with insufficient data
+            # Add timeout protection to prevent jobs from hanging indefinitely
+            try:
+                await asyncio.wait_for(
+                    self._fetch_discovered_player_matches(db),
+                    timeout=90.0,  # 90 second timeout for match fetching phase
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "Match fetching phase timed out - job will complete and retry next run",
+                    timeout_seconds=90,
+                )
+                # Don't raise - let job complete and try again next run
+
+            # Step 2: Analyze unanalyzed discovered players (only those with sufficient matches)
             await self._analyze_unanalyzed_players(db)
 
-            # Step 2: Check ban status for previously detected accounts
+            # Step 3: Check ban status for previously detected accounts
             await self._check_ban_status(db)
 
             logger.info(
@@ -91,6 +115,487 @@ class PlayerAnalyzerJob(BaseJob):
             # Clean up API client
             if self.api_client:
                 await self.api_client.close()
+
+    async def _fetch_discovered_player_matches(self, db: AsyncSession) -> None:
+        """Fetch match history for discovered players who need more data.
+
+        Fetches match history for discovered players with fewer than 50 matches.
+        This gradually builds up match history over time for all discovered players.
+
+        Args:
+            db: Database session.
+        """
+        from ..models.participants import MatchParticipant
+        from ..models.matches import Match
+        from ..riot_api.endpoints import Platform
+
+        logger.info("[STEP 1/7] Starting _fetch_discovered_player_matches")
+
+        # Get discovered players with < target matches (need more data for analysis)
+        logger.info("[STEP 2/7] Querying database for players needing match history")
+        stmt = (
+            select(Player)
+            .join(
+                MatchParticipant, Player.puuid == MatchParticipant.puuid, isouter=True
+            )
+            .where(Player.is_tracked.is_(False))
+            .where(Player.is_active.is_(True))
+            .group_by(Player.puuid)
+            .having(
+                func.count(MatchParticipant.match_id) < self.target_matches_per_player
+            )
+            .limit(self.discovered_players_per_run)
+        )
+        result = await db.execute(stmt)
+        players_to_fetch = result.scalars().all()
+
+        if not players_to_fetch:
+            logger.info("[STEP 2/7] No discovered players need match history fetching")
+            self.add_log_entry("discovered_players_fetched", 0)
+            return
+
+        logger.info(
+            "[STEP 2/7] Found discovered players needing match history",
+            count=len(players_to_fetch),
+        )
+        self.add_log_entry("discovered_players_to_fetch", len(players_to_fetch))
+
+        fetched_count = 0
+        total_matches_fetched = 0
+
+        logger.info(
+            "[STEP 3/7] Beginning player processing loop",
+            total_players=len(players_to_fetch),
+        )
+
+        for idx, player in enumerate(players_to_fetch, 1):
+            logger.info(
+                "[STEP 4/7] Processing player",
+                player_num=f"{idx}/{len(players_to_fetch)}",
+                puuid=player.puuid[:8],
+            )
+            try:
+                # Fetch match list for this player
+                logger.debug(
+                    "[STEP 4.1/7] Validating player platform",
+                    puuid=player.puuid[:8],
+                    platform=player.platform,
+                )
+                try:
+                    Platform(player.platform.lower())
+                except ValueError:
+                    logger.warning(
+                        "[STEP 4.1/7] Invalid platform for player - skipping",
+                        puuid=player.puuid,
+                        platform=player.platform,
+                    )
+                    continue
+
+                # Count how many matches this player already has
+                logger.debug(
+                    "[STEP 4.2/7] Counting existing matches",
+                    puuid=player.puuid[:8],
+                )
+                from ..models.participants import MatchParticipant
+
+                stmt_count = select(func.count(MatchParticipant.match_id)).where(
+                    MatchParticipant.puuid == player.puuid
+                )
+                result_count = await db.execute(stmt_count)
+                existing_match_count = result_count.scalar() or 0
+                logger.debug(
+                    "[STEP 4.2/7] Found existing matches",
+                    puuid=player.puuid[:8],
+                    existing_count=existing_match_count,
+                )
+
+                # Calculate how many more matches we need to reach our target
+                matches_needed = max(
+                    0, self.target_matches_per_player - existing_match_count
+                )
+
+                # But only fetch a limited number per run to avoid timeouts
+                matches_to_fetch = min(matches_needed, self.matches_per_player_per_run)
+
+                logger.debug(
+                    "[STEP 4.3/7] Calculated match requirements",
+                    puuid=player.puuid[:8],
+                    existing=existing_match_count,
+                    needed=matches_needed,
+                    will_fetch=matches_to_fetch,
+                )
+
+                if matches_to_fetch == 0:
+                    logger.debug(
+                        "[STEP 4.3/7] Player already has sufficient matches - skipping",
+                        puuid=player.puuid,
+                        existing_matches=existing_match_count,
+                        target=self.target_matches_per_player,
+                    )
+                    continue
+
+                # Fetch match list - always start from 0 and get more than we need
+                # We'll filter out duplicates when storing
+                # This ensures we don't miss matches due to ordering issues
+                logger.info(
+                    "[STEP 4.4/7] Fetching match list from Riot API",
+                    puuid=player.puuid[:8],
+                    queue=420,
+                )
+                try:
+                    # Add timeout protection for API call
+                    match_list = await asyncio.wait_for(
+                        self.api_client.get_match_list_by_puuid(
+                            puuid=player.puuid,
+                            queue=420,  # Ranked Solo/Duo only
+                            start=0,
+                            count=min(
+                                100, existing_match_count + matches_to_fetch * 2
+                            ),  # Get extra to account for duplicates
+                        ),
+                        timeout=15.0,  # 15 second timeout for match list fetch
+                    )
+                    self.increment_metric("api_requests_made")
+                    logger.info(
+                        "[STEP 4.4/7] Successfully fetched match list",
+                        puuid=player.puuid[:8],
+                        match_count=len(match_list.match_ids)
+                        if match_list and hasattr(match_list, "match_ids")
+                        else 0,
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "[STEP 4.4/7] TIMEOUT fetching match list - skipping player",
+                        puuid=player.puuid,
+                        timeout_seconds=15,
+                    )
+                    continue
+                except Exception as e:
+                    logger.error(
+                        "[STEP 4.4/7] ERROR fetching match list - skipping player",
+                        puuid=player.puuid,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+                    continue
+
+                if not match_list or not hasattr(match_list, "match_ids"):
+                    logger.debug(
+                        "[STEP 4.5/7] No matches found for discovered player",
+                        puuid=player.puuid,
+                    )
+                    continue
+
+                match_ids = list(match_list.match_ids) if match_list.match_ids else []
+                if not match_ids:
+                    logger.debug(
+                        "[STEP 4.5/7] Empty match list for player",
+                        puuid=player.puuid,
+                    )
+                    continue
+
+                logger.info(
+                    "[STEP 4.5/7] Found matches for discovered player",
+                    puuid=player.puuid[:8],
+                    total_available=len(match_ids),
+                    existing_matches=existing_match_count,
+                    will_fetch=min(len(match_ids), matches_to_fetch),
+                )
+
+                # Store each match (only if we don't already have it)
+                # Keep going until we've stored matches_to_fetch NEW matches
+                logger.info(
+                    "[STEP 5/7] Beginning match storage loop",
+                    puuid=player.puuid[:8],
+                    total_match_ids=len(match_ids),
+                )
+                stored_count = 0
+                for match_idx, match_id in enumerate(match_ids, 1):
+                    # Stop if we've stored enough new matches
+                    if stored_count >= matches_to_fetch:
+                        logger.debug(
+                            "[STEP 5/7] Reached storage limit for this player",
+                            puuid=player.puuid[:8],
+                            stored_count=stored_count,
+                        )
+                        break
+                    try:
+                        logger.debug(
+                            "[STEP 5.1/7] Processing match",
+                            puuid=player.puuid[:8],
+                            match_num=f"{match_idx}/{len(match_ids)}",
+                            match_id=match_id[:15],
+                        )
+                        # Check if we already have this match
+                        stmt = select(Match).where(Match.match_id == match_id)
+                        result = await db.execute(stmt)
+                        existing_match = result.scalar_one_or_none()
+
+                        if existing_match:
+                            logger.debug(
+                                "[STEP 5.1/7] Match already exists - skipping",
+                                match_id=match_id[:15],
+                            )
+                            continue  # Skip if we already have it
+
+                        # Fetch and store the match
+                        logger.debug(
+                            "[STEP 5.2/7] Fetching match details from Riot API",
+                            match_id=match_id[:15],
+                        )
+                        try:
+                            match_dto = await asyncio.wait_for(
+                                self.api_client.get_match(match_id),
+                                timeout=15.0,  # 15 second timeout per match
+                            )
+                            self.increment_metric("api_requests_made")
+                            logger.debug(
+                                "[STEP 5.2/7] Successfully fetched match details",
+                                match_id=match_id[:15],
+                            )
+                        except asyncio.TimeoutError:
+                            logger.error(
+                                "[STEP 5.2/7] TIMEOUT fetching match details - skipping match",
+                                match_id=match_id,
+                                timeout_seconds=15,
+                            )
+                            continue
+
+                        if match_dto:
+                            # Double-check the match wasn't just stored by another job
+                            # (can happen if Tracked Player Updater runs concurrently)
+                            logger.debug(
+                                "[STEP 5.3/7] Double-checking match doesn't exist",
+                                match_id=match_id[:15],
+                            )
+                            stmt_recheck = select(Match).where(
+                                Match.match_id == match_id
+                            )
+                            result_recheck = await db.execute(stmt_recheck)
+                            recheck_match = result_recheck.scalar_one_or_none()
+
+                            if recheck_match:
+                                logger.debug(
+                                    "[STEP 5.3/7] Match was stored by another job - skipping",
+                                    match_id=match_id,
+                                )
+                                continue
+
+                            # Store match and participants
+                            logger.debug(
+                                "[STEP 5.4/7] Storing match and participants",
+                                match_id=match_id[:15],
+                            )
+                            try:
+                                await self._store_match_for_discovered_player(
+                                    db, match_dto
+                                )
+                                logger.debug(
+                                    "[STEP 5.4.1/7] Committing transaction",
+                                    match_id=match_id[:15],
+                                )
+                                await db.commit()
+                                logger.debug(
+                                    "[STEP 5.4.2/7] Transaction committed",
+                                    match_id=match_id[:15],
+                                )
+                                stored_count += 1
+                                self.increment_metric("records_created")
+                                logger.debug(
+                                    "[STEP 5.4.3/7] Successfully stored match",
+                                    match_id=match_id[:15],
+                                    stored_count=stored_count,
+                                )
+                            except Exception as commit_error:
+                                logger.error(
+                                    "[STEP 5.4/7] ERROR committing match - rolling back",
+                                    match_id=match_id,
+                                    error=str(commit_error),
+                                    error_type=type(commit_error).__name__,
+                                    exc_info=True,
+                                )
+                                try:
+                                    await asyncio.wait_for(db.rollback(), timeout=5.0)
+                                    logger.debug(
+                                        "[STEP 5.4/7] Rollback completed, continuing to next match",
+                                        match_id=match_id[:15],
+                                    )
+                                except asyncio.TimeoutError:
+                                    logger.error(
+                                        "[STEP 5.4/7] TIMEOUT during rollback - breaking out",
+                                        match_id=match_id,
+                                    )
+                                    break  # Break out of match loop
+                                except Exception as rollback_error:
+                                    logger.error(
+                                        "[STEP 5.4/7] ERROR during rollback",
+                                        match_id=match_id,
+                                        error=str(rollback_error),
+                                    )
+                                    break  # Break out of match loop
+                                # Don't continue to next match - break out to avoid database session issues
+                                # Foreign key errors indicate missing players, which won't be fixed by retrying
+                                logger.info(
+                                    "[STEP 5.4/7] Breaking out of match loop due to constraint violation",
+                                    match_id=match_id[:15],
+                                )
+                                break
+
+                    except RateLimitError:
+                        logger.warning(
+                            "[STEP 5/7] Rate limit hit while fetching match - stopping this player",
+                            puuid=player.puuid,
+                            match_id=match_id,
+                        )
+                        # Stop processing this player and move to next
+                        break
+                    except Exception as e:
+                        logger.error(
+                            "[STEP 5/7] ERROR fetching/storing match - skipping match",
+                            match_id=match_id,
+                            puuid=player.puuid,
+                            error=str(e),
+                            error_type=type(e).__name__,
+                        )
+                        try:
+                            logger.debug("[STEP 5/7] Attempting rollback after error")
+                            await asyncio.wait_for(db.rollback(), timeout=5.0)
+                            logger.debug("[STEP 5/7] Rollback completed")
+                        except asyncio.TimeoutError:
+                            logger.error("[STEP 5/7] TIMEOUT during rollback")
+                            break  # Break out if rollback hangs
+                        except Exception as rb_error:
+                            logger.error(
+                                "[STEP 5/7] ERROR during rollback",
+                                error=str(rb_error),
+                            )
+                            break  # Break out if rollback fails
+                        continue
+
+                logger.info(
+                    "[STEP 5.9/7] Exited match loop",
+                    puuid=player.puuid[:8],
+                    stored_count=stored_count,
+                )
+
+                if stored_count > 0:
+                    logger.info(
+                        "[STEP 6/7] Stored matches for discovered player",
+                        puuid=player.puuid[:8],
+                        stored_count=stored_count,
+                    )
+                    total_matches_fetched += stored_count
+
+                fetched_count += 1
+                logger.info(
+                    "[STEP 6/7] Completed processing player",
+                    player_num=f"{idx}/{len(players_to_fetch)}",
+                    puuid=player.puuid[:8],
+                    stored_count=stored_count,
+                )
+
+            except RateLimitError:
+                logger.warning(
+                    "[STEP 4/7] Rate limit hit - stopping all player processing",
+                    players_completed=fetched_count,
+                    players_total=len(players_to_fetch),
+                )
+                # Stop processing remaining players
+                break
+            except NotFoundError:
+                logger.debug(
+                    "[STEP 4/7] Discovered player not found in Riot API - skipping",
+                    puuid=player.puuid,
+                )
+                continue
+            except asyncio.TimeoutError:
+                logger.error(
+                    "[STEP 4/7] TIMEOUT processing player - skipping",
+                    puuid=player.puuid,
+                )
+                continue
+            except Exception as e:
+                logger.error(
+                    "[STEP 4/7] ERROR processing player - skipping",
+                    puuid=player.puuid,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exc_info=True,
+                )
+                continue
+
+        self.add_log_entry("discovered_players_fetched", fetched_count)
+        self.add_log_entry("total_matches_fetched", total_matches_fetched)
+
+        logger.info(
+            "[STEP 7/7] Discovered player match fetching complete",
+            players_processed=fetched_count,
+            total_players=len(players_to_fetch),
+            total_matches=total_matches_fetched,
+        )
+
+    async def _store_match_for_discovered_player(
+        self, db: AsyncSession, match_dto: Any
+    ) -> None:
+        """Store match and participants in database for a discovered player.
+
+        Args:
+            db: Database session.
+            match_dto: Match DTO from Riot API.
+
+        Note: Does not commit - caller must commit the transaction.
+        """
+        from ..models.matches import Match
+        from ..models.participants import MatchParticipant
+
+        # Create Match record
+        platform_id = match_dto.info.platform_id or self.settings.riot_platform
+
+        match = Match(
+            match_id=match_dto.metadata.match_id,
+            platform_id=platform_id.upper(),
+            game_creation=match_dto.info.game_creation,
+            game_duration=match_dto.info.game_duration,
+            game_mode=match_dto.info.game_mode,
+            game_type=match_dto.info.game_type,
+            game_version=match_dto.info.game_version,
+            map_id=match_dto.info.map_id,
+            queue_id=match_dto.info.queue_id,
+        )
+
+        db.add(match)
+
+        # Create MatchParticipant records
+        for participant in match_dto.info.participants:
+            # Note: Riot API sometimes returns empty strings for name fields
+            # Convert empty strings to None for proper database storage
+            match_participant = MatchParticipant(
+                match_id=match_dto.metadata.match_id,
+                puuid=participant.puuid,
+                riot_id_name=participant.riot_id_game_name or None,
+                riot_id_tagline=participant.riot_id_tagline or None,
+                summoner_name=participant.summoner_name or None,
+                summoner_level=participant.summoner_level,
+                champion_id=participant.champion_id,
+                champion_name=participant.champion_name,
+                team_id=participant.team_id,
+                team_position=participant.team_position,
+                win=participant.win,
+                kills=participant.kills,
+                deaths=participant.deaths,
+                assists=participant.assists,
+                gold_earned=participant.gold_earned,
+                cs=participant.total_minions_killed
+                + participant.neutral_minions_killed,
+                vision_score=participant.vision_score or 0,
+                total_damage_dealt_to_champions=participant.total_damage_dealt_to_champions,
+                total_damage_taken=participant.total_damage_taken,
+            )
+            db.add(match_participant)
+
+        logger.debug(
+            "Prepared match for database", match_id=match_dto.metadata.match_id
+        )
 
     async def _analyze_unanalyzed_players(self, db: AsyncSession) -> None:
         """Find and analyze unanalyzed discovered players.
@@ -164,21 +669,38 @@ class PlayerAnalyzerJob(BaseJob):
     async def _get_unanalyzed_players(self, db: AsyncSession) -> List[Player]:
         """Get players that need analysis.
 
+        Only selects players who have sufficient match history (>= 20 matches).
+        This avoids wasting API calls on players with insufficient data.
+
         Args:
             db: Database session.
 
         Returns:
-            List of unanalyzed players.
+            List of unanalyzed players with sufficient match history.
         """
+        from ..models.participants import MatchParticipant
+
+        # Get players with at least 20 matches for meaningful analysis
+        # This subquery counts matches per player
         stmt = (
             select(Player)
+            .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
             .where(Player.is_tracked.is_(False))
             .where(Player.is_analyzed.is_(False))
             .where(Player.is_active.is_(True))
+            .group_by(Player.puuid)
+            .having(func.count(MatchParticipant.match_id) >= 20)
             .limit(self.unanalyzed_players_per_run)
         )
         result = await db.execute(stmt)
         players = result.scalars().all()
+
+        logger.info(
+            "Found unanalyzed players with sufficient match history",
+            count=len(players),
+            required_matches=20,
+        )
+
         return list(players)
 
     async def _analyze_player(self, db: AsyncSession, player: Player) -> bool:
@@ -307,118 +829,37 @@ class PlayerAnalyzerJob(BaseJob):
             raise
 
     async def _ensure_match_history(self, db: AsyncSession, player: Player) -> None:
-        """Ensure player has match history for analysis.
+        """Check if player has sufficient match history for analysis.
+
+        This method no longer fetches matches - that's done by _fetch_discovered_player_matches.
+        It just validates the player has enough data.
 
         Args:
             db: Database session.
-            player: Player to ensure match history for.
+            player: Player to check match history for.
         """
         try:
             # Check how many matches we have for this player
             from ..models.participants import MatchParticipant
 
-            stmt = (
-                select(MatchParticipant)
-                .where(MatchParticipant.puuid == player.puuid)
-                .limit(30)
+            stmt = select(func.count(MatchParticipant.match_id)).where(
+                MatchParticipant.puuid == player.puuid
             )
             result = await db.execute(stmt)
-            existing_matches = result.scalars().all()
-
-            if len(existing_matches) >= 20:
-                logger.debug(
-                    "Player has sufficient match history",
-                    puuid=player.puuid,
-                    match_count=len(existing_matches),
-                )
-                return
-
-            # Fetch match history using data manager
-            logger.debug(
-                "Fetching match history for player",
-                puuid=player.puuid,
-                existing_matches=len(existing_matches),
-            )
-
-            # Fetch match IDs from Riot API
-            match_list = await self.data_manager.api_client.get_match_list_by_puuid(
-                puuid=player.puuid,
-                start=0,
-                count=30,
-                queue=420,
-            )
-            self.increment_metric("api_requests_made")
-
-            if not match_list or not match_list.match_ids:
-                logger.debug(
-                    "No matches available for player",
-                    puuid=player.puuid,
-                )
-                return
-
-            # Store matches one by one until we have enough for analysis
-            # This allows us to stop early if we reach 20 matches
-            stored_count = 0
-            for match_id in match_list.match_ids:
-                try:
-                    # Check if we already have this match
-                    stmt = select(MatchParticipant).where(
-                        MatchParticipant.match_id == match_id,
-                        MatchParticipant.puuid == player.puuid,
-                    )
-                    result = await db.execute(stmt)
-                    if result.scalar_one_or_none():
-                        continue  # Already have this match
-
-                    # Fetch and store the match
-                    match_dto = await self.data_manager.get_match(match_id)
-                    self.increment_metric("api_requests_made")
-
-                    if match_dto:
-                        # Store using match service
-                        from ..services.matches import MatchService
-
-                        match_service = MatchService(db, self.data_manager)
-                        match_data = match_dto.model_dump(by_alias=True, mode="json")
-                        await match_service._store_match_detail(match_data)
-                        stored_count += 1
-
-                        # Check if we have enough matches now
-                        if len(existing_matches) + stored_count >= 20:
-                            logger.debug(
-                                "Player now has sufficient matches for analysis",
-                                puuid=player.puuid,
-                                total_matches=len(existing_matches) + stored_count,
-                                newly_stored=stored_count,
-                            )
-                            break  # Stop fetching more matches
-
-                except Exception as e:
-                    logger.debug(
-                        "Failed to fetch/store match, continuing",
-                        match_id=match_id,
-                        error=str(e),
-                    )
-                    continue
+            existing_match_count = result.scalar() or 0
 
             logger.debug(
-                "Match history fetch complete",
+                "Player match history check",
                 puuid=player.puuid,
-                stored_count=stored_count,
-                total_matches=len(existing_matches) + stored_count,
+                match_count=existing_match_count,
             )
-
-        except RateLimitError:
-            logger.warning("Rate limit hit fetching match history", puuid=player.puuid)
-            raise
 
         except Exception as e:
             logger.error(
-                "Failed to ensure match history",
+                "Failed to check match history",
                 puuid=player.puuid,
                 error=str(e),
             )
-            # Don't raise - we can still try to analyze with whatever data we have
             pass
 
     async def _check_ban_status(self, db: AsyncSession) -> None:

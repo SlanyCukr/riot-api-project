@@ -204,6 +204,31 @@ class PlayerRank(Base):
             return f"{self.league_points} LP"
         return f"{self.league_points} LP"
 
+    @property
+    def is_high_tier(self) -> bool:
+        """Check if this is a high tier rank (Diamond+)."""
+        high_tiers = {"DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"}
+        return self.tier.upper() in high_tiers
+
+    @property
+    def is_diamond_plus(self) -> bool:
+        """Check if this is Diamond or above."""
+        diamond_plus_tiers = {"DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"}
+        return self.tier.upper() in diamond_plus_tiers
+
+    @property
+    def is_platinum_plus(self) -> bool:
+        """Check if this is Platinum or above."""
+        platinum_plus_tiers = {
+            "PLATINUM",
+            "EMERALD",
+            "DIAMOND",
+            "MASTER",
+            "GRANDMASTER",
+            "CHALLENGER",
+        }
+        return self.tier.upper() in platinum_plus_tiers
+
 
 # Create composite indexes for common queries
 Index("idx_ranks_puuid_queue", PlayerRank.puuid, PlayerRank.queue_type)

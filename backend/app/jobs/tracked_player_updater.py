@@ -571,8 +571,9 @@ class TrackedPlayerUpdaterJob(BaseJob):
                 )
                 return
 
-            league_entries = await self.api_client.get_league_entries_by_summoner(
-                player.summoner_id, platform_enum
+            # Use PUUID-based endpoint instead of summoner_id
+            league_entries = await self.api_client.get_league_entries_by_puuid(
+                player.puuid, platform_enum
             )
             self.increment_metric("api_requests_made")
 
@@ -602,8 +603,10 @@ class TrackedPlayerUpdaterJob(BaseJob):
                     inactive=solo_entry.inactive,
                     fresh_blood=solo_entry.fresh_blood,
                     hot_streak=solo_entry.hot_streak,
-                    timestamp=datetime.now(),
-                    is_active=True,
+                    league_id=solo_entry.league_id
+                    if hasattr(solo_entry, "league_id")
+                    else None,
+                    is_current=True,
                 )
 
                 db.add(rank_record)
