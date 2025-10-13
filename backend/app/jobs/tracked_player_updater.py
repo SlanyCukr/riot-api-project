@@ -256,26 +256,41 @@ class TrackedPlayerUpdaterJob(BaseJob):
             result = await db.execute(stmt)
             last_match_time = result.scalar_one_or_none()
 
-            # Calculate start time
-            # For tracked players with unlimited fetch, always go back far enough to get all matches
-            if last_match_time and self.max_new_matches_per_player > 0:
-                # Limited fetch - only get new matches since last one
-                # last_match_time is already a timestamp in milliseconds
-                # Convert to seconds for Riot API
-                start_time = int(last_match_time / 1000)
-                logger.debug(
-                    "Fetching new matches only",
-                    puuid=player.puuid,
-                    existing_matches=existing_match_count,
-                )
+            # Calculate start time based on fetch strategy
+            if self.max_new_matches_per_player > 0:
+                # Limited fetch mode - always respect the limit
+                if last_match_time:
+                    # Fetch only new matches since last one
+                    # last_match_time is already a timestamp in milliseconds
+                    # Convert to seconds for Riot API
+                    start_time = int(last_match_time / 1000)
+                    logger.debug(
+                        "Fetching new matches only",
+                        puuid=player.puuid,
+                        existing_matches=existing_match_count,
+                    )
+                else:
+                    # First run for this player - fetch limited history
+                    # Go back enough to get max_new_matches_per_player matches
+                    # Estimate: ~30 days for 20 matches (average 1-2 games per day)
+                    days_back = max(30, self.max_new_matches_per_player * 2)
+                    start_date = datetime.now() - timedelta(days=days_back)
+                    start_time = int(start_date.timestamp())
+                    logger.info(
+                        "First run - fetching limited history",
+                        puuid=player.puuid,
+                        max_matches=self.max_new_matches_per_player,
+                        days_back=days_back,
+                        start_date=start_date.isoformat(),
+                    )
             else:
-                # Unlimited fetch (max_new_matches_per_player == 0) OR no matches yet
+                # Unlimited fetch mode (max_new_matches_per_player == 0)
                 # Fetch from far back to get entire history
                 # Riot API stores matches for ~2-3 years, so go back 2 years
                 two_years_ago = datetime.now() - timedelta(days=730)
                 start_time = int(two_years_ago.timestamp())
                 logger.info(
-                    "Fetching all historical matches",
+                    "Unlimited mode - fetching all historical matches",
                     puuid=player.puuid,
                     existing_matches=existing_match_count,
                     start_date=two_years_ago.isoformat(),

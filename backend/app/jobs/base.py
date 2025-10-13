@@ -61,7 +61,7 @@ class BaseJob(ABC):
         pass
 
     def _setup_log_capture(self) -> None:
-        """Setup log capture for this job execution."""
+        """Set up log capture for this job execution."""
         # Create log handler
         self.log_handler = JobLogHandler(level=logging.DEBUG)
 
@@ -241,6 +241,42 @@ class BaseJob(ABC):
             # Always cleanup log capture
             self._teardown_log_capture()
 
+    async def is_already_running(self, db: AsyncSession) -> bool:
+        """Check if this job is already running.
+
+        Args:
+            db: Database session for querying execution records.
+
+        Returns:
+            True if job is already running, False otherwise.
+        """
+        from sqlalchemy import select
+
+        stmt = (
+            select(JobExecution)
+            .where(
+                JobExecution.job_config_id == self.job_config.id,
+                JobExecution.status == JobStatus.RUNNING,
+            )
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        running_job = result.scalar_one_or_none()
+
+        if running_job:
+            logger.info(
+                "Job is already running, skipping execution",
+                job_type=self.job_config.job_type.value,
+                job_name=self.job_config.name,
+                running_execution_id=running_job.id,
+                running_since=running_job.started_at.isoformat()
+                if running_job.started_at
+                else None,
+            )
+            return True
+
+        return False
+
     async def handle_error(self, db: AsyncSession, error: Exception) -> None:
         """Handle job execution error.
 
@@ -266,10 +302,11 @@ class BaseJob(ABC):
 
         This method:
         1. Creates database session
-        2. Logs job start
-        3. Executes job logic
-        4. Logs completion (success or failure)
-        5. Handles errors gracefully
+        2. Checks if job is already running (skip if so)
+        3. Logs job start
+        4. Executes job logic
+        5. Logs completion (success or failure)
+        6. Handles errors gracefully
 
         This method ensures that job execution is ALWAYS marked as complete
         (either success or failed) to prevent jobs from being stuck in RUNNING state.
@@ -279,6 +316,15 @@ class BaseJob(ABC):
             # Get database session
             async for db in get_db():
                 try:
+                    # Check if job is already running
+                    if await self.is_already_running(db):
+                        logger.info(
+                            "Skipping job execution - already running",
+                            job_type=self.job_config.job_type.value,
+                            job_name=self.job_config.name,
+                        )
+                        return
+
                     # Log job start
                     await self.log_start(db)
 

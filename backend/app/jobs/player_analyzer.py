@@ -43,7 +43,7 @@ class PlayerAnalyzerJob(BaseJob):
 
         # Extract configuration
         config = job_config.config_json or {}
-        self.unanalyzed_players_per_run = config.get("unanalyzed_players_per_run", 15)
+        self.unanalyzed_players_per_run = config.get("unanalyzed_players_per_run", 5)
         self.min_smurf_confidence = config.get("min_smurf_confidence", 0.5)
         self.ban_check_days = config.get("ban_check_days", 7)
 
