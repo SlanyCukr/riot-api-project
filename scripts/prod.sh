@@ -104,7 +104,7 @@ echo ""
 if [ "$STOP_FIRST" = true ]; then
     echo -e "${YELLOW}⏹️  Stopping existing services...${NC}"
     cd "$PROJECT_ROOT"
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" down
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" down
     echo ""
 fi
 
@@ -119,7 +119,7 @@ if [ "$FORCE_BUILD" = true ]; then
         echo -e "${YELLOW}   Building without cache (this may take longer)...${NC}"
     fi
 
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" build "${BUILD_ARGS[@]}" "${SERVICES[@]}"
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" build "${BUILD_ARGS[@]}" "${SERVICES[@]}"
     echo ""
 fi
 
@@ -159,20 +159,20 @@ if [ "$RESET_DB" = true ]; then
         echo -e "${YELLOW}🗑️  Resetting production database...${NC}"
 
         # Stop services to ensure clean reset
-        docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" down -v
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" down -v
 
         # Start postgres to run reset
-        docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d postgres
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d postgres
         echo "Waiting for postgres to be ready..."
         sleep 5
 
         # Start backend to run reset (entrypoint will recreate tables)
-        docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d backend
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d backend
         echo "Waiting for database reset to complete..."
         sleep 10
 
         # Stop backend after reset
-        docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" stop backend
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" stop backend
 
         echo -e "${GREEN}✅ Database reset complete${NC}"
         echo ""
@@ -194,7 +194,7 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 if [ "$DETACHED" = true ]; then
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d "${SERVICES[@]}"
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d "${SERVICES[@]}"
     echo ""
     echo -e "${GREEN}✅ Production services started in background${NC}"
     echo ""
@@ -209,12 +209,12 @@ if [ "$DETACHED" = true ]; then
     echo -e "${YELLOW}⏳ Waiting for services to start...${NC}"
     sleep 5
     echo ""
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" ps
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" ps
 
 elif [ "$FOLLOW_LOGS" = true ]; then
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up "${SERVICES[@]}"
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up "${SERVICES[@]}"
 else
-    docker compose -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up "${SERVICES[@]}"
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up "${SERVICES[@]}"
 fi
 
 echo ""

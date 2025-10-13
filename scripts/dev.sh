@@ -110,7 +110,7 @@ fi
 if [ "$STOP_FIRST" = true ]; then
     echo -e "${YELLOW}⏹️  Stopping existing services...${NC}"
     cd "$PROJECT_ROOT"
-    docker compose -f "$COMPOSE_FILE" down
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" down
     echo ""
 fi
 
@@ -118,7 +118,7 @@ fi
 if [ "$FORCE_BUILD" = true ]; then
     echo -e "${YELLOW}🔨 Building containers...${NC}"
     cd "$PROJECT_ROOT"
-    docker compose -f "$COMPOSE_FILE" build "${SERVICES[@]}"
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" build "${SERVICES[@]}"
     echo ""
 fi
 
@@ -141,20 +141,20 @@ if [ "$RESET_DB" = true ]; then
         echo -e "${YELLOW}🗑️  Resetting database...${NC}"
 
         # Stop services to ensure clean reset
-        docker compose -f "$COMPOSE_FILE" down -v
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" down -v
 
         # Start postgres to run reset
-        docker compose -f "$COMPOSE_FILE" up -d postgres
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d postgres
         echo "Waiting for postgres to be ready..."
         sleep 5
 
         # Start backend to run reset (entrypoint will recreate tables)
-        docker compose -f "$COMPOSE_FILE" up -d backend
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d backend
         echo "Waiting for database reset to complete..."
         sleep 10
 
         # Stop backend after reset
-        docker compose -f "$COMPOSE_FILE" stop backend
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" stop backend
 
         echo -e "${GREEN}✅ Database reset complete${NC}"
         echo ""
@@ -184,26 +184,26 @@ if [ "$USE_WATCH" = true ]; then
     echo ""
 
     if [ "$DETACHED" = true ]; then
-        docker compose -f "$COMPOSE_FILE" watch -d "${SERVICES[@]}"
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" watch -d "${SERVICES[@]}"
         echo ""
         echo -e "${GREEN}✅ Services started in background${NC}"
         echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
         echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
     else
         # Run in foreground with interactive logs
-        docker compose -f "$COMPOSE_FILE" watch "${SERVICES[@]}"
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" watch "${SERVICES[@]}"
     fi
 else
     echo -e "${GREEN}🚀 Starting development environment...${NC}"
     echo ""
 
     if [ "$DETACHED" = true ]; then
-        docker compose -f "$COMPOSE_FILE" up -d "${SERVICES[@]}"
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d "${SERVICES[@]}"
         echo ""
         echo -e "${GREEN}✅ Services started in background${NC}"
         echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
         echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
     else
-        docker compose -f "$COMPOSE_FILE" up "${SERVICES[@]}"
+        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up "${SERVICES[@]}"
     fi
 fi
