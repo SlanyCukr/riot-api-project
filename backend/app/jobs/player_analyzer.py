@@ -213,8 +213,18 @@ class PlayerAnalyzerJob(BaseJob):
             )
 
             # Step 4: Mark player as analyzed
-            player.is_analyzed = True
-            player.updated_at = datetime.now()
+            # Use UPDATE statement to avoid session state issues after multiple commits
+            from sqlalchemy import update
+
+            stmt = (
+                update(Player)
+                .where(Player.puuid == player.puuid)
+                .values(
+                    is_analyzed=True,
+                    updated_at=datetime.now(),
+                )
+            )
+            await db.execute(stmt)
             await db.commit()
             self.increment_metric("records_updated")
 
@@ -354,7 +364,7 @@ class PlayerAnalyzerJob(BaseJob):
                     # Check if we already have this match
                     stmt = select(MatchParticipant).where(
                         MatchParticipant.match_id == match_id,
-                        MatchParticipant.puuid == player.puuid
+                        MatchParticipant.puuid == player.puuid,
                     )
                     result = await db.execute(stmt)
                     if result.scalar_one_or_none():
@@ -367,6 +377,7 @@ class PlayerAnalyzerJob(BaseJob):
                     if match_dto:
                         # Store using match service
                         from ..services.matches import MatchService
+
                         match_service = MatchService(db, self.data_manager)
                         match_data = match_dto.model_dump(by_alias=True, mode="json")
                         await match_service._store_match_detail(match_data)

@@ -115,21 +115,36 @@ class BaseJob(ABC):
             return
 
         try:
-            self.job_execution.completed_at = datetime.now(timezone.utc)
+            # Get a fresh copy of the job execution from the database
+            # This ensures we're working with an attached object in the current session
+            from sqlalchemy import update
+            from ..models.job_tracking import JobExecution
+
+            completed_at = datetime.now(timezone.utc)
+            duration = (completed_at - self.job_execution.started_at).total_seconds()
+
+            # Use an UPDATE statement instead of ORM to avoid session state issues
+            stmt = (
+                update(JobExecution)
+                .where(JobExecution.id == self.job_execution.id)
+                .values(
+                    completed_at=completed_at,
+                    status=JobStatus.SUCCESS if success else JobStatus.FAILED,
+                    api_requests_made=self.metrics["api_requests_made"],
+                    records_created=self.metrics["records_created"],
+                    records_updated=self.metrics["records_updated"],
+                    error_message=error_message,
+                    execution_log=self.execution_log,
+                )
+            )
+            await db.execute(stmt)
+            await db.commit()
+
+            # Update local object for logging purposes
+            self.job_execution.completed_at = completed_at
             self.job_execution.status = (
                 JobStatus.SUCCESS if success else JobStatus.FAILED
             )
-            self.job_execution.api_requests_made = self.metrics["api_requests_made"]
-            self.job_execution.records_created = self.metrics["records_created"]
-            self.job_execution.records_updated = self.metrics["records_updated"]
-            self.job_execution.error_message = error_message
-            self.job_execution.execution_log = self.execution_log
-
-            await db.commit()
-
-            duration = (
-                self.job_execution.completed_at - self.job_execution.started_at
-            ).total_seconds()
 
             logger.info(
                 "Job execution completed",
@@ -148,10 +163,18 @@ class BaseJob(ABC):
             logger.error(
                 "Failed to log job completion",
                 job_name=self.job_config.name,
+                execution_id=self.job_execution.id if self.job_execution else None,
                 error=str(e),
                 error_type=type(e).__name__,
+                exc_info=True,  # Include full traceback
             )
-            await db.rollback()
+            try:
+                await db.rollback()
+            except Exception as rollback_error:
+                logger.error(
+                    "Failed to rollback after log_completion error",
+                    error=str(rollback_error),
+                )
 
     async def handle_error(self, db: AsyncSession, error: Exception) -> None:
         """Handle job execution error.
@@ -174,7 +197,7 @@ class BaseJob(ABC):
         await self.log_completion(db, success=False, error_message=error_message)
 
     async def run(self) -> None:
-        """Main entry point for job execution.
+        """Execute the job with proper error handling and logging.
 
         This method:
         1. Creates database session
