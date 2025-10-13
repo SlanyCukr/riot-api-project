@@ -2,6 +2,7 @@ import { Player } from "@/lib/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User } from "lucide-react";
+import { TrackPlayerButton } from "@/components/track-player-button";
 
 interface PlayerCardProps {
   player: Player;
@@ -24,14 +25,35 @@ export function PlayerCard({ player }: PlayerCardProps) {
             <User className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-xl">
-              {player.riot_id && player.tag_line
-                ? `${player.riot_id}#${player.tag_line}`
-                : player.summoner_name}
-            </CardTitle>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{player.platform.toUpperCase()}</span>
-              <Badge variant="secondary">Level {player.account_level}</Badge>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl">
+                  {player.riot_id && player.tag_line
+                    ? `${player.riot_id}#${player.tag_line}`
+                    : player.summoner_name}
+                </CardTitle>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>{player.platform.toUpperCase()}</span>
+                  <Badge variant="secondary">
+                    Level {player.account_level}
+                  </Badge>
+                  {player.is_tracked && (
+                    <Badge variant="default" className="bg-yellow-600">
+                      Tracked
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <TrackPlayerButton
+                puuid={player.puuid}
+                playerName={
+                  player.riot_id && player.tag_line
+                    ? `${player.riot_id}#${player.tag_line}`
+                    : player.summoner_name
+                }
+                variant="outline"
+                size="default"
+              />
             </div>
           </div>
         </div>

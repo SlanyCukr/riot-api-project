@@ -220,13 +220,14 @@ class RateLimiter:
 
     def _get_endpoint_key(self, endpoint: str, method: str) -> str:
         """Generate a key for the endpoint."""
-        # Extract the main endpoint path for rate limiting
-        parts = endpoint.split("/")
-        if len(parts) >= 4:
-            # Use the main service and endpoint (e.g., "lol-match-v5-matches")
-            service_key = f"{parts[-3]}-{parts[-2]}-{parts[-1]}"
+        stripped = endpoint.replace("https://", "").replace("http://", "")
+        path = stripped.split("/", 1)[1] if "/" in stripped else stripped
+        segments = [segment for segment in path.split("/") if segment]
+
+        if segments:
+            service_key = "-".join(segments[:4])
         else:
-            service_key = endpoint
+            service_key = path
 
         return f"{method}:{service_key}"
 
@@ -356,6 +357,7 @@ class RateLimiter:
         # Add jitter to prevent thundering herd
         jitter = backoff * self.jitter_factor * (random.random() * 2 - 1)
         total_backoff = max(0, backoff + jitter)
+        total_backoff = min(total_backoff, self.max_backoff)
 
         logger.debug(
             "Calculated backoff",

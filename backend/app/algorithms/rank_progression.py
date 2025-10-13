@@ -285,6 +285,10 @@ class RankProgressionAnalyzer:
         else:
             return f"Normal rank progression: {current_display} (peak: {peak_display})"
 
+    # TODO: Integrate into detection service for rank vs performance analysis
+    #       Tracks: Players performing significantly above/below their rank
+    #       Use case: High KDA in low rank = smurf signal, low KDA in high rank = boosted signal
+    #       Integration point: services/detection.py - add discrepancy factor to scoring
     def analyze_rank_discrepancy(
         self, current_rank: PlayerRank, performance_metrics: Dict[str, float]
     ) -> Dict[str, Any]:
@@ -298,6 +302,19 @@ class RankProgressionAnalyzer:
         Returns:
             Dictionary with discrepancy analysis
         """
+        # Handle UNRANKED tier (not in Tier enum)
+        if current_rank.tier == "UNRANKED":
+            return {
+                "discrepancy_score": 0.0,
+                "is_suspicious": False,
+                "expected_kda": 1.0,
+                "actual_kda": performance_metrics.get("kda", 0.0),
+                "expected_win_rate": 0.50,
+                "actual_win_rate": performance_metrics.get("win_rate", 0.0),
+                "tier_mismatch": False,
+                "note": "Player is unranked - no tier comparison available",
+            }
+
         tier_level: int = self.tier_hierarchy.get(Tier(current_rank.tier), 0)
 
         # Expected performance metrics for this tier

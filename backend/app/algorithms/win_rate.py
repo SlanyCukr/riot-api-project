@@ -148,6 +148,10 @@ class WinRateAnalyzer:
         else:
             return 0.0
 
+    # TODO: Integrate into detection service for win rate evolution tracking
+    #       Tracks: Changes in win rate over time (improving vs declining)
+    #       Use case: Sudden win rate spike = smurf/booster, gradual improvement = legitimate improvement
+    #       Integration point: services/detection.py - add temporal win rate factor
     def analyze_win_rate_trend(
         self, recent_matches: List[Dict[str, Any]]
     ) -> Dict[str, Any]:

@@ -18,11 +18,9 @@ from ..models.smurf_detection import SmurfDetection
 from ..models.ranks import PlayerRank
 from ..schemas.detection import (
     DetectionResponse,
-    DetectionRequest,
     DetectionStatsResponse,
     DetectionConfigResponse,
     DetectionFactor,
-    BulkDetectionResponse,
 )
 from ..algorithms.win_rate import WinRateAnalyzer
 from ..algorithms.rank_progression import RankProgressionAnalyzer
@@ -58,12 +56,17 @@ class SmurfDetectionService:
         }
 
         # Factor weights
+        # Factor weights (must sum to 1.0)
         self.weights = {
-            "win_rate": 0.35,
-            "account_level": 0.15,
-            "rank_progression": 0.25,
-            "performance_consistency": 0.20,
-            "kda": 0.05,
+            "win_rate": 0.18,  # Base win rate
+            "win_rate_trend": 0.10,  # Win rate over time (NEW)
+            "account_level": 0.08,  # Account age indicator
+            "rank_progression": 0.09,  # Rank climb speed
+            "rank_discrepancy": 0.20,  # Rank vs performance mismatch (NEW) - HIGH
+            "performance_consistency": 0.08,  # Performance variance
+            "performance_trends": 0.15,  # Performance over time (NEW)
+            "role_performance": 0.09,  # Role versatility (NEW)
+            "kda": 0.03,  # Kill/Death/Assist ratio
         }
 
     async def analyze_player(
@@ -104,7 +107,7 @@ class SmurfDetectionService:
             raise ValueError(f"Player not found: {puuid}")
 
         # Get recent performance data
-        recent_matches = await self._get_recent_matches(
+        recent_matches, match_ids = await self._get_recent_matches(
             puuid, queue_filter, min_games, time_period_days
         )
 
@@ -140,7 +143,11 @@ class SmurfDetectionService:
             sample_size=len(recent_matches),
             queue_type=queue_filter,
             time_period_days=time_period_days,
+            player=player,
         )
+
+        # Mark matches as processed
+        await self._mark_matches_processed(match_ids)
 
         # Calculate analysis time
         analysis_time = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -279,6 +286,206 @@ class SmurfDetectionService:
                 )
             )
 
+        # NEW: Win rate trend analysis
+        try:
+            if len(recent_matches) >= 10:
+                win_rate_trend_result = self.win_rate_analyzer.analyze_win_rate_trend(
+                    recent_matches
+                )
+                trend_score = win_rate_trend_result.get("score", 0.0)
+                trend_type = win_rate_trend_result.get("trend", "stable")
+                improvement = win_rate_trend_result.get("improvement", 0.0)
+
+                factors.append(
+                    DetectionFactor(
+                        name="win_rate_trend",
+                        value=improvement,
+                        meets_threshold=trend_score > 0.5,
+                        weight=self.weights["win_rate_trend"],
+                        description=f"Win rate trend: {trend_type} ({improvement:+.1%} change)",
+                        score=trend_score,
+                    )
+                )
+            else:
+                factors.append(
+                    DetectionFactor(
+                        name="win_rate_trend",
+                        value=0.0,
+                        meets_threshold=False,
+                        weight=self.weights["win_rate_trend"],
+                        description="Win rate trend: insufficient data",
+                        score=0.0,
+                    )
+                )
+        except Exception as e:
+            logger.error("Win rate trend analysis failed", puuid=puuid, error=str(e))
+            factors.append(
+                DetectionFactor(
+                    name="win_rate_trend",
+                    value=0.0,
+                    meets_threshold=False,
+                    weight=self.weights["win_rate_trend"],
+                    description="Win rate trend analysis failed",
+                    score=0.0,
+                )
+            )
+
+        # NEW: Performance trends analysis
+        try:
+            if len(recent_matches) >= 10:
+                performance_trend_result = (
+                    self.performance_analyzer.analyze_performance_trends(recent_matches)
+                )
+                trend_score = performance_trend_result.get("trend_score", 0.0)
+                is_stable = performance_trend_result.get(
+                    "is_suspiciously_stable", False
+                )
+                overall_perf = performance_trend_result.get("overall_performance", 0.0)
+
+                # High score if either trending upward OR suspiciously stable high performance
+                final_score = max(trend_score, 0.8 if is_stable else 0.0)
+
+                factors.append(
+                    DetectionFactor(
+                        name="performance_trends",
+                        value=overall_perf,
+                        meets_threshold=final_score > 0.6,
+                        weight=self.weights["performance_trends"],
+                        description=f"Performance trend: {performance_trend_result.get('trend', 'stable')} (score: {overall_perf:.2f})",
+                        score=final_score,
+                    )
+                )
+            else:
+                factors.append(
+                    DetectionFactor(
+                        name="performance_trends",
+                        value=0.0,
+                        meets_threshold=False,
+                        weight=self.weights["performance_trends"],
+                        description="Performance trends: insufficient data",
+                        score=0.0,
+                    )
+                )
+        except Exception as e:
+            logger.error(
+                "Performance trends analysis failed", puuid=puuid, error=str(e)
+            )
+            factors.append(
+                DetectionFactor(
+                    name="performance_trends",
+                    value=0.0,
+                    meets_threshold=False,
+                    weight=self.weights["performance_trends"],
+                    description="Performance trends analysis failed",
+                    score=0.0,
+                )
+            )
+
+        # NEW: Role performance analysis
+        try:
+            role_perf_result = self.performance_analyzer.analyze_role_performance(
+                recent_matches
+            )
+            versatility_score = role_perf_result.get("role_versatility_score", 0)
+            high_perf_roles = role_perf_result.get("consistent_high_performance", 0)
+
+            # Smurfs often excel at multiple roles
+            role_score = (
+                min(1.0, high_perf_roles / 3.0) if versatility_score >= 3 else 0.0
+            )
+
+            factors.append(
+                DetectionFactor(
+                    name="role_performance",
+                    value=float(high_perf_roles),
+                    meets_threshold=high_perf_roles >= 2,
+                    weight=self.weights["role_performance"],
+                    description=f"Role versatility: {high_perf_roles} roles with high performance",
+                    score=role_score,
+                )
+            )
+        except Exception as e:
+            logger.error("Role performance analysis failed", puuid=puuid, error=str(e))
+            factors.append(
+                DetectionFactor(
+                    name="role_performance",
+                    value=0.0,
+                    meets_threshold=False,
+                    weight=self.weights["role_performance"],
+                    description="Role performance analysis failed",
+                    score=0.0,
+                )
+            )
+
+        # NEW: Rank discrepancy analysis (rank vs performance mismatch)
+        try:
+            # Get current rank
+            current_rank = await self._get_current_rank(puuid)
+
+            if current_rank:
+                # Calculate performance metrics from recent matches
+                total_kills = sum(m.get("kills", 0) for m in recent_matches)
+                total_deaths = sum(m.get("deaths", 0) for m in recent_matches)
+                total_assists = sum(m.get("assists", 0) for m in recent_matches)
+                wins = sum(1 for m in recent_matches if m.get("win", False))
+
+                avg_kda = self._calculate_kda(total_kills, total_deaths, total_assists)
+                win_rate = wins / len(recent_matches) if recent_matches else 0.0
+
+                performance_metrics = {
+                    "kda": avg_kda,
+                    "win_rate": win_rate,
+                }
+
+                rank_discrepancy_result = self.rank_analyzer.analyze_rank_discrepancy(
+                    current_rank, performance_metrics
+                )
+
+                discrepancy_score = rank_discrepancy_result.get(
+                    "discrepancy_score", 0.0
+                )
+                is_suspicious = rank_discrepancy_result.get("is_suspicious", False)
+
+                # Handle UNRANKED separately with clearer messaging
+                if current_rank.tier == "UNRANKED":
+                    description = f"Player is unranked (KDA: {avg_kda:.2f}, WR: {win_rate:.1%}) - no tier comparison"
+                else:
+                    description = f"Rank vs performance: {current_rank.tier} {current_rank.rank} (KDA: {avg_kda:.2f}, WR: {win_rate:.1%})"
+
+                factors.append(
+                    DetectionFactor(
+                        name="rank_discrepancy",
+                        value=discrepancy_score,
+                        meets_threshold=is_suspicious,
+                        weight=self.weights["rank_discrepancy"],
+                        description=description,
+                        score=min(1.0, discrepancy_score * 3),  # Scale to 0-1
+                    )
+                )
+            else:
+                factors.append(
+                    DetectionFactor(
+                        name="rank_discrepancy",
+                        value=0.0,
+                        meets_threshold=False,
+                        weight=self.weights["rank_discrepancy"],
+                        description="Rank discrepancy: no rank data available",
+                        score=0.0,
+                    )
+                )
+        except Exception as e:
+            logger.error("Rank discrepancy analysis failed", puuid=puuid, error=str(e))
+            factors.append(
+                DetectionFactor(
+                    name="rank_discrepancy",
+                    value=0.0,
+                    meets_threshold=False,
+                    weight=self.weights["rank_discrepancy"],
+                    description="Rank discrepancy analysis failed",
+                    score=0.0,
+                )
+            )
+
         # KDA analysis
         kda_factor = self._analyze_kda(recent_matches)
         factors.append(kda_factor)
@@ -345,8 +552,12 @@ class SmurfDetectionService:
         queue_filter: Optional[int],
         min_games: int,
         time_period_days: Optional[int],
-    ) -> List[Dict[str, Any]]:
-        """Get recent matches for analysis from database."""
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
+        """Get recent matches for analysis from database.
+
+        Returns:
+            Tuple of (match_data_list, match_ids_list)
+        """
         from ..models.matches import Match
         from ..models.participants import MatchParticipant
 
@@ -373,6 +584,7 @@ class SmurfDetectionService:
 
         result = await self.db.execute(query)
         matches_data: List[Dict[str, Any]] = []
+        match_ids: List[str] = []
 
         for match, participant in result:
             match_dict = {
@@ -390,8 +602,11 @@ class SmurfDetectionService:
                 "team_id": participant.team_id,
             }
             matches_data.append(match_dict)
+            match_ids.append(match.match_id)
 
-        return matches_data[:min_games]
+        # Return only the requested number of matches
+        limit = min(len(matches_data), min_games)
+        return matches_data[:limit], match_ids[:limit]
 
     def _analyze_kda(self, recent_matches: List[Dict[str, Any]]) -> DetectionFactor:
         """Analyze KDA factor."""
@@ -440,17 +655,21 @@ class SmurfDetectionService:
         sample_size: int,
         queue_type: Optional[int] = None,
         time_period_days: Optional[int] = None,
+        player: Optional[Player] = None,
     ) -> SmurfDetection:
         """Store detection result in database."""
-        # Get factor values for storage
-        win_rate_value = next((f.value for f in factors if f.name == "win_rate"), 0.0)
-        kda_value = next((f.value for f in factors if f.name == "kda"), 0.0)
-        account_level_value = next(
-            (f.value for f in factors if f.name == "account_level"), 0.0
+        # Get factor SCORES for storage (normalized 0-1 values)
+        win_rate_score = next((f.score for f in factors if f.name == "win_rate"), 0.0)
+        kda_score = next((f.score for f in factors if f.name == "kda"), 0.0)
+        account_level_score = next(
+            (f.score for f in factors if f.name == "account_level"), 0.0
         )
-        rank_progression_value = next(
-            (f.value for f in factors if f.name == "rank_progression"), 0.0
+        rank_progression_score = next(
+            (f.score for f in factors if f.name == "rank_progression"), 0.0
         )
+
+        # Get actual account level from player data (not the score!)
+        actual_account_level = player.account_level if player else 0
 
         # Get current rank information
         current_rank = await self._get_current_rank(puuid)
@@ -465,11 +684,11 @@ class SmurfDetectionService:
             time_period_days=time_period_days,
             win_rate_threshold=self.thresholds["high_win_rate"],
             kda_threshold=self.thresholds["high_kda"],
-            win_rate_score=win_rate_value,
-            kda_score=kda_value,
-            account_level_score=account_level_value,
-            rank_discrepancy_score=rank_progression_value,
-            account_level=int(account_level_value),
+            win_rate_score=win_rate_score,
+            kda_score=kda_score,
+            account_level_score=account_level_score,
+            rank_discrepancy_score=rank_progression_score,
+            account_level=actual_account_level,
             current_tier=current_rank.tier if current_rank else None,
             current_rank=current_rank.rank if current_rank else None,
             analysis_version="1.0",
@@ -480,6 +699,42 @@ class SmurfDetectionService:
         await self.db.refresh(detection)
 
         return detection
+
+    async def _mark_matches_processed(self, match_ids: List[str]) -> None:
+        """Mark matches as processed after analysis.
+
+        Args:
+            match_ids: List of match IDs to mark as processed.
+        """
+        if not match_ids:
+            return
+
+        from sqlalchemy import update
+        from ..models.matches import Match
+
+        try:
+            # Update all matches in one query
+            stmt = (
+                update(Match)
+                .where(Match.match_id.in_(match_ids))
+                .values(is_processed=True)
+            )
+            await self.db.execute(stmt)
+            await self.db.commit()
+
+            logger.debug(
+                "Marked matches as processed",
+                match_count=len(match_ids),
+                match_ids=match_ids[:5],  # Log first 5 for debugging
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to mark matches as processed",
+                error=str(e),
+                match_ids=match_ids,
+            )
+            # Don't raise - this is not critical for the analysis result
+            await self.db.rollback()
 
     async def _get_current_rank(self, puuid: str) -> Optional[PlayerRank]:
         """Get player's current rank."""
@@ -666,69 +921,4 @@ class SmurfDetectionService:
             min_games_required=int(self.thresholds["min_games"]),
             analysis_version="1.0",
             last_updated=datetime.now(timezone.utc),
-        )
-
-    async def analyze_bulk_players(
-        self, puuids: List[str], analysis_config: DetectionRequest
-    ) -> BulkDetectionResponse:
-        """Perform bulk smurf detection analysis."""
-        start_time = datetime.now(timezone.utc)
-        results: List[DetectionResponse] = []
-        successful = 0
-        failed = 0
-
-        for puuid in puuids:
-            try:
-                result = await self.analyze_player(
-                    puuid=puuid,
-                    min_games=analysis_config.min_games,
-                    queue_filter=analysis_config.queue_filter,
-                    time_period_days=analysis_config.time_period_days,
-                    force_reanalyze=analysis_config.force_reanalyze,
-                )
-                results.append(result)
-                successful += 1
-            except Exception as e:
-                logger.error(
-                    "Bulk analysis failed for player", puuid=puuid, error=str(e)
-                )
-                failed += 1
-                # Create failure response
-                results.append(
-                    DetectionResponse(
-                        puuid=puuid,
-                        is_smurf=False,
-                        detection_score=0.0,
-                        confidence_level="error",
-                        factors=[],
-                        reason=f"Analysis failed: {str(e)}",
-                        sample_size=0,
-                        analysis_time_seconds=0.0,
-                        created_at=None,
-                    )
-                )
-
-        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-
-        # Create summary
-        smurf_count: int = sum(1 for r in results if r.is_smurf)
-        avg_score = (
-            sum(r.detection_score for r in results) / len(results) if results else 0.0
-        )
-
-        summary = {
-            "total_players": len(puuids),
-            "successful_analyses": successful,
-            "failed_analyses": failed,
-            "smurfs_detected": smurf_count,
-            "smurf_detection_rate": smurf_count / len(results) if results else 0.0,
-            "average_detection_score": avg_score,
-        }
-
-        return BulkDetectionResponse(
-            results=results,
-            summary=summary,
-            processing_time_seconds=processing_time,
-            successful_analyses=successful,
-            failed_analyses=failed,
         )

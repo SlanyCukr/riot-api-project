@@ -4,8 +4,10 @@ import { useState, Suspense } from "react";
 import { Player } from "@/lib/schemas";
 import { PlayerSearch } from "@/components/player-search";
 import { PlayerCard } from "@/components/player-card";
+import { PlayerStats } from "@/components/player-stats";
 import { MatchHistory } from "@/components/match-history";
 import { SmurfDetection } from "@/components/smurf-detection";
+import { RecentOpponents } from "@/components/recent-opponents";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -60,10 +62,19 @@ export default function SmurfDetectionPage() {
                 <PlayerCard player={selectedPlayer} />
               </Suspense>
 
+              <Suspense fallback={<PlayerCardSkeleton />}>
+                <PlayerStats
+                  puuid={selectedPlayer.puuid}
+                  queueFilter={420}
+                  limit={50}
+                />
+              </Suspense>
+
               <Tabs defaultValue="matches" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="matches">Match History</TabsTrigger>
                   <TabsTrigger value="smurf">Smurf Detection</TabsTrigger>
+                  <TabsTrigger value="opponents">Recent Opponents</TabsTrigger>
                 </TabsList>
                 <TabsContent value="matches" className="mt-6">
                   <Suspense fallback={<MatchHistorySkeleton />}>
@@ -76,6 +87,15 @@ export default function SmurfDetectionPage() {
                 <TabsContent value="smurf" className="mt-6">
                   <Suspense fallback={<SmurfDetectionSkeleton />}>
                     <SmurfDetection puuid={selectedPlayer.puuid} />
+                  </Suspense>
+                </TabsContent>
+                <TabsContent value="opponents" className="mt-6">
+                  <Suspense fallback={<PlayerCardSkeleton />}>
+                    <RecentOpponents
+                      puuid={selectedPlayer.puuid}
+                      limit={10}
+                      onAnalyzePlayer={handlePlayerFound}
+                    />
                   </Suspense>
                 </TabsContent>
               </Tabs>

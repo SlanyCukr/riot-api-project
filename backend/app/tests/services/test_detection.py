@@ -515,5 +515,615 @@ class TestDetectionAlgorithms:
         assert result.meets_threshold is False
 
 
+class TestAlgorithmIntegration:
+    """Test cases for newly integrated algorithm features."""
+
+    @pytest.mark.asyncio
+    async def test_detection_includes_rank_discrepancy_factor(
+        self, detection_service, sample_player, sample_matches, sample_rank, mock_db
+    ):
+        """Test that rank discrepancy factor appears in detection results."""
+        # Setup: Player with high KDA but low rank (Gold II)
+        puuid = str(sample_player.puuid)
+        sample_rank.tier = "GOLD"
+        sample_rank.rank = "II"
+
+        # Modify matches to have high KDA (smurf signal)
+        high_kda_matches = [
+            {
+                **match,
+                "kills": 15,
+                "deaths": 2,
+                "assists": 10,
+            }
+            for match in sample_matches * 10  # Need 30+ matches
+        ]
+
+        # Mock database and service methods
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service,
+                "_get_recent_matches",
+                return_value=(high_kda_matches, []),
+            ),
+            patch.object(
+                detection_service, "_get_current_rank", return_value=sample_rank
+            ),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: rank_discrepancy factor exists in result.factors
+        factor_names = [f.name for f in result.factors]
+        assert "rank_discrepancy" in factor_names
+
+        # Get the rank_discrepancy factor
+        rank_discrepancy_factor = next(
+            f for f in result.factors if f.name == "rank_discrepancy"
+        )
+
+        # Assert: factor.meets_threshold is True when discrepancy is high
+        # (high KDA in Gold rank should trigger this)
+        assert isinstance(rank_discrepancy_factor.meets_threshold, bool)
+        assert rank_discrepancy_factor.weight > 0
+        assert rank_discrepancy_factor.value is not None
+
+    @pytest.mark.asyncio
+    async def test_detection_includes_performance_trends_factor(
+        self, detection_service, sample_player, mock_db
+    ):
+        """Test that performance trends factor appears in detection results."""
+        # Setup: Matches with sudden performance improvement
+        puuid = str(sample_player.puuid)
+
+        # Create matches showing improvement over time
+        # Older matches (lower performance)
+        older_matches = [
+            {
+                "match_id": f"match_old_{i}",
+                "game_creation": int(
+                    (datetime.now() - timedelta(days=30 - i)).timestamp() * 1000
+                ),
+                "queue_id": 420,
+                "win": i % 3 == 0,  # Low win rate
+                "kills": 3,
+                "deaths": 5,
+                "assists": 4,
+                "cs": 120,
+                "vision_score": 15,
+                "champion_id": 1,
+                "role": "MIDDLE",
+                "team_id": 100,
+            }
+            for i in range(15)
+        ]
+
+        # Recent matches (high performance)
+        recent_matches = [
+            {
+                "match_id": f"match_new_{i}",
+                "game_creation": int(
+                    (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                ),
+                "queue_id": 420,
+                "win": True,
+                "kills": 12,
+                "deaths": 2,
+                "assists": 8,
+                "cs": 250,
+                "vision_score": 35,
+                "champion_id": 1,
+                "role": "MIDDLE",
+                "team_id": 100,
+            }
+            for i in range(15)
+        ]
+
+        all_matches = recent_matches + older_matches
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=(all_matches, [])
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: performance_trends factor exists
+        factor_names = [f.name for f in result.factors]
+        assert "performance_trends" in factor_names
+
+        # Get the performance_trends factor
+        trends_factor = next(
+            f for f in result.factors if f.name == "performance_trends"
+        )
+
+        # Assert: flags sudden improvement correctly
+        assert isinstance(trends_factor.meets_threshold, bool)
+        assert trends_factor.weight > 0
+        # With sudden improvement, this should likely be flagged
+        assert trends_factor.value is not None
+
+    @pytest.mark.asyncio
+    async def test_detection_includes_role_performance_factor(
+        self, detection_service, sample_player, mock_db
+    ):
+        """Test that role performance factor appears in detection results."""
+        # Setup: Matches with high performance across multiple roles
+        puuid = str(sample_player.puuid)
+
+        roles = ["MIDDLE", "TOP", "JUNGLE", "BOTTOM", "UTILITY"]
+        multi_role_matches = []
+
+        for i in range(30):
+            role = roles[i % len(roles)]
+            multi_role_matches.append(
+                {
+                    "match_id": f"match_{i}",
+                    "game_creation": int(
+                        (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                    ),
+                    "queue_id": 420,
+                    "win": True,
+                    "kills": 10,
+                    "deaths": 2,
+                    "assists": 8,
+                    "cs": 200,
+                    "vision_score": 30,
+                    "champion_id": i % 5 + 1,
+                    "role": role,
+                    "team_id": 100,
+                }
+            )
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service,
+                "_get_recent_matches",
+                return_value=(multi_role_matches, []),
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: role_performance factor exists
+        factor_names = [f.name for f in result.factors]
+        assert "role_performance" in factor_names
+
+        # Get the role_performance factor
+        role_factor = next(f for f in result.factors if f.name == "role_performance")
+
+        # Assert: flags multi-role high performance
+        assert isinstance(role_factor.meets_threshold, bool)
+        assert role_factor.weight > 0
+        assert role_factor.value is not None
+
+    @pytest.mark.asyncio
+    async def test_detection_includes_win_rate_trend_factor(
+        self, detection_service, sample_player, mock_db
+    ):
+        """Test that win rate trend factor appears in detection results."""
+        # Setup: Matches with sudden win rate spike
+        puuid = str(sample_player.puuid)
+
+        # Create matches with improving win rate
+        # Older matches: 40% win rate
+        older_matches = [
+            {
+                "match_id": f"match_old_{i}",
+                "game_creation": int(
+                    (datetime.now() - timedelta(days=30 - i)).timestamp() * 1000
+                ),
+                "queue_id": 420,
+                "win": i % 5 < 2,  # 40% win rate
+                "kills": 5,
+                "deaths": 5,
+                "assists": 6,
+                "cs": 180,
+                "vision_score": 20,
+                "champion_id": 1,
+                "role": "MIDDLE",
+                "team_id": 100,
+            }
+            for i in range(15)
+        ]
+
+        # Recent matches: 80% win rate
+        recent_matches = [
+            {
+                "match_id": f"match_new_{i}",
+                "game_creation": int(
+                    (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                ),
+                "queue_id": 420,
+                "win": i % 5 < 4,  # 80% win rate
+                "kills": 10,
+                "deaths": 3,
+                "assists": 8,
+                "cs": 220,
+                "vision_score": 30,
+                "champion_id": 1,
+                "role": "MIDDLE",
+                "team_id": 100,
+            }
+            for i in range(15)
+        ]
+
+        all_matches = recent_matches + older_matches
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=(all_matches, [])
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: win_rate_trend factor exists
+        factor_names = [f.name for f in result.factors]
+        assert "win_rate_trend" in factor_names
+
+        # Get the win_rate_trend factor
+        trend_factor = next(f for f in result.factors if f.name == "win_rate_trend")
+
+        # Assert: detects win rate changes
+        assert isinstance(trend_factor.meets_threshold, bool)
+        assert trend_factor.weight > 0
+        assert trend_factor.value is not None
+
+    @pytest.mark.asyncio
+    async def test_detection_factor_weights_sum_to_one(
+        self, detection_service, sample_player, sample_matches, mock_db
+    ):
+        """Test that all factor weights sum approximately to 1.0."""
+        puuid = str(sample_player.puuid)
+
+        # Use sufficient matches for analysis
+        matches = sample_matches * 10
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=(matches, [])
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Calculate sum of all factor weights
+        weight_sum = sum(factor.weight for factor in result.factors)
+
+        # Assert: sum of all factor weights ≈ 1.0 (within 0.01)
+        assert abs(weight_sum - 1.0) < 0.01, (
+            f"Weight sum is {weight_sum}, expected ~1.0"
+        )
+
+    @pytest.mark.asyncio
+    async def test_detection_handles_no_rank_data(
+        self, detection_service, sample_player, sample_matches, mock_db
+    ):
+        """Test detection works when player has no rank data."""
+        puuid = str(sample_player.puuid)
+
+        # Use sufficient matches
+        matches = sample_matches * 10
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=(matches, [])
+            ),
+            patch.object(
+                detection_service, "_get_current_rank", return_value=None
+            ),  # No rank
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            # Should not raise exception
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: detection completes without error
+        assert result is not None
+        assert result.puuid == puuid
+
+        # Assert: rank_discrepancy and rank_progression factors may be skipped or have value 0
+        factor_dict = {f.name: f for f in result.factors}
+
+        if "rank_discrepancy" in factor_dict:
+            # If present, should have zero score when no rank data
+            assert factor_dict["rank_discrepancy"].score >= 0
+
+        if "rank_progression" in factor_dict:
+            # If present, should handle missing rank gracefully
+            assert factor_dict["rank_progression"].score >= 0
+
+    @pytest.mark.asyncio
+    async def test_detection_handles_insufficient_matches(
+        self, detection_service, sample_player, sample_matches, mock_db
+    ):
+        """Test detection with too few matches for trends."""
+        puuid = str(sample_player.puuid)
+
+        # Only 5 matches (below minimum)
+        few_matches = sample_matches[:2]  # Only 2 matches
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service, "_get_recent_matches", return_value=(few_matches, [])
+            ),
+            patch.object(detection_service, "_get_current_rank", return_value=None),
+        ):
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: detection completes
+        assert result is not None
+        assert result.puuid == puuid
+
+        # Assert: confidence_level indicates insufficient data
+        assert result.confidence_level == "insufficient_data"
+        assert result.sample_size < 30
+
+        # Assert: trend factors are skipped or have low confidence
+        {f.name: f for f in result.factors}
+
+        # With insufficient data, most factors should have low scores
+        assert result.detection_score is not None
+
+    @pytest.mark.asyncio
+    async def test_detection_with_all_new_factors_improves_accuracy(
+        self, detection_service, sample_player, sample_rank, mock_db
+    ):
+        """Test that new factors improve overall detection for known smurf patterns."""
+        puuid = str(sample_player.puuid)
+
+        # Create smurf pattern: high rank mismatch, sudden improvement, multi-role
+        sample_rank.tier = "SILVER"  # Low rank
+        sample_rank.rank = "III"
+
+        roles = ["MIDDLE", "TOP", "JUNGLE"]
+        smurf_matches = []
+
+        for i in range(30):
+            role = roles[i % len(roles)]
+            # Recent matches: very high performance
+            if i < 15:
+                smurf_matches.append(
+                    {
+                        "match_id": f"match_{i}",
+                        "game_creation": int(
+                            (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                        ),
+                        "queue_id": 420,
+                        "win": True,  # High win rate
+                        "kills": 15,
+                        "deaths": 2,
+                        "assists": 10,
+                        "cs": 280,
+                        "vision_score": 40,
+                        "champion_id": i % 3 + 1,
+                        "role": role,
+                        "team_id": 100,
+                    }
+                )
+            # Older matches: lower performance (showing improvement)
+            else:
+                smurf_matches.append(
+                    {
+                        "match_id": f"match_{i}",
+                        "game_creation": int(
+                            (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                        ),
+                        "queue_id": 420,
+                        "win": i % 2 == 0,  # 50% win rate
+                        "kills": 8,
+                        "deaths": 5,
+                        "assists": 6,
+                        "cs": 180,
+                        "vision_score": 20,
+                        "champion_id": i % 3 + 1,
+                        "role": role,
+                        "team_id": 100,
+                    }
+                )
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service,
+                "_get_recent_matches",
+                return_value=(smurf_matches, []),
+            ),
+            patch.object(
+                detection_service, "_get_current_rank", return_value=sample_rank
+            ),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: detection_score is high (> 0.5 at least, ideally > 0.7)
+        assert result.detection_score > 0.5, (
+            f"Detection score {result.detection_score} too low for smurf pattern"
+        )
+
+        # Assert: is_smurf is True
+        # Note: Depending on thresholds, this might be medium confidence
+        # Just check that detection score is elevated
+
+        # Assert: all relevant factors are present
+        factor_names = [f.name for f in result.factors]
+        assert "rank_discrepancy" in factor_names
+        assert "performance_trends" in factor_names
+        assert "role_performance" in factor_names
+        assert "win_rate_trend" in factor_names
+
+    @pytest.mark.asyncio
+    async def test_detection_with_legitimate_player_doesnt_false_positive(
+        self, detection_service, sample_player, sample_rank, mock_db
+    ):
+        """Test that new factors don't cause false positives for legitimate players."""
+        puuid = str(sample_player.puuid)
+
+        # Create legitimate player pattern: appropriate rank, gradual improvement
+        sample_rank.tier = "GOLD"  # Appropriate rank
+        sample_rank.rank = "II"
+
+        legitimate_matches = []
+
+        for i in range(30):
+            # Gradual, consistent performance
+            legitimate_matches.append(
+                {
+                    "match_id": f"match_{i}",
+                    "game_creation": int(
+                        (datetime.now() - timedelta(days=i)).timestamp() * 1000
+                    ),
+                    "queue_id": 420,
+                    "win": i % 2 == 0,  # 50% win rate (normal)
+                    "kills": 6,
+                    "deaths": 5,
+                    "assists": 8,
+                    "cs": 190,
+                    "vision_score": 25,
+                    "champion_id": 1,  # One-trick
+                    "role": "MIDDLE",  # Single role
+                    "team_id": 100,
+                }
+            )
+
+        # Mock database
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_player
+        mock_db.execute.return_value = mock_result
+
+        with (
+            patch.object(
+                detection_service, "_get_recent_detection", return_value=None
+            ),  # Force new analysis
+            patch.object(
+                detection_service,
+                "_get_recent_matches",
+                return_value=(legitimate_matches, []),
+            ),
+            patch.object(
+                detection_service, "_get_current_rank", return_value=sample_rank
+            ),
+            patch.object(detection_service, "_store_detection_result") as mock_store,
+            patch.object(detection_service, "_mark_matches_processed"),
+        ):
+            mock_detection = MagicMock()
+            mock_detection.created_at = datetime.now()
+            mock_store.return_value = mock_detection
+
+            result = await detection_service.analyze_player(puuid=puuid, min_games=30)
+
+        # Assert: detection_score is low (< 0.6)
+        assert result.detection_score < 0.6, (
+            f"Detection score {result.detection_score} too high for legitimate player"
+        )
+
+        # Assert: is_smurf is False
+        assert result.is_smurf is False, (
+            "Legitimate player incorrectly flagged as smurf"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -1,9 +1,8 @@
 """Smurf detection model for storing smurf detection results and signals."""
 
 from decimal import Decimal
-from enum import Enum
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -19,30 +18,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
-
-
-class SmurfSignalType(str, Enum):
-    """Types of smurf detection signals."""
-
-    HIGH_WIN_RATE = "high_win_rate"
-    HIGH_KDA = "high_kda"
-    LOW_ACCOUNT_LEVEL = "low_account_level"
-    RANK_DISCREPANCY = "rank_discrepancy"
-    RAPID_RANK_PROGRESSION = "rapid_rank_progression"
-    CONSISTENT_HIGH_PERFORMANCE = "consistent_high_performance"
-    CHAMPION_POOL_BREADTH = "champion_pool_breadth"
-    ROLE_VERSATILITY = "role_versatility"
-    UNUSUAL_TIMING_PATTERNS = "unusual_timing_patterns"
-    LOW_NORMAL_GAMES = "low_normal_games"
-
-
-class SmurfConfidence(str, Enum):
-    """Confidence levels for smurf detection."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    VERY_HIGH = "very_high"
 
 
 class SmurfDetection(Base):
@@ -276,51 +251,6 @@ class SmurfDetection(Base):
         elif self.smurf_score >= 0.2:
             return "Low"
         return "Very Low"
-
-    def is_high_confidence_smurf(self) -> bool:
-        """Check if this is a high confidence smurf detection."""
-        return self.is_smurf and self.confidence in [
-            SmurfConfidence.HIGH,
-            SmurfConfidence.VERY_HIGH,
-        ]
-
-    def get_top_signals(self, limit: int = 3) -> List[str]:
-        """Get the top contributing signals for this detection."""
-        signals: List[str] = []
-
-        if self.win_rate_score and self.win_rate_score > 0.5:
-            signals.append("High Win Rate")
-        if self.kda_score and self.kda_score > 0.5:
-            signals.append("High KDA")
-        if self.account_level_score and self.account_level_score > 0.5:
-            signals.append("Low Account Level")
-        if self.rank_discrepancy_score and self.rank_discrepancy_score > 0.5:
-            signals.append("Rank Discrepancy")
-
-        return signals[:limit]
-
-    def recalculate_smurf_score(self) -> Decimal:
-        """Recalculate the overall smurf score from component scores."""
-        scores: List[float] = []
-        weights = {
-            "win_rate_score": 0.3,
-            "kda_score": 0.2,
-            "account_level_score": 0.25,
-            "rank_discrepancy_score": 0.25,
-        }
-
-        for score_attr, weight in weights.items():
-            score_value = getattr(self, score_attr)
-            if score_value is not None:
-                scores.append(float(score_value) * weight)
-
-        if scores:
-            new_score = sum(scores)
-            self.smurf_score = min(Decimal(str(new_score)), Decimal("1.0"))
-        else:
-            self.smurf_score = Decimal("0.0")
-
-        return self.smurf_score
 
 
 # Create composite indexes for common queries

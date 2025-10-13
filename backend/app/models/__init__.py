@@ -122,7 +122,7 @@ from .matches import Match  # noqa: E402
 from .participants import MatchParticipant  # noqa: E402
 from .ranks import PlayerRank  # noqa: E402
 from .smurf_detection import SmurfDetection  # noqa: E402
-from .data_tracking import DataTracking, APIRequestQueue, RateLimitLog  # noqa: E402
+from .job_tracking import JobConfiguration, JobExecution, JobStatus, JobType  # noqa: E402
 
 # fmt: on
 
@@ -133,7 +133,8 @@ __all__ = [
     "MatchParticipant",
     "PlayerRank",
     "SmurfDetection",
-    "DataTracking",
-    "APIRequestQueue",
-    "RateLimitLog",
+    "JobConfiguration",
+    "JobExecution",
+    "JobStatus",
+    "JobType",
 ]

@@ -5,6 +5,7 @@ Test cases for the player API endpoints.
 import pytest
 from unittest.mock import AsyncMock
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -70,7 +71,8 @@ class TestPlayerAPI:
 
         with TestClient(app) as client:
             response = client.get(
-                "/players/search?riot_id=TestPlayer#EUW&platform=eun1"
+                "/players/search",
+                params={"riot_id": "TestPlayer#EUW", "platform": "eun1"},
             )
 
             assert response.status_code == 200
@@ -140,7 +142,7 @@ class TestPlayerAPI:
     def test_search_player_not_found(self, mock_player_service):
         """Test player search when player is not found."""
         # Setup mock to raise exception
-        mock_player_service.get_player_by_riot_id.side_effect = Exception(
+        mock_player_service.get_player_by_riot_id.side_effect = ValueError(
             "Player not found"
         )
 
@@ -150,7 +152,10 @@ class TestPlayerAPI:
         app.dependency_overrides[get_player_service] = lambda: mock_player_service
 
         with TestClient(app) as client:
-            response = client.get("/players/search?riot_id=MissingPlayer#EUW")
+            response = client.get(
+                "/players/search",
+                params={"riot_id": "MissingPlayer#EUW"},
+            )
 
             assert response.status_code == 404
             data = response.json()
@@ -208,10 +213,12 @@ class TestPlayerAPI:
 
     def test_get_player_recent_opponents(self, mock_player_service):
         """Test get player recent opponents."""
-        # Setup mock
+        # Setup mock - endpoint returns list of PUUIDs (strings)
+        opponent_puuid_1 = str(uuid4())
+        opponent_puuid_2 = str(uuid4())
         mock_player_service.get_recent_opponents.return_value = [
-            "opponent1",
-            "opponent2",
+            opponent_puuid_1,
+            opponent_puuid_2,
         ]
 
         # Create test client with dependency override
@@ -226,12 +233,65 @@ class TestPlayerAPI:
             data = response.json()
             assert isinstance(data, list)
             assert len(data) == 2
-            assert data[0] == "opponent1"
+            assert data[0] == opponent_puuid_1
+            assert data[1] == opponent_puuid_2
+            assert isinstance(data[0], str)  # Verify it's a PUUID string
 
             # Verify service was called correctly
             mock_player_service.get_recent_opponents.assert_called_once_with(
                 "sample-puuid", 10
             )
+
+        # Clean up
+        app.dependency_overrides.clear()
+
+    def test_get_player_recent_opponents_returns_empty_list(self, mock_player_service):
+        """Test recent opponents returns empty list when player has no matches."""
+        # Setup mock
+        mock_player_service.get_recent_opponents.return_value = []
+
+        # Create test client with dependency override
+        from app.api.dependencies import get_player_service
+
+        app.dependency_overrides[get_player_service] = lambda: mock_player_service
+
+        with TestClient(app) as client:
+            response = client.get("/players/new-player-puuid/recent?limit=20")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
+            assert len(data) == 0
+
+            # Verify service was called correctly
+            mock_player_service.get_recent_opponents.assert_called_once_with(
+                "new-player-puuid", 20
+            )
+
+        # Clean up
+        app.dependency_overrides.clear()
+
+    def test_get_player_recent_opponents_with_default_limit(self, mock_player_service):
+        """Test recent opponents uses default limit when not specified."""
+        # Setup mock
+        mock_player_service.get_recent_opponents.return_value = []
+
+        # Create test client with dependency override
+        from app.api.dependencies import get_player_service
+
+        app.dependency_overrides[get_player_service] = lambda: mock_player_service
+
+        with TestClient(app) as client:
+            response = client.get("/players/sample-puuid/recent")
+
+            assert response.status_code == 200
+
+            # Verify service was called with default limit (likely 10 or 20)
+            mock_player_service.get_recent_opponents.assert_called_once()
+            call_args = mock_player_service.get_recent_opponents.call_args
+            assert call_args[0][0] == "sample-puuid"
+            # Check that a limit was passed (default value)
+            assert isinstance(call_args[0][1], int)
 
         # Clean up
         app.dependency_overrides.clear()
@@ -260,65 +320,6 @@ class TestPlayerAPI:
             # Verify service was called correctly
             mock_player_service.search_players.assert_called_once_with(
                 platform="eun1", limit=20
-            )
-
-        # Clean up
-        app.dependency_overrides.clear()
-
-    def test_search_players_advanced(self, mock_player_service, sample_player_response):
-        """Test advanced player search."""
-        # Setup mock
-        mock_player_service.search_players.return_value = [sample_player_response]
-
-        # Create test client with dependency override
-        from app.api.dependencies import get_player_service
-
-        app.dependency_overrides[get_player_service] = lambda: mock_player_service
-
-        search_data = {"riot_id": "TestPlayer#EUW", "platform": "eun1", "size": 10}
-
-        with TestClient(app) as client:
-            response = client.post("/players/search", json=search_data)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert isinstance(data, list)
-            assert len(data) == 1
-            assert data[0]["riot_id"] == "TestPlayer#EUW"
-
-            # Verify service was called correctly
-            mock_player_service.search_players.assert_called_once_with(
-                summoner_name=None, riot_id="TestPlayer#EUW", platform="eun1", limit=10
-            )
-
-        # Clean up
-        app.dependency_overrides.clear()
-
-    def test_bulk_get_players(self, mock_player_service, sample_player_response):
-        """Test bulk get players."""
-        # Setup mock
-        mock_player_service.bulk_get_players.return_value = [sample_player_response]
-
-        # Create test client with dependency override
-        from app.api.dependencies import get_player_service
-
-        app.dependency_overrides[get_player_service] = lambda: mock_player_service
-
-        bulk_data = {"puuids": [sample_player_response.puuid]}
-
-        with TestClient(app) as client:
-            response = client.post("/players/bulk", json=bulk_data)
-
-            assert response.status_code == 200
-            data = response.json()
-            assert "players" in data
-            assert "not_found" in data
-            assert len(data["players"]) == 1
-            assert len(data["not_found"]) == 0
-
-            # Verify service was called correctly
-            mock_player_service.bulk_get_players.assert_called_once_with(
-                [sample_player_response.puuid]
             )
 
         # Clean up

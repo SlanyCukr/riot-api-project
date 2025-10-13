@@ -208,4 +208,73 @@ export async function validatedDelete<T>(
   }
 }
 
+// Player Tracking API Functions
+export async function trackPlayer(
+  puuid: string,
+): Promise<ApiResponse<{ message: string }>> {
+  try {
+    const response = await api.post(`/players/${puuid}/track`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
+}
+
+export async function untrackPlayer(
+  puuid: string,
+): Promise<ApiResponse<{ message: string }>> {
+  try {
+    const response = await api.delete(`/players/${puuid}/track`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
+}
+
+export async function getTrackingStatus(
+  puuid: string,
+): Promise<ApiResponse<{ is_tracked: boolean }>> {
+  try {
+    const response = await api.get(`/players/${puuid}/tracking-status`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
+}
+
+export async function getTrackedPlayers(): Promise<
+  ApiResponse<{ players: unknown[] }>
+> {
+  try {
+    const response = await api.get(`/players/tracked`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
+}
+
 export default api;

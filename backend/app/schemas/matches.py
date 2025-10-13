@@ -1,7 +1,7 @@
 """Pydantic schemas for Match model."""
 
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict, computed_field
 
@@ -157,41 +157,3 @@ class MatchSearchRequest(BaseModel):
     )
     page: int = Field(1, ge=1, description="Page number")
     size: int = Field(20, ge=1, le=100, description="Page size")
-
-
-class MatchBulkRequest(BaseModel):
-    """Schema for bulk match operations."""
-
-    match_ids: list[str] = Field(
-        ..., min_length=1, max_length=100, description="List of match IDs"
-    )
-
-
-class MatchBulkResponse(BaseModel):
-    """Schema for bulk match operations response."""
-
-    matches: list[MatchResponse]
-    not_found: list[str]
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class MatchProcessingRequest(BaseModel):
-    """Schema for match processing requests."""
-
-    match_ids: list[str] = Field(
-        ..., min_length=1, max_length=50, description="List of match IDs to process"
-    )
-    force_reprocess: bool = Field(
-        False, description="Whether to reprocess already processed matches"
-    )
-
-
-class MatchProcessingResponse(BaseModel):
-    """Schema for match processing response."""
-
-    processed_count: int
-    failed_count: int
-    errors: List[Dict[str, str]] = []
-
-    model_config = ConfigDict(from_attributes=True)

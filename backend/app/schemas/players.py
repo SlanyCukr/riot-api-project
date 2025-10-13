@@ -12,7 +12,7 @@ class PlayerBase(BaseModel):
     puuid: str = Field(..., description="Player's PUUID")
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     tag_line: Optional[str] = Field(None, description="Riot tag line")
-    summoner_name: str = Field(..., description="Current summoner name")
+    summoner_name: Optional[str] = Field(None, description="Current summoner name")
     platform: str = Field(..., description="Platform region")
     account_level: Optional[int] = Field(None, description="Account level")
     profile_icon_id: Optional[int] = Field(None, description="Profile icon ID")
@@ -40,25 +40,19 @@ class PlayerResponse(PlayerBase):
     created_at: datetime
     updated_at: datetime
     last_seen: datetime
+    is_tracked: bool = Field(
+        default=False,
+        description="Whether this player is being tracked for automated updates",
+    )
+    is_analyzed: bool = Field(
+        default=False,
+        description="Whether this player has been analyzed for smurf/boosted detection",
+    )
+    last_ban_check: Optional[datetime] = Field(
+        None, description="When this player was last checked for ban status"
+    )
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class PlayerSearchRequest(BaseModel):
-    """Schema for player search request parameters."""
-
-    riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
-    summoner_name: Optional[str] = Field(None, description="Summoner name")
-    platform: str = Field("eun1", description="Platform region")
-    size: int = Field(
-        10, ge=1, le=100, description="Maximum number of results to return"
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {"riot_id": "DangerousDan#EUW", "platform": "eun1", "size": 10}
-        }
-    )
 
 
 class PlayerListResponse(BaseModel):

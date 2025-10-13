@@ -11,6 +11,8 @@ from app.config import get_global_settings
 from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
+from app.api.jobs import router as jobs_router
+from app.jobs import start_scheduler, shutdown_scheduler
 import structlog
 
 
@@ -47,9 +49,34 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting up Riot API Backend application")
 
+    # Start job scheduler if enabled
+    try:
+        scheduler = await start_scheduler()
+        if scheduler:
+            logger.info("Job scheduler started")
+    except Exception as e:
+        logger.error(
+            "Failed to start job scheduler",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        # Don't fail startup if scheduler fails
+        # This allows manual operations to continue
+
     yield
 
     logger.info("Shutting down Riot API Backend application")
+
+    # Shutdown job scheduler
+    try:
+        await shutdown_scheduler()
+        logger.info("Job scheduler shut down")
+    except Exception as e:
+        logger.error(
+            "Error during scheduler shutdown",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
 
 # OpenAPI tags metadata
@@ -65,6 +92,10 @@ tags_metadata = [
     {
         "name": "smurf-detection",
         "description": "Smurf detection algorithms and analysis endpoints.",
+    },
+    {
+        "name": "jobs",
+        "description": "Job management and monitoring endpoints for automated tasks.",
     },
     {
         "name": "health",
@@ -123,16 +154,13 @@ app.add_middleware(
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
 app.include_router(detection_router, prefix="/api/v1", tags=["smurf-detection"])
+app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
 
-
-@app.get("/", tags=["health"])
-async def root():
-    """
-    Root endpoint - API welcome message.
-
-    Returns basic information about the API and its version.
-    """
-    return {"message": "Riot API Backend is running", "version": "0.1.0"}
+# Legacy route compatibility (tests and existing clients expect root-level paths)
+app.include_router(players_router)
+app.include_router(matches_router)
+app.include_router(detection_router)
+app.include_router(jobs_router)
 
 
 @app.get("/health", tags=["health"])
@@ -154,22 +182,6 @@ async def health_check() -> Dict[str, Any]:
         "version": "0.1.0",
         "debug": settings.debug,
     }
-
-
-@app.get("/api/v1/health", tags=["health"])
-async def api_health_check() -> Dict[str, str]:
-    """
-    Check API v1 health status.
-
-    Returns health status specifically for the v1 API endpoints.
-    This is the recommended health check endpoint for production use.
-
-    ## Response
-    - **status**: Health status (healthy/unhealthy)
-    - **service**: Service identifier
-    - **version**: API version
-    """
-    return {"status": "healthy", "service": "riot-api-backend", "version": "0.1.0"}
 
 
 if __name__ == "__main__":

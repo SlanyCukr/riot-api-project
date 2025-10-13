@@ -1,5 +1,6 @@
 """Match service for handling match data operations."""
 
+import asyncio
 from typing import Optional, List, Dict, Any
 import structlog
 
@@ -56,9 +57,13 @@ class MatchService:
             )
 
             if len(db_matches) < count:
-                # Fetch from API
+                # Fetch from API (cap at 100 due to Riot API limit)
+                # We fetch more than what we have in DB, but not more than what user requested
+                fetch_count = min(count - len(db_matches), 100)
+                fetch_start = start + len(db_matches)
+
                 api_matches = await self._fetch_matches_from_api(
-                    puuid, start, count, queue, start_time, end_time
+                    puuid, fetch_start, fetch_count, queue, start_time, end_time
                 )
                 # Store in database
                 await self._store_matches(api_matches)
@@ -68,13 +73,18 @@ class MatchService:
                 puuid, start, count, queue, start_time, end_time
             )
 
+            # Get total count of matches for pagination
+            total_count = await self._count_matches_from_db(
+                puuid, queue, start_time, end_time
+            )
+
             match_responses = [
                 MatchResponse.model_validate(match) for match in all_matches
             ]
 
             return MatchListResponse(
                 matches=match_responses,
-                total=len(match_responses),
+                total=total_count,
                 start=start,
                 count=count,
             )
@@ -237,6 +247,30 @@ class MatchService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def _count_matches_from_db(
+        self,
+        puuid: str,
+        queue: Optional[int],
+        start_time: Optional[int],
+        end_time: Optional[int],
+    ) -> int:
+        """Count total matches for a player from database."""
+        query = (
+            select(func.count(Match.match_id))
+            .join(MatchParticipant)
+            .where(MatchParticipant.puuid == puuid)
+        )
+
+        if queue:
+            query = query.where(Match.queue_id == queue)
+        if start_time:
+            query = query.where(Match.game_creation >= start_time)
+        if end_time:
+            query = query.where(Match.game_creation <= end_time)
+
+        result = await self.db.execute(query)
+        return result.scalar_one()
+
     async def _fetch_matches_from_api(
         self,
         puuid: str,
@@ -262,13 +296,15 @@ class MatchService:
             raise
 
     async def _store_matches(self, match_ids: List[str]) -> None:
-        """Store match details in database."""
-        for match_id in match_ids:
+        """Store match details in database with parallel fetching for better performance."""
+
+        async def store_single_match(match_id: str) -> None:
+            """Store a single match, skipping if it already exists."""
             try:
                 # Check if match already exists
                 existing_match = await self._get_match_from_db(match_id)
                 if existing_match:
-                    continue
+                    return
 
                 match_dto = await self.data_manager.get_match(match_id)
                 # Convert MatchDTO to dict for storage - use model_dump with by_alias=True
@@ -277,7 +313,15 @@ class MatchService:
                 await self._store_match_detail(match_data)
             except Exception as e:
                 logger.error("Failed to store match", match_id=match_id, error=str(e))
-                continue
+
+        # Fetch and store matches in parallel (limit concurrency to avoid rate limits)
+        # Process in batches of 10 to balance speed and rate limiting
+        batch_size = 10
+        for i in range(0, len(match_ids), batch_size):
+            batch = match_ids[i : i + batch_size]
+            await asyncio.gather(
+                *[store_single_match(mid) for mid in batch], return_exceptions=True
+            )
 
     async def _store_match_detail(self, match_data: Dict[str, Any]) -> Match:
         """Store match detail in database."""

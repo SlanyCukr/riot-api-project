@@ -246,5 +246,9 @@ logs/
 agents/
 .zed/
 .claude/
-specs/
 .ruff_cache/
+
+# Factory.ai - exclude personal settings but include project commands
+.factory/docs/
+!.factory/commands/
+openspec/

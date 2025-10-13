@@ -48,8 +48,25 @@ class MatchParticipant(Base):
     )
 
     # Participant information
-    summoner_name: Mapped[str] = mapped_column(
-        String(32), nullable=False, comment="Summoner name at the time of the match"
+    riot_id_name: Mapped[Optional[str]] = mapped_column(
+        String(128), nullable=True, comment="Riot ID game name at the time of the match"
+    )
+
+    riot_id_tagline: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True, comment="Riot ID tagline at the time of the match"
+    )
+
+    summoner_name: Mapped[Optional[str]] = mapped_column(
+        String(32),
+        nullable=True,
+        comment="Summoner name at the time of the match (may be NULL if Riot API returns empty string)",
+    )
+
+    summoner_level: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        comment="Summoner level at the time of the match",
     )
 
     team_id: Mapped[int] = mapped_column(
@@ -207,12 +224,6 @@ class MatchParticipant(Base):
         if self.deaths == 0:
             return Decimal(self.kills + self.assists)
         return Decimal(self.kills + self.assists) / Decimal(self.deaths)
-
-    def calculate_cs_per_minute(self) -> Optional[float]:
-        """Calculate CS per minute."""
-        # This would need to be calculated after fetching the match
-        # For now, we'll return None
-        return None
 
     @property
     def kdr(self) -> Optional[float]:

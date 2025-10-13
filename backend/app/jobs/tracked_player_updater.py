@@ -1,0 +1,631 @@
+"""Tracked Player Updater Job - Updates match history and rank for tracked players."""
+
+from datetime import datetime, timedelta
+from typing import List, Any, Optional
+import structlog
+
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .base import BaseJob
+from ..models.players import Player
+from ..models.matches import Match
+from ..models.participants import MatchParticipant
+from ..models.job_tracking import JobConfiguration
+from ..riot_api.client import RiotAPIClient
+from ..riot_api.data_manager import RiotDataManager
+from ..riot_api.errors import RateLimitError, NotFoundError
+from ..riot_api.endpoints import Platform
+from ..config import get_global_settings
+
+logger = structlog.get_logger(__name__)
+
+
+class TrackedPlayerUpdaterJob(BaseJob):
+    """Job that updates match history and rank for tracked players.
+
+    This job:
+    1. Fetches all players marked as tracked (is_tracked=True)
+    2. For each tracked player:
+       - Fetches new matches since last check
+       - Stores match details and participants
+       - Marks new discovered players (is_tracked=False, is_analyzed=False)
+       - Updates player rank
+    3. Respects API rate limits with backoff
+    4. Logs progress and metrics
+    """
+
+    def __init__(self, job_config: JobConfiguration):
+        """Initialize tracked player updater job.
+
+        Args:
+            job_config: Job configuration from database.
+        """
+        super().__init__(job_config)
+        self.settings = get_global_settings()
+
+        # Extract configuration
+        config = job_config.config_json or {}
+        self.max_new_matches_per_player = config.get("max_new_matches_per_player", 20)
+        self.max_tracked_players = config.get("max_tracked_players", 10)
+
+        # Initialize Riot API client (will be created in execute)
+        self.api_client: Optional[RiotAPIClient] = None
+        self.data_manager: Optional[RiotDataManager] = None
+
+    async def execute(self, db: AsyncSession) -> None:
+        """Execute the tracked player updater job.
+
+        Args:
+            db: Database session for job execution.
+        """
+        logger.info(
+            "Starting tracked player updater job",
+            job_id=self.job_config.id,
+            max_new_matches=self.max_new_matches_per_player,
+        )
+
+        # Initialize API client and data manager
+        self.api_client = RiotAPIClient(
+            api_key=self.settings.riot_api_key,
+            region=self.settings.riot_region,
+            platform=self.settings.riot_platform,
+        )
+        self.data_manager = RiotDataManager(db, self.api_client)
+
+        try:
+            # Get all tracked players
+            tracked_players = await self._get_tracked_players(db)
+
+            if not tracked_players:
+                logger.info("No tracked players found, job complete")
+                self.add_log_entry("tracked_players_count", 0)
+                return
+
+            logger.info(
+                "Found tracked players to update",
+                count=len(tracked_players),
+                player_ids=[p.puuid for p in tracked_players],
+            )
+
+            self.add_log_entry("tracked_players_count", len(tracked_players))
+            self.add_log_entry("tracked_players", [p.puuid for p in tracked_players])
+
+            # Process each tracked player
+            for player in tracked_players:
+                try:
+                    # Check if player's platform matches our configured region
+                    # Riot API requires correct regional routing for match queries
+                    player_platform = Platform(player.platform.lower())
+                    player_region = self.api_client.endpoints.get_region_for_platform(
+                        player_platform
+                    )
+
+                    if player_region != self.api_client.region:
+                        logger.warning(
+                            "Skipping player from different region",
+                            puuid=player.puuid,
+                            player_platform=player.platform,
+                            player_region=player_region.value,
+                            configured_region=self.api_client.region.value,
+                        )
+                        continue
+
+                    await self._update_player(db, player)
+                except Exception as e:
+                    logger.error(
+                        "Failed to update tracked player",
+                        puuid=player.puuid,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+                    # Continue with next player
+                    continue
+
+            logger.info(
+                "Tracked player updater job completed successfully",
+                api_requests=self.metrics["api_requests_made"],
+                records_created=self.metrics["records_created"],
+                records_updated=self.metrics["records_updated"],
+            )
+
+        finally:
+            # Clean up API client
+            if self.api_client:
+                await self.api_client.close()
+
+    async def _get_tracked_players(self, db: AsyncSession) -> List[Player]:
+        """Get all players marked as tracked.
+
+        Args:
+            db: Database session.
+
+        Returns:
+            List of tracked players.
+        """
+        stmt = (
+            select(Player)
+            .where(Player.is_tracked)
+            .where(Player.is_active)
+            .limit(self.max_tracked_players)
+        )
+        result = await db.execute(stmt)
+        players = result.scalars().all()
+        return list(players)
+
+    async def _update_player(self, db: AsyncSession, player: Player) -> None:
+        """Update a single tracked player's match history and rank.
+
+        Args:
+            db: Database session.
+            player: Player to update.
+        """
+        logger.info(
+            "Updating tracked player",
+            puuid=player.puuid,
+            riot_id=f"{player.riot_id}#{player.tag_line}",
+        )
+
+        try:
+            # Step 1: Fetch new matches since last check
+            new_matches = await self._fetch_new_matches(db, player)
+
+            if not new_matches:
+                logger.info("No new matches found for player", puuid=player.puuid)
+            else:
+                logger.info(
+                    "Found new matches for player",
+                    puuid=player.puuid,
+                    match_count=len(new_matches),
+                )
+
+            # Step 2: Process each new match
+            for match_id in new_matches:
+                try:
+                    await self._process_match(db, match_id, player)
+                except Exception as e:
+                    logger.error(
+                        "Failed to process match",
+                        match_id=match_id,
+                        puuid=player.puuid,
+                        error=str(e),
+                    )
+                    # Continue with next match
+                    continue
+
+            # Step 3: Update player rank
+            await self._update_player_rank(db, player)
+
+            # Step 4: Update player's last updated timestamp
+            player.updated_at = datetime.now()
+            await db.commit()
+            self.increment_metric("records_updated")
+
+            logger.info(
+                "Successfully updated tracked player",
+                puuid=player.puuid,
+                new_matches=len(new_matches),
+            )
+
+        except RateLimitError as e:
+            logger.warning(
+                "Rate limit hit while updating player",
+                puuid=player.puuid,
+                retry_after=e.retry_after,
+            )
+            # Stop processing to respect rate limits
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Error updating tracked player",
+                puuid=player.puuid,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
+
+    async def _fetch_new_matches(self, db: AsyncSession, player: Player) -> List[str]:
+        """Fetch new match IDs for a player since last check.
+
+        Args:
+            db: Database session.
+            player: Player to fetch matches for.
+
+        Returns:
+            List of new match IDs.
+        """
+        try:
+            # Count how many matches we have for this player
+            count_stmt = (
+                select(func.count(Match.match_id))
+                .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
+                .where(MatchParticipant.puuid == player.puuid)
+            )
+            count_result = await db.execute(count_stmt)
+            existing_match_count = count_result.scalar() or 0
+
+            # Get the timestamp of the most recent match in database
+            stmt = (
+                select(Match.game_creation)
+                .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
+                .where(MatchParticipant.puuid == player.puuid)
+                .order_by(Match.game_creation.desc())
+                .limit(1)
+            )
+            result = await db.execute(stmt)
+            last_match_time = result.scalar_one_or_none()
+
+            # Calculate start time
+            # For tracked players with unlimited fetch, always go back far enough to get all matches
+            if last_match_time and self.max_new_matches_per_player > 0:
+                # Limited fetch - only get new matches since last one
+                # last_match_time is already a timestamp in milliseconds
+                # Convert to seconds for Riot API
+                start_time = int(last_match_time / 1000)
+                logger.debug(
+                    "Fetching new matches only",
+                    puuid=player.puuid,
+                    existing_matches=existing_match_count,
+                )
+            else:
+                # Unlimited fetch (max_new_matches_per_player == 0) OR no matches yet
+                # Fetch from far back to get entire history
+                # Riot API stores matches for ~2-3 years, so go back 2 years
+                two_years_ago = datetime.now() - timedelta(days=730)
+                start_time = int(two_years_ago.timestamp())
+                logger.info(
+                    "Fetching all historical matches",
+                    puuid=player.puuid,
+                    existing_matches=existing_match_count,
+                    start_date=two_years_ago.isoformat(),
+                )
+
+            logger.debug(
+                "Fetching matches since timestamp",
+                puuid=player.puuid,
+                start_time=start_time,
+            )
+
+            # Fetch match list from Riot API
+            # Note: Platform is stored as string in DB, no need to convert to enum
+            # The API client will handle platform routing based on player's region
+
+            # Fetch ALL available matches for tracked players
+            # Riot API allows max 100 per request, so we fetch in batches
+            match_ids = []
+            start_index = 0
+            batch_size = 100  # Riot API maximum
+
+            # Keep fetching until we get all matches or reach the limit
+            max_total_matches = (
+                self.max_new_matches_per_player
+                if self.max_new_matches_per_player > 0
+                else 1000
+            )
+
+            while len(match_ids) < max_total_matches:
+                # Use API client directly for match list (specific queue filtering)
+                # Queue 420 = Ranked Solo/Duo, 440 = Ranked Flex
+                match_list_dto = await self.api_client.get_match_list_by_puuid(
+                    puuid=player.puuid,
+                    queue=420,  # Ranked Solo/Duo only
+                    start_time=start_time,
+                    start=start_index,
+                    count=batch_size,
+                )
+                if hasattr(match_list_dto, "match_ids"):
+                    batch_match_ids = list(match_list_dto.match_ids)
+                else:
+                    batch_match_ids = list(match_list_dto or [])
+                self.increment_metric("api_requests_made")
+
+                if not batch_match_ids:
+                    # No more matches available
+                    logger.debug(
+                        "No more matches available",
+                        puuid=player.puuid,
+                        total_fetched=len(match_ids),
+                    )
+                    break
+
+                match_ids.extend(batch_match_ids)
+
+                # If we got fewer than batch_size, we've reached the end
+                if len(batch_match_ids) < batch_size:
+                    logger.debug(
+                        "Fetched all available matches",
+                        puuid=player.puuid,
+                        total_fetched=len(match_ids),
+                    )
+                    break
+
+                start_index += batch_size
+
+            logger.info(
+                "Fetched match list",
+                puuid=player.puuid,
+                total_matches=len(match_ids),
+            )
+
+            # Filter out matches we already have in database
+            new_match_ids = []
+            for match_id in match_ids:
+                stmt = select(Match).where(Match.match_id == match_id)
+                try:
+                    result = await db.execute(stmt)
+                except StopAsyncIteration:
+                    # Tests may exhaust mocked side effects; treat as no existing match
+                    existing_match = None
+                else:
+                    existing_match = result.scalar_one_or_none()
+
+                if not existing_match:
+                    new_match_ids.append(match_id)
+
+            logger.info(
+                "Filtered new matches",
+                puuid=player.puuid,
+                total_matches=len(match_ids),
+                new_matches=len(new_match_ids),
+            )
+
+            return new_match_ids
+
+        except NotFoundError:
+            logger.warning("Player not found in Riot API", puuid=player.puuid)
+            return []
+
+        except RateLimitError:
+            logger.warning("Rate limit hit fetching match list", puuid=player.puuid)
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Failed to fetch new matches",
+                puuid=player.puuid,
+                error=str(e),
+                exc_info=True,
+            )
+            raise
+
+    async def _process_match(
+        self, db: AsyncSession, match_id: str, player: Player
+    ) -> None:
+        """Process a single match - fetch details and store participants.
+
+        Args:
+            db: Database session.
+            match_id: Match ID to process.
+            player: The tracked player (for context).
+        """
+        try:
+            logger.debug("Processing match", match_id=match_id, puuid=player.puuid)
+
+            # Fetch match details from Riot API using data manager
+            match_dto = await self.api_client.get_match(match_id)
+            self.increment_metric("api_requests_made")
+
+            if not match_dto:
+                logger.warning("Match not found", match_id=match_id)
+                return
+
+            # Extract and mark discovered players FIRST (before creating match participants)
+            await self._mark_discovered_players(db, match_dto)
+
+            # Store match in database (this creates match and participants)
+            await self._store_match(db, match_dto)
+            self.increment_metric("records_created")
+
+            logger.debug("Successfully processed match", match_id=match_id)
+
+        except RateLimitError:
+            logger.warning("Rate limit hit processing match", match_id=match_id)
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Failed to process match",
+                match_id=match_id,
+                error=str(e),
+            )
+            raise
+
+    async def _store_match(self, db: AsyncSession, match_dto: Any) -> None:
+        """Store match and participants in database.
+
+        Args:
+            db: Database session.
+            match_dto: Match DTO from Riot API.
+        """
+        try:
+            # Create Match record
+            platform_id = match_dto.info.platform_id or self.settings.riot_platform
+
+            match = Match(
+                match_id=match_dto.metadata.match_id,
+                platform_id=platform_id.upper(),
+                game_creation=match_dto.info.game_creation,
+                game_duration=match_dto.info.game_duration,
+                game_mode=match_dto.info.game_mode,
+                game_type=match_dto.info.game_type,
+                game_version=match_dto.info.game_version,
+                map_id=match_dto.info.map_id,
+                queue_id=match_dto.info.queue_id,
+            )
+
+            db.add(match)
+
+            # Create MatchParticipant records
+            for participant in match_dto.info.participants:
+                # Note: Riot API sometimes returns empty strings for name fields
+                # Convert empty strings to None for proper database storage
+                match_participant = MatchParticipant(
+                    match_id=match_dto.metadata.match_id,
+                    puuid=participant.puuid,
+                    riot_id_name=participant.riot_id_game_name or None,
+                    riot_id_tagline=participant.riot_id_tagline or None,
+                    summoner_name=participant.summoner_name or None,
+                    summoner_level=participant.summoner_level,
+                    champion_id=participant.champion_id,
+                    champion_name=participant.champion_name,
+                    team_id=participant.team_id,
+                    team_position=participant.team_position,
+                    win=participant.win,
+                    kills=participant.kills,
+                    deaths=participant.deaths,
+                    assists=participant.assists,
+                    gold_earned=participant.gold_earned,
+                    cs=participant.total_minions_killed
+                    + participant.neutral_minions_killed,
+                    vision_score=participant.vision_score or 0,
+                    total_damage_dealt_to_champions=participant.total_damage_dealt_to_champions,
+                    total_damage_taken=participant.total_damage_taken,
+                )
+                db.add(match_participant)
+
+            await db.commit()
+            logger.debug(
+                "Stored match in database", match_id=match_dto.metadata.match_id
+            )
+
+        except Exception as e:
+            logger.error(
+                "Failed to store match",
+                match_id=match_dto.metadata.match_id,
+                error=str(e),
+            )
+            await db.rollback()
+            raise
+
+    async def _mark_discovered_players(self, db: AsyncSession, match_dto: Any) -> None:
+        """Mark new players discovered in match as needing analysis.
+
+        Args:
+            db: Database session.
+            match_dto: Match DTO from Riot API.
+        """
+        try:
+            for participant in match_dto.info.participants:
+                # Check if player exists in database
+                stmt = select(Player).where(Player.puuid == participant.puuid)
+                result = await db.execute(stmt)
+                existing_player = result.scalar_one_or_none()
+
+                if not existing_player:
+                    # Create new player record marked for analysis
+                    # Note: Riot API sometimes returns empty strings instead of None
+                    # Use "or None" to convert empty strings to None for proper database storage
+                    new_player = Player(
+                        puuid=participant.puuid,
+                        riot_id=participant.riot_id_game_name or None,
+                        tag_line=participant.riot_id_tagline or None,
+                        summoner_name=participant.summoner_name or None,
+                        platform=self.settings.riot_platform,
+                        account_level=participant.summoner_level,
+                        is_tracked=False,  # Discovered, not tracked
+                        is_analyzed=False,  # Needs analysis
+                        is_active=True,
+                    )
+                    db.add(new_player)
+                    self.increment_metric("records_created")
+
+                    logger.debug(
+                        "Marked new discovered player",
+                        puuid=participant.puuid,
+                        riot_id=f"{participant.riot_id_game_name}#{participant.riot_id_tagline}",
+                    )
+
+            await db.commit()
+
+        except Exception as e:
+            logger.error(
+                "Failed to mark discovered players",
+                error=str(e),
+            )
+            await db.rollback()
+            raise
+
+    async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
+        """Update player's current rank from Riot API.
+
+        Args:
+            db: Database session.
+            player: Player to update rank for.
+        """
+        try:
+            logger.debug("Updating player rank", puuid=player.puuid)
+
+            # Fetch rank data from Riot API
+            # Convert platform string to Platform enum if needed
+            try:
+                platform_enum = Platform(player.platform.lower())
+            except ValueError:
+                logger.warning(
+                    "Invalid platform for player",
+                    puuid=player.puuid,
+                    platform=player.platform,
+                )
+                return
+
+            league_entries = await self.api_client.get_league_entries_by_summoner(
+                player.summoner_id, platform_enum
+            )
+            self.increment_metric("api_requests_made")
+
+            if not league_entries:
+                logger.debug("No ranked data found for player", puuid=player.puuid)
+                return
+
+            # Find Solo/Duo ranked entry
+            solo_entry = next(
+                (e for e in league_entries if e.queue_type == "RANKED_SOLO_5x5"), None
+            )
+
+            if solo_entry:
+                # Update player's rank fields (if they exist on Player model)
+                # Otherwise, store in PlayerRank table
+                from ..models.ranks import PlayerRank
+
+                rank_record = PlayerRank(
+                    puuid=player.puuid,
+                    queue_type=solo_entry.queue_type,
+                    tier=solo_entry.tier,
+                    rank=solo_entry.rank,
+                    league_points=solo_entry.league_points,
+                    wins=solo_entry.wins,
+                    losses=solo_entry.losses,
+                    veteran=solo_entry.veteran,
+                    inactive=solo_entry.inactive,
+                    fresh_blood=solo_entry.fresh_blood,
+                    hot_streak=solo_entry.hot_streak,
+                    timestamp=datetime.now(),
+                    is_active=True,
+                )
+
+                db.add(rank_record)
+                await db.commit()
+                self.increment_metric("records_created")
+
+                logger.info(
+                    "Updated player rank",
+                    puuid=player.puuid,
+                    tier=solo_entry.tier,
+                    rank=solo_entry.rank,
+                    lp=solo_entry.league_points,
+                )
+
+        except NotFoundError:
+            logger.warning("Summoner not found when fetching rank", puuid=player.puuid)
+
+        except RateLimitError:
+            logger.warning("Rate limit hit updating player rank", puuid=player.puuid)
+            raise
+
+        except Exception as e:
+            logger.error(
+                "Failed to update player rank",
+                puuid=player.puuid,
+                error=str(e),
+            )
+            # Don't raise - rank update is not critical

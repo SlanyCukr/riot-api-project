@@ -28,6 +28,16 @@ from .ranks import (
     PlayerRankListResponse,
 )
 
+from .jobs import (
+    JobConfigurationCreate,
+    JobConfigurationUpdate,
+    JobConfigurationResponse,
+    JobExecutionResponse,
+    JobExecutionListResponse,
+    JobStatusResponse,
+    JobTriggerResponse,
+)
+
 __all__ = [
     # Player schemas
     "PlayerCreate",
@@ -49,4 +59,12 @@ __all__ = [
     "PlayerRankUpdate",
     "PlayerRankResponse",
     "PlayerRankListResponse",
+    # Job schemas
+    "JobConfigurationCreate",
+    "JobConfigurationUpdate",
+    "JobConfigurationResponse",
+    "JobExecutionResponse",
+    "JobExecutionListResponse",
+    "JobStatusResponse",
+    "JobTriggerResponse",
 ]

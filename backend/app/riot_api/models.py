@@ -1,7 +1,7 @@
 """Pydantic models for Riot API response data."""
 
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 
@@ -25,25 +25,13 @@ class SummonerDTO(BaseModel):
     summoner_level: int = Field(..., alias="summonerLevel")
     revision_date: Optional[datetime] = Field(None, alias="revisionDate")
 
-    @field_validator("revision_date", mode="before")
-    @classmethod
-    def parse_timestamp(cls, v: int | float | datetime | None) -> datetime | None:
-        """Parse timestamp from milliseconds to datetime."""
-        if v is None:
-            return None
-        if isinstance(v, datetime):
-            return v
-        if isinstance(v, (int, float)):
-            return datetime.fromtimestamp(v / 1000)
-        return None
-
     model_config = ConfigDict(populate_by_name=True)
 
 
 class MatchListDTO(BaseModel):
     """Match list response."""
 
-    match_ids: List[str]
+    match_ids: List[str] = Field(..., alias="matchIds")
     start: int
     count: int
     total: Optional[int] = None
@@ -210,104 +198,5 @@ class LeagueEntryDTO(BaseModel):
     def full_rank(self) -> str:
         """Get full rank string (e.g., 'Gold II')."""
         return f"{self.tier.capitalize()} {self.rank}"
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class CurrentGameParticipantDTO(BaseModel):
-    """Current game participant information."""
-
-    champion_id: int = Field(..., alias="championId")
-    summoner_name: str = Field(..., alias="summonerName")
-    summoner_id: str = Field(..., alias="summonerId")
-    team_id: int = Field(..., alias="teamId")
-    profile_icon_id: int = Field(..., alias="profileIconId")
-    summoner_spell1_id: int = Field(..., alias="spell1Id")
-    summoner_spell2_id: int = Field(..., alias="spell2Id")
-    game_customization_objects: Optional[List[Dict[str, Any]]] = Field(
-        None, alias="gameCustomizationObjects"
-    )
-    bot: bool = Field(..., alias="bot")
-    perks: Optional[Dict[str, Any]] = None
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class ObserverDTO(BaseModel):
-    """Observer information for current game."""
-
-    encryption_key: Optional[str] = Field(None, alias="encryptionKey")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class CurrentGameInfoDTO(BaseModel):
-    """Current game information."""
-
-    game_id: int = Field(..., alias="gameId")
-    map_id: int = Field(..., alias="mapId")
-    game_mode: str = Field(..., alias="gameMode")
-    game_type: str = Field(..., alias="gameType")
-    game_queue_config_id: int = Field(..., alias="gameQueueConfigId")
-    participants: List[CurrentGameParticipantDTO]
-    observers: ObserverDTO
-    platform_id: str = Field(..., alias="platformId")
-    banned_champions: Optional[List[Dict[str, Any]]] = None
-    game_start_time: Optional[int] = Field(None, alias="gameStartTime")
-    game_length: Optional[int] = Field(None, alias="gameLength")
-
-    @property
-    def game_start_datetime(self) -> Optional[datetime]:
-        """Get game start as datetime."""
-        if self.game_start_time is None:
-            return None
-        return datetime.fromtimestamp(self.game_start_time / 1000)
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class FeaturedGameParticipantDTO(BaseModel):
-    """Featured game participant information."""
-
-    champion_id: int = Field(..., alias="championId")
-    summoner_name: str = Field(..., alias="summonerName")
-    team_id: int = Field(..., alias="teamId")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class FeaturedGameInfoDTO(BaseModel):
-    """Featured game information."""
-
-    game_id: int = Field(..., alias="gameId")
-    map_id: int = Field(..., alias="mapId")
-    game_mode: str = Field(..., alias="gameMode")
-    game_type: str = Field(..., alias="gameType")
-    game_queue_config_id: int = Field(..., alias="gameQueueConfigId")
-    participants: List[FeaturedGameParticipantDTO]
-    observers: ObserverDTO
-    platform_id: str = Field(..., alias="platformId")
-    banned_champions: Optional[List[Dict[str, Any]]] = None
-    game_start_time: Optional[int] = Field(None, alias="gameStartTime")
-    game_length: Optional[int] = Field(None, alias="gameLength")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class FeaturedGamesDTO(BaseModel):
-    """Featured games response."""
-
-    game_list: List[FeaturedGameInfoDTO] = Field(..., alias="gameList")
-    client_refresh_interval: int = Field(..., alias="clientRefreshInterval")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class ActiveShardDTO(BaseModel):
-    """Active shard information."""
-
-    puuid: str
-    game: str
-    active_shard: str = Field(..., alias="activeShard")
 
     model_config = ConfigDict(populate_by_name=True)

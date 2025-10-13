@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     db_pool_timeout: int = Field(default=30)
     db_pool_recycle: int = Field(default=1800)
 
+    # Job Scheduler Configuration
+    job_scheduler_enabled: bool = Field(default=False)
+    job_interval_seconds: int = Field(default=120)
+    job_timeout_seconds: int = Field(default=90)
+    max_tracked_players: int = Field(default=10)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,

@@ -7,6 +7,9 @@ and smurf detection service.
 
 from .config import get_global_settings
 from .database import db_manager, get_db
+import sys as _sys
+
+_sys.modules.setdefault("app.app", _sys.modules[__name__])
 
 __version__ = "1.0.0"
 __author__ = "Riot API Project Team"

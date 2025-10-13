@@ -4,13 +4,13 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select, update, func, and_
 
 from ..riot_api.data_manager import RiotDataManager
 from ..riot_api.errors import RateLimitError, NotFoundError
 from ..models.players import Player
-from ..schemas.players import PlayerResponse, PlayerCreate, PlayerUpdate
+from ..schemas.players import PlayerResponse, PlayerUpdate
+from ..config import get_global_settings
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -206,65 +206,66 @@ class PlayerService:
             raise Exception(f"Failed to fetch player data: {str(e)}")
 
     async def get_recent_opponents(self, puuid: str, limit: int) -> List[str]:
-        """Get recent opponents for a player."""
-        # This would query match_participants table
-        # For now, return empty list - will be implemented in Task 8
-        return []
+        """
+        Get recent opponents for a player by querying match participants.
 
-    async def _get_player_from_db(
-        self, riot_id: Optional[str] = None, puuid: Optional[str] = None
-    ) -> Optional[Player]:
-        """Get player from database by Riot ID or PUUID."""
-        query = select(Player).where(Player.is_active)
+        Args:
+            puuid: Player PUUID
+            limit: Maximum number of unique opponents to return
 
-        if riot_id:
-            query = query.where(Player.riot_id == riot_id)
-        elif puuid:
-            query = query.where(Player.puuid == puuid)
-        else:
-            return None
+        Returns:
+            List of opponent PUUIDs
+        """
+        try:
+            # Query for recent matches where this player participated
+            from ..models.participants import MatchParticipant
 
-        result = await self.db.execute(query)
-        return result.scalar_one_or_none()
-
-    async def _create_or_update_player(self, player_data: PlayerCreate) -> Player:
-        """Create new player record or update existing one."""
-        # Use PostgreSQL UPSERT functionality
-        stmt = (
-            insert(Player)
-            .values(
-                puuid=player_data.puuid,
-                riot_id=player_data.riot_id,
-                tag_line=player_data.tag_line,
-                summoner_name=player_data.summoner_name,
-                platform=player_data.platform,
-                account_level=player_data.account_level,
-                profile_icon_id=player_data.profile_icon_id,
-                summoner_id=player_data.summoner_id,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
-                last_seen=datetime.now(timezone.utc),
+            # Subquery to get recent match IDs for this player
+            player_matches_stmt = (
+                select(MatchParticipant.match_id)
+                .where(MatchParticipant.puuid == puuid)
+                .order_by(MatchParticipant.id.desc())
+                .limit(
+                    limit * 5
+                )  # Get more matches to ensure we find enough unique opponents
             )
-            .on_conflict_do_update(
-                index_elements=["puuid"],
-                set_=dict(
-                    riot_id=player_data.riot_id,
-                    tag_line=player_data.tag_line,
-                    summoner_name=player_data.summoner_name,
-                    platform=player_data.platform,
-                    account_level=player_data.account_level,
-                    profile_icon_id=player_data.profile_icon_id,
-                    summoner_id=player_data.summoner_id,
-                    updated_at=datetime.now(timezone.utc),
-                    last_seen=datetime.now(timezone.utc),
-                ),
+            player_match_ids = (
+                (await self.db.execute(player_matches_stmt)).scalars().all()
             )
-            .returning(Player)
-        )
 
-        result = await self.db.execute(stmt)
-        await self.db.commit()
-        return result.scalar_one()
+            if not player_match_ids:
+                logger.debug("No matches found for player", puuid=puuid)
+                return []
+
+            # Query for all participants in those matches, excluding the player themselves
+            opponents_stmt = (
+                select(MatchParticipant.puuid)
+                .where(
+                    and_(
+                        MatchParticipant.match_id.in_(player_match_ids),
+                        MatchParticipant.puuid != puuid,
+                    )
+                )
+                .distinct()
+                .limit(limit)
+            )
+
+            result = await self.db.execute(opponents_stmt)
+            opponent_puuids = result.scalars().all()
+
+            logger.debug(
+                "Found recent opponents",
+                puuid=puuid,
+                opponent_count=len(opponent_puuids),
+                limit=limit,
+            )
+
+            return list(opponent_puuids)
+
+        except Exception as e:
+            logger.error("Failed to get recent opponents", puuid=puuid, error=str(e))
+            # Return empty list instead of raising to not break the UI
+            return []
 
     async def _update_player(
         self, puuid: UUID, update_data: PlayerUpdate
@@ -331,3 +332,122 @@ class PlayerService:
         result = await self.db.execute(query)
         players = result.scalars().all()
         return [PlayerResponse.model_validate(player) for player in players]
+
+    # === Player Tracking Methods for Automated Jobs ===
+
+    async def track_player(self, puuid: str) -> PlayerResponse:
+        """Mark a player as tracked for automated monitoring.
+
+        Args:
+            puuid: Player's PUUID to track.
+
+        Returns:
+            Updated player data.
+
+        Raises:
+            ValueError: If player not found or tracking limit reached.
+        """
+        settings = get_global_settings()
+
+        # Check current tracked player count
+        tracked_count = await self.count_tracked_players()
+        if tracked_count >= settings.max_tracked_players:
+            raise ValueError(
+                f"Maximum tracked players limit reached ({settings.max_tracked_players}). "
+                f"Please untrack a player before adding a new one."
+            )
+
+        # Update player to tracked status
+        stmt = (
+            update(Player)
+            .where(Player.puuid == puuid)
+            .where(Player.is_active)
+            .values(is_tracked=True, updated_at=datetime.now(timezone.utc))
+            .returning(Player)
+        )
+
+        result = await self.db.execute(stmt)
+        player = result.scalar_one_or_none()
+
+        if not player:
+            raise ValueError(f"Player not found: {puuid}")
+
+        await self.db.commit()
+
+        logger.info(
+            "Player marked as tracked",
+            puuid=puuid,
+            summoner_name=player.summoner_name,
+            tracked_count=tracked_count + 1,
+        )
+
+        return PlayerResponse.model_validate(player)
+
+    async def untrack_player(self, puuid: str) -> PlayerResponse:
+        """Remove a player from tracked status.
+
+        Args:
+            puuid: Player's PUUID to untrack.
+
+        Returns:
+            Updated player data.
+
+        Raises:
+            ValueError: If player not found.
+        """
+        stmt = (
+            update(Player)
+            .where(Player.puuid == puuid)
+            .where(Player.is_active)
+            .values(is_tracked=False, updated_at=datetime.now(timezone.utc))
+            .returning(Player)
+        )
+
+        result = await self.db.execute(stmt)
+        player = result.scalar_one_or_none()
+
+        if not player:
+            raise ValueError(f"Player not found: {puuid}")
+
+        await self.db.commit()
+
+        logger.info(
+            "Player unmarked as tracked",
+            puuid=puuid,
+            summoner_name=player.summoner_name,
+        )
+
+        return PlayerResponse.model_validate(player)
+
+    async def get_tracked_players(self) -> List[PlayerResponse]:
+        """Get all players currently marked for tracking.
+
+        Returns:
+            List of tracked players.
+        """
+        query = (
+            select(Player)
+            .where(Player.is_tracked)
+            .where(Player.is_active)
+            .order_by(Player.summoner_name)
+        )
+
+        result = await self.db.execute(query)
+        players = result.scalars().all()
+
+        return [PlayerResponse.model_validate(player) for player in players]
+
+    async def count_tracked_players(self) -> int:
+        """Get count of currently tracked players.
+
+        Returns:
+            Number of tracked players.
+        """
+        query = (
+            select(func.count())
+            .select_from(Player)
+            .where(Player.is_tracked, Player.is_active)
+        )
+
+        result = await self.db.execute(query)
+        return result.scalar() or 0

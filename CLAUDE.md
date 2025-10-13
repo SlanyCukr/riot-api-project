@@ -1,3 +1,22 @@
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
 # CLAUDE.md
 
 Central quick reference for working with this Riot API application. See `README.md` for project overview and architecture.
@@ -5,10 +24,6 @@ Central quick reference for working with this Riot API application. See `README.
 ## Project Overview
 
 Full-stack Riot API application for League of Legends match analysis and smurf detection. Features include player search, match analysis, smurf detection algorithms, and encounter tracking with Riot API integration.
-
-## Project Scope
-
-Overview of what exactly is in project's scope is in `docs/project-scope.md`, as well as tasks labeled as "SPY-XXX" or "BACKLOG", reserved for tasks with the lowest priority, or "EPIC", reserved for labeling a group of tasks. When doing tasks described in `docs/project-scope.md`, mark them as "WIP", instead of "TODO", and after user tests your code and approves it, mark it as done with ✅.
 
 ## Tech Stack
 - **Backend**: Python 3.13 + FastAPI + SQLAlchemy
@@ -48,8 +63,6 @@ docker compose exec backend bash       # Backend shell
 docker compose exec frontend bash      # Frontend shell
 docker compose exec postgres psql -U riot_api_user -d riot_api_db
 ```
-
-**Port Conflicts?** See `docs/docker-troubleshooting.md` or run `./scripts/docker-cleanup.sh`
 
 ### Testing
 ```bash

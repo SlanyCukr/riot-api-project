@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ export default function RootLayout({
               <SidebarNav />
               <main className="flex-1 bg-background">{children}</main>
             </div>
+            <Toaster position="top-right" richColors />
           </Providers>
         </ThemeProvider>
       </body>

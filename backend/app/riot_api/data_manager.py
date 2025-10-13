@@ -13,18 +13,17 @@ No TTL caching, no freshness tracking, no queue management.
 
 import structlog
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from .client import RiotAPIClient
 from .errors import RateLimitError, NotFoundError
-from .models import MatchDTO, LeagueEntryDTO
+from .models import MatchDTO
 from .endpoints import Platform, Region
 from ..models.players import Player
 from ..models.matches import Match
-from ..models.ranks import PlayerRank
 from ..schemas.players import PlayerResponse, PlayerCreate
 
 logger = structlog.get_logger(__name__)
@@ -314,108 +313,3 @@ class RiotDataManager:
                 "Failed to get match", match_id=match_id, error=str(e), exc_info=True
             )
             raise
-
-    # =================
-    # Rank Data Methods
-    # =================
-
-    async def get_player_ranks(
-        self, puuid: str, platform: str = "eun1"
-    ) -> Optional[list[LeagueEntryDTO]]:
-        """
-        Get player rank data (database-first, but always refresh from API).
-
-        Rank data changes frequently, so we prioritize fresh data from API.
-
-        Args:
-            puuid: Player PUUID
-            platform: Platform region
-
-        Returns:
-            List of LeagueEntryDTO if found/fetched, None if rate limited
-        """
-        try:
-            # For rank data, always try to fetch fresh data from API
-            # (ranks change frequently and need to be current)
-
-            platform_enum = Platform(platform.lower())
-
-            # Get summoner ID (needed for league endpoint)
-            summoner = await self.api_client.get_summoner_by_puuid(puuid, platform_enum)
-
-            if not summoner.id:
-                logger.warning("Summoner has no ID", puuid=puuid)
-                return None
-
-            # Fetch league entries
-            league_entries = await self.api_client.get_league_entries_by_summoner(
-                summoner.id, platform_enum
-            )
-
-            # Store in database (would update PlayerRank table)
-            logger.info("Ranks fetched", puuid=puuid, rank_count=len(league_entries))
-
-            return league_entries
-
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limited when fetching ranks",
-                puuid=puuid,
-                retry_after=e.retry_after,
-            )
-            # Fallback to database if rate limited
-            result = await self.db.execute(
-                select(PlayerRank).where(
-                    PlayerRank.puuid == puuid, PlayerRank.is_current
-                )
-            )
-            ranks = result.scalars().all()
-
-            if ranks:
-                logger.info("Returning stale rank data from database", puuid=puuid)
-                # Would need to convert PlayerRank to LeagueEntryDTO
-                # For now, return None
-                return None
-
-            return None
-
-        except Exception as e:
-            logger.error(
-                "Failed to get player ranks", puuid=puuid, error=str(e), exc_info=True
-            )
-            raise
-
-    # =======================
-    # Real-time Data (No DB)
-    # =======================
-
-    async def get_active_game(
-        self, summoner_id: str, platform: str = "eun1"
-    ) -> Optional[Any]:
-        """
-        Get active game data (always fresh from API, never cached).
-
-        Args:
-            summoner_id: Summoner ID
-            platform: Platform region
-
-        Returns:
-            CurrentGameInfoDTO if in game, None otherwise
-        """
-        try:
-            platform_enum = Platform(platform.lower())
-            return await self.api_client.get_active_game(summoner_id, platform_enum)
-
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limited when fetching active game",
-                summoner_id=summoner_id,
-                retry_after=e.retry_after,
-            )
-            return None
-
-        except Exception as e:
-            logger.error(
-                "Failed to get active game", summoner_id=summoner_id, error=str(e)
-            )
-            return None

@@ -1,7 +1,6 @@
 """Custom error classes for Riot API client."""
 
-from typing import Optional, Dict, Any, Union, cast
-import json
+from typing import Optional, Dict, Any
 
 
 class RiotAPIError(Exception):
@@ -184,60 +183,3 @@ class CircuitBreakerOpenError(RiotAPIError):
         base_dict = super().to_dict()
         base_dict["error"] = "CircuitBreakerOpenError"
         return base_dict
-
-
-def handle_api_error(status_code: int, response_text: str) -> RiotAPIError:
-    """
-    Convert HTTP status code and response text to appropriate exception.
-
-    Args:
-        status_code: HTTP status code
-        response_text: Response body text
-
-    Returns:
-        Appropriate RiotAPIError subclass
-    """
-    response_data: Dict[str, Any] = {}
-    message: str
-
-    try:
-        parsed_response: Union[Dict[str, Any], Any] = (
-            json.loads(response_text) if response_text else {}
-        )
-        if isinstance(parsed_response, dict):
-            response_data = cast(Dict[str, Any], parsed_response)
-            status_obj: Any = response_data.get("status")
-            if isinstance(status_obj, dict):
-                status_dict = cast(Dict[str, Any], status_obj)
-                msg_value: Any = status_dict.get("message", response_text)
-                message = str(msg_value)
-            else:
-                message = str(response_text)
-        else:
-            message = str(response_text)
-    except (json.JSONDecodeError, AttributeError):
-        message = str(response_text)
-
-    if status_code == 400:
-        return BadRequestError(message)
-    elif status_code == 401:
-        return AuthenticationError(message)
-    elif status_code == 403:
-        return ForbiddenError(message)
-    elif status_code == 404:
-        return NotFoundError(message)
-    elif status_code == 429:
-        retry_after: Optional[float] = None
-        status_obj_retry: Any = response_data.get("status")
-        if isinstance(status_obj_retry, dict):
-            status_dict_retry = cast(Dict[str, Any], status_obj_retry)
-            retry_value: Any = status_dict_retry.get("retry_after")
-            if isinstance(retry_value, (int, float)):
-                retry_after = float(retry_value)
-        return RateLimitError(message, retry_after=retry_after)
-    elif status_code == 503:
-        return ServiceUnavailableError(message)
-    elif 500 <= status_code < 600:
-        return ServiceUnavailableError(f"Server error: {message}")
-    else:
-        return RiotAPIError(f"HTTP {status_code}: {message}", status_code=status_code)

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   DetectionResponseSchema,
+  DetectionExistsResponseSchema,
   type DetectionResponse,
   type DetectionRequest,
 } from "@/lib/schemas";
-import { validatedPost } from "@/lib/api";
+import { validatedPost, validatedGet } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,8 @@ import {
   AlertTriangle,
   CheckCircle,
   AlertCircle,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +27,82 @@ interface SmurfDetectionProps {
   puuid: string;
 }
 
+// Helper function to format timestamp
+function formatTimeAgo(dateString: string): {
+  text: string;
+  isOld: boolean;
+} {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  let text: string;
+  if (diffMins < 1) {
+    text = "just now";
+  } else if (diffMins < 60) {
+    text = `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+  } else if (diffHours < 24) {
+    text = `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  } else {
+    text = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
+  }
+
+  // Consider data old if > 24 hours
+  const isOld = diffHours > 24;
+
+  return { text, isOld };
+}
+
 export function SmurfDetection({ puuid }: SmurfDetectionProps) {
   const [detection, setDetection] = useState<DetectionResponse | null>(null);
+  const [showingCached, setShowingCached] = useState(false);
+
+  // Fetch latest detection result (cached)
+  const { data: latestDetection, isLoading: isLoadingLatest } = useQuery({
+    queryKey: ["latest-detection", puuid],
+    queryFn: async () => {
+      const result = await validatedGet(
+        DetectionResponseSchema,
+        `/detection/player/${puuid}/latest`,
+      );
+      if (!result.success) {
+        // 404 is expected if no analysis exists
+        if (result.error.status === 404) {
+          return null;
+        }
+        throw new Error(result.error.message);
+      }
+      return result.data;
+    },
+    retry: false,
+  });
+
+  // Check if analysis exists
+  const { data: existsCheck } = useQuery({
+    queryKey: ["detection-exists", puuid],
+    queryFn: async () => {
+      const result = await validatedGet(
+        DetectionExistsResponseSchema,
+        `/detection/player/${puuid}/exists`,
+      );
+      if (!result.success) {
+        return null;
+      }
+      return result.data;
+    },
+    retry: false,
+  });
+
+  // Set detection from cache when loaded
+  useEffect(() => {
+    if (latestDetection && !detection) {
+      setDetection(latestDetection);
+      setShowingCached(true);
+    }
+  }, [latestDetection, detection]);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
@@ -44,9 +121,23 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     onSuccess: (result) => {
       if (result.success) {
         setDetection(result.data);
+        setShowingCached(false); // Now showing fresh data
       }
     },
   });
+
+  // Determine button text and state
+  const getButtonText = () => {
+    if (isPending) return "Analyzing...";
+    if (existsCheck?.exists) return "Update Analysis";
+    return "Run Analysis";
+  };
+
+  // Get timestamp info if available
+  const timestampInfo =
+    existsCheck?.exists && existsCheck.last_analysis
+      ? formatTimeAgo(existsCheck.last_analysis)
+      : null;
 
   const getConfidenceVariant = (
     confidence: string,
@@ -70,6 +161,9 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     return "text-muted-foreground";
   };
 
+  // Show loading state only if we're fetching and have no cached data
+  const isInitialLoading = isLoadingLatest && !detection;
+
   return (
     <Card>
       <CardHeader>
@@ -79,7 +173,11 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {!detection ? (
+        {isInitialLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : !detection ? (
           <div className="space-y-4">
             <div className="text-center py-8">
               <Button
@@ -93,7 +191,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
                     Analyzing...
                   </>
                 ) : (
-                  "Run Smurf Detection"
+                  getButtonText()
                 )}
               </Button>
             </div>
@@ -110,6 +208,30 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Timestamp and Cache Indicator */}
+            {showingCached && timestampInfo && (
+              <Alert
+                className={cn(
+                  "border-blue-200 bg-blue-50",
+                  timestampInfo.isOld && "border-yellow-200 bg-yellow-50",
+                )}
+              >
+                <Clock className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="flex items-center justify-between">
+                    <span>
+                      Last analyzed: <strong>{timestampInfo.text}</strong>
+                    </span>
+                    {timestampInfo.isOld && (
+                      <Badge variant="outline" className="ml-2">
+                        ⚠️ May be outdated
+                      </Badge>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Detection Result Header */}
             <div
               className={cn(
@@ -214,10 +336,13 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               {isPending ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                  Re-analyzing...
+                  Analyzing...
                 </>
               ) : (
-                "Re-run Analysis"
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {getButtonText()}
+                </>
               )}
             </Button>
           </div>

@@ -231,6 +231,10 @@ class PerformanceAnalyzer:
             else:
                 return f"Inconsistent performance: {avg_kda:.1f} KDA, {consistency_pct:.0f}% consistency"
 
+    # TODO: Integrate into detection service for enhanced smurf detection
+    #       Tracks: Temporal performance patterns (improvement/decline over time)
+    #       Use case: Detect suddenly improving accounts (bought/boosted)
+    #       Integration point: services/detection.py - add to factor scoring
     def analyze_performance_trends(
         self, recent_matches: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -304,6 +308,10 @@ class PerformanceAnalyzer:
             "is_suspiciously_stable": is_suspiciously_stable,
         }
 
+    # TODO: Integrate into detection service for role-specific smurf patterns
+    #       Tracks: Performance consistency across different roles
+    #       Use case: Smurfs often excel at one role, boosters at multiple
+    #       Integration point: services/detection.py - add role-based scoring
     def analyze_role_performance(
         self, recent_matches: List[Dict[str, Any]]
     ) -> Dict[str, Any]:

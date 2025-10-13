@@ -36,7 +36,7 @@ class Player(Base):
     )
 
     tag_line: Mapped[Optional[str]] = mapped_column(
-        String(8), nullable=True, comment="Player's tag line (region identifier)"
+        String(32), nullable=True, comment="Player's tag line (region identifier)"
     )
 
     # Summoner information (may change over time)
@@ -92,6 +92,30 @@ class Player(Base):
         comment="Whether this player record is active (not deleted)",
     )
 
+    # Tracking flags for automated jobs
+    is_tracked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+        comment="Whether this player is being actively tracked for continuous updates",
+    )
+
+    is_analyzed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+        comment="Whether this player has been analyzed for smurf/boosted detection",
+    )
+
+    last_ban_check: Mapped[Optional[datetime]] = mapped_column(
+        SQLDateTime(timezone=True),
+        nullable=True,
+        index=True,
+        comment="When this player was last checked for ban status",
+    )
+
     # Additional metadata fields
     profile_icon_id: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="Profile icon ID"
@@ -132,6 +156,11 @@ class Player(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "is_active": self.is_active,
+            "is_tracked": self.is_tracked,
+            "is_analyzed": self.is_analyzed,
+            "last_ban_check": self.last_ban_check.isoformat()
+            if self.last_ban_check
+            else None,
             "profile_icon_id": self.profile_icon_id,
             "summoner_id": self.summoner_id,
         }

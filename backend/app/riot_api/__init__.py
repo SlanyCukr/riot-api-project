@@ -22,7 +22,6 @@ from .models import (
     MatchListDTO,
     MatchDTO,
     LeagueEntryDTO,
-    CurrentGameInfoDTO,
 )
 from .endpoints import RiotAPIEndpoints
 
@@ -41,6 +40,5 @@ __all__ = [
     "MatchListDTO",
     "MatchDTO",
     "LeagueEntryDTO",
-    "CurrentGameInfoDTO",
     "RiotAPIEndpoints",
 ]

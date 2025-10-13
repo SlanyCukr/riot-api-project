@@ -33,23 +33,6 @@ class Tier(str, Enum):
     CHALLENGER = "CHALLENGER"
 
 
-class Division(str, Enum):
-    """League of Legends rank divisions."""
-
-    I = "I"  # noqa: E741
-    II = "II"
-    III = "III"
-    IV = "IV"
-
-
-class QueueType(str, Enum):
-    """League of Legends queue types."""
-
-    RANKED_SOLO_5x5 = "RANKED_SOLO_5x5"
-    RANKED_FLEX_5x5 = "RANKED_FLEX_SR"
-    RANKED_FLEX_3x3 = "RANKED_FLEX_TT"
-
-
 class PlayerRank(Base):
     """Player rank model storing ranked information."""
 
@@ -220,25 +203,6 @@ class PlayerRank(Base):
         if self.tier in ["MASTER", "GRANDMASTER", "CHALLENGER"]:
             return f"{self.league_points} LP"
         return f"{self.league_points} LP"
-
-    def is_high_tier(self) -> bool:
-        """Check if this is a high tier rank."""
-        return self.tier in ["MASTER", "GRANDMASTER", "CHALLENGER"]
-
-    def is_diamond_plus(self) -> bool:
-        """Check if this is diamond or above."""
-        return self.tier in ["DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"]
-
-    def is_platinum_plus(self) -> bool:
-        """Check if this is platinum or above."""
-        return self.tier in [
-            "PLATINUM",
-            "EMERALD",
-            "DIAMOND",
-            "MASTER",
-            "GRANDMASTER",
-            "CHALLENGER",
-        ]
 
 
 # Create composite indexes for common queries

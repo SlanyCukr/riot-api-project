@@ -305,102 +305,6 @@ class TestMatchEndpoints:
             match_id
         )
 
-    def test_get_detailed_player_stats_success(self, client, mock_stats_service):
-        """Test successful detailed player stats retrieval."""
-        # Setup mock
-        mock_stats_service.calculate_player_statistics.return_value = {
-            "puuid": str(uuid4()),
-            "basic_stats": {"total_matches": 50, "wins": 30, "win_rate": 0.6},
-            "champion_stats": {"Ahri": {"matches": 10, "wins": 6, "win_rate": 0.6}},
-            "position_stats": {"MIDDLE": {"matches": 30, "wins": 18, "win_rate": 0.6}},
-        }
-
-        # Override dependency
-        app.dependency_overrides[router.get_stats_service] = lambda: mock_stats_service
-
-        # Make request
-        puuid = str(uuid4())
-        response = client.get(f"/matches/player/{puuid}/detailed-stats")
-
-        # Assertions
-        assert response.status_code == 200
-        data = response.json()
-        assert "basic_stats" in data
-        assert "champion_stats" in data
-        assert "position_stats" in data
-        assert data["basic_stats"]["total_matches"] == 50
-
-        # Verify service call
-        mock_stats_service.calculate_player_statistics.assert_called_once_with(
-            puuid=puuid, queue_id=None, start_time=None, end_time=None, limit=100
-        )
-
-    def test_get_encounter_stats_success(self, client, mock_stats_service):
-        """Test successful encounter stats retrieval."""
-        # Setup mock
-        mock_stats_service.calculate_encounter_statistics.return_value = {
-            "puuid": str(uuid4()),
-            "encounters": {
-                str(uuid4()): {
-                    "total_encounters": 5,
-                    "as_teammate": 3,
-                    "as_opponent": 2,
-                    "teammate_win_rate": 0.67,
-                    "opponent_win_rate": 0.5,
-                }
-            },
-            "total_unique_encounters": 1,
-        }
-
-        # Override dependency
-        app.dependency_overrides[router.get_stats_service] = lambda: mock_stats_service
-
-        # Make request
-        puuid = str(uuid4())
-        response = client.get(f"/matches/player/{puuid}/encounter-stats")
-
-        # Assertions
-        assert response.status_code == 200
-        data = response.json()
-        assert "encounters" in data
-        assert "total_unique_encounters" in data
-        assert data["total_unique_encounters"] == 1
-
-        # Verify service call
-        mock_stats_service.calculate_encounter_statistics.assert_called_once_with(
-            puuid=puuid, limit=50, min_encounters=3
-        )
-
-    def test_get_match_statistics_success(self, client, mock_stats_service):
-        """Test successful match statistics retrieval."""
-        # Setup mock
-        mock_stats_service.calculate_match_statistics.return_value = {
-            "match_id": "EUN1_1234567890",
-            "team_100": {"wins": 1, "total_kills": 25, "total_gold": 65000},
-            "team_200": {"wins": 0, "total_kills": 15, "total_gold": 55000},
-            "individual_performances": [
-                {"puuid": str(uuid4()), "kills": 5, "deaths": 2, "assists": 8}
-            ],
-        }
-
-        # Override dependency
-        app.dependency_overrides[router.get_stats_service] = lambda: mock_stats_service
-
-        # Make request
-        match_id = "EUN1_1234567890"
-        response = client.get(f"/matches/{match_id}/stats")
-
-        # Assertions
-        assert response.status_code == 200
-        data = response.json()
-        assert data["match_id"] == match_id
-        assert "team_100" in data
-        assert "team_200" in data
-        assert "individual_performances" in data
-
-        # Verify service call
-        mock_stats_service.calculate_match_statistics.assert_called_once_with(match_id)
-
     def test_error_handling(self, client, mock_match_service):
         """Test error handling in match endpoints."""
         # Setup mock to raise exception
@@ -425,6 +329,75 @@ class TestMatchEndpoints:
 
         # Assertions
         assert response.status_code == 422  # Validation error
+
+    def test_get_player_stats_returns_aggregate_statistics(
+        self, client, mock_match_service
+    ):
+        """Test player stats endpoint returns correct aggregates."""
+        # Setup mock
+        mock_match_service.get_player_stats.return_value = MatchStatsResponse(
+            puuid=str(uuid4()),
+            total_matches=50,
+            wins=32,
+            losses=18,
+            win_rate=0.64,
+            avg_kills=7.5,
+            avg_deaths=4.2,
+            avg_assists=9.3,
+            avg_kda=4.0,
+            avg_cs=195.5,
+            avg_vision_score=28.7,
+        )
+
+        # Override dependency
+        app.dependency_overrides[router.get_match_service] = lambda: mock_match_service
+
+        # Make request
+        puuid = str(uuid4())
+        response = client.get(f"/matches/player/{puuid}/stats")
+
+        # Assertions
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_matches"] == 50
+        assert data["wins"] == 32
+        assert data["losses"] == 18
+        assert data["win_rate"] == 0.64
+        assert data["avg_kda"] == 4.0
+        assert data["avg_cs"] == 195.5
+
+        # Verify service call
+        mock_match_service.get_player_stats.assert_called_once()
+
+    def test_get_player_stats_handles_no_matches(self, client, mock_match_service):
+        """Test player stats with player who has no matches."""
+        # Setup mock with zero stats
+        mock_match_service.get_player_stats.return_value = MatchStatsResponse(
+            puuid=str(uuid4()),
+            total_matches=0,
+            wins=0,
+            losses=0,
+            win_rate=0.0,
+            avg_kills=0.0,
+            avg_deaths=0.0,
+            avg_assists=0.0,
+            avg_kda=0.0,
+            avg_cs=0.0,
+            avg_vision_score=0.0,
+        )
+
+        # Override dependency
+        app.dependency_overrides[router.get_match_service] = lambda: mock_match_service
+
+        # Make request
+        puuid = str(uuid4())
+        response = client.get(f"/matches/player/{puuid}/stats")
+
+        # Assertions
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_matches"] == 0
+        assert data["win_rate"] == 0.0
 
     def tearDown(self):
         """Clean up after tests."""

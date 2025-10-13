@@ -4,13 +4,14 @@ A comprehensive application for analyzing League of Legends match history and de
 
 ## Project Scope
 
-- Current project scope is described in `docs/project-scope.md` 
+- Current project scope is described in `docs/project-scope.md`
 
 ## Features
 
 - **Player Analysis**: Retrieve and analyze match histories for League of Legends players
 - **Smurf Detection**: Identify potential smurf accounts based on win rate patterns and other heuristics
 - **Encounter Tracking**: Track players you've encountered in matches and analyze their performance
+- **Automated Background Jobs**: Continuous monitoring of tracked players with automatic data updates
 - **Multi-Region Support**: Support for different Riot API regions and platforms
 - **Real-time Data**: Live game spectator data and current rank information
 
@@ -118,6 +119,31 @@ The application provides the following main endpoints:
 - Analyze teammate and opponent performance
 - Identify recurring players and their tendencies
 
+### Background Jobs
+
+The application includes an automated job system that continuously monitors tracked players:
+
+**Tracked Player Updater**
+- Runs every 2 minutes (configurable)
+- Fetches new matches for tracked players
+- Updates rank information
+- Discovers new players from match participants
+
+**Player Analyzer**
+- Analyzes discovered players for smurf/boosted behavior
+- Checks ban status for previously detected accounts
+- Runs detection algorithms automatically
+
+**Job Management Endpoints**
+- `POST /api/v1/players/{puuid}/track` - Mark player as tracked
+- `DELETE /api/v1/players/{puuid}/track` - Unmark player as tracked
+- `GET /api/v1/players/tracked` - List all tracked players
+- `GET /api/v1/jobs/status/overview` - View job system status
+- `GET /api/v1/jobs/{id}/executions` - View job execution history
+- `POST /api/v1/jobs/{id}/trigger` - Manually trigger a job
+
+For detailed job configuration and monitoring, see `backend/CLAUDE.md`.
+
 ## Environment Variables
 
 | Variable | Description | Default |
@@ -141,6 +167,10 @@ The application provides the following main endpoints:
 | `DB_POOL_RECYCLE` | Pool recycle interval (seconds) | 1800 |
 | `CORS_ORIGINS` | Allowed origins for frontend requests | http://localhost:3000,http://127.0.0.1:3000 |
 | `COMPOSE_PROJECT_NAME` | Docker Compose project prefix | riot_api_app |
+| `JOB_SCHEDULER_ENABLED` | Enable background job scheduler | true |
+| `JOB_INTERVAL_SECONDS` | Job execution interval (seconds) | 120 |
+| `JOB_TIMEOUT_SECONDS` | Job execution timeout (seconds) | 90 |
+| `MAX_TRACKED_PLAYERS` | Maximum tracked players limit | 10 |
 
 ## Rate Limiting
 

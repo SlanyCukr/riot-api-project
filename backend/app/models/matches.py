@@ -184,14 +184,6 @@ class Match(Base):
                 return f"{version_parts[0]}.{version_parts[1]}"
         return None
 
-    def is_ranked_match(self) -> bool:
-        """Check if this is a ranked match."""
-        return self.queue_id in [420, 440]  # Ranked Solo/Duo and Ranked Flex
-
-    def is_normal_match(self) -> bool:
-        """Check if this is a normal match."""
-        return self.queue_id in [400, 430]  # Normal Draft and Blind Pick
-
 
 # Create indexes for common queries
 Index("idx_matches_platform_creation", Match.platform_id, Match.game_creation)

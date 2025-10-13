@@ -14,9 +14,6 @@ from backend.app.riot_api.models import (
     MatchInfoDTO,
     MatchMetadataDTO,
     LeagueEntryDTO,
-    CurrentGameInfoDTO,
-    FeaturedGamesDTO,
-    ActiveShardDTO,
 )
 
 
@@ -62,22 +59,6 @@ class TestSummonerDTO:
         assert summoner.profile_icon_id == 1234
         assert summoner.summoner_level == 100
         assert summoner.revision_date is not None
-
-    def test_summoner_timestamp_parsing(self):
-        """Test timestamp parsing for revision date."""
-        timestamp_ms = 1234567890000  # Milliseconds since epoch
-        expected_dt = datetime.fromtimestamp(timestamp_ms / 1000)
-
-        summoner = SummonerDTO(
-            id="test-summoner-id",
-            puuid="test-puuid-123",
-            name="TestPlayer",
-            profileIconId=1234,
-            summonerLevel=100,
-            revisionDate=timestamp_ms,
-        )
-
-        assert summoner.revision_date == expected_dt
 
     def test_summoner_optional_revision_date(self):
         """Test summoner with optional revision date."""
@@ -145,6 +126,7 @@ class TestParticipantDTO:
             summonerId="summoner-123",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=12,
             deaths=2,
@@ -176,6 +158,7 @@ class TestParticipantDTO:
             summonerName="test",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=10,
             deaths=2,
@@ -193,6 +176,7 @@ class TestParticipantDTO:
             summonerName="test",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=10,
             deaths=0,
@@ -211,6 +195,7 @@ class TestParticipantDTO:
             "summonerName": "TestPlayer",
             "teamId": 100,
             "win": True,
+            "championId": 238,
             "championName": "Zed",
             "kills": 12,
             "deaths": 2,
@@ -292,6 +277,7 @@ class TestMatchInfoDTO:
             summonerName="TestPlayer",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=5,
             deaths=3,
@@ -381,6 +367,7 @@ class TestMatchDTO:
             summonerName="Player1",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=5,
             deaths=3,
@@ -419,6 +406,7 @@ class TestMatchDTO:
             summonerName="Player1",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=5,
             deaths=3,
@@ -434,6 +422,7 @@ class TestMatchDTO:
             summonerName="Player2",
             teamId=200,
             win=False,
+            championId=157,
             championName="Yasuo",
             kills=3,
             deaths=5,
@@ -479,6 +468,7 @@ class TestMatchDTO:
             summonerName="Player1",
             teamId=100,
             win=True,
+            championId=238,
             championName="Zed",
             kills=5,
             deaths=3,
@@ -494,6 +484,7 @@ class TestMatchDTO:
             summonerName="Player2",
             teamId=200,
             win=False,
+            championId=157,
             championName="Yasuo",
             kills=3,
             deaths=5,
@@ -654,113 +645,3 @@ class TestLeagueEntryDTO:
         assert entry.summoner_name == "TestPlayer"
         assert entry.league_points == 50
         assert entry.hot_streak is False
-
-
-class TestCurrentGameInfoDTO:
-    """Test cases for CurrentGameInfoDTO."""
-
-    def test_valid_current_game(self):
-        """Test creating valid current game info."""
-        from backend.app.riot_api.models import CurrentGameParticipantDTO, ObserverDTO
-
-        participant = CurrentGameParticipantDTO(
-            championId=238,
-            summonerName="TestPlayer",
-            summonerId="summoner-123",
-            teamId=100,
-            profileIconId=1234,
-            spell1Id=4,
-            spell2Id=14,
-            bot=False,
-        )
-
-        observer = ObserverDTO(encryptionKey="test-key")
-
-        game = CurrentGameInfoDTO(
-            gameId=123456789,
-            mapId=11,
-            gameMode="CLASSIC",
-            gameType="MATCHED_GAME",
-            gameQueueConfigId=420,
-            participants=[participant],
-            observers=observer,
-            platformId="EUW1",
-            gameStartTime=1710000000000,
-            gameLength=300,
-        )
-
-        assert game.game_id == 123456789
-        assert game.map_id == 11
-        assert len(game.participants) == 1
-        assert game.game_start_datetime is not None
-
-    def test_current_game_field_alias(self):
-        """Test field alias works correctly."""
-        data = {
-            "gameId": 123456789,
-            "mapId": 11,
-            "gameMode": "CLASSIC",
-            "gameType": "MATCHED_GAME",
-            "gameQueueConfigId": 420,
-            "participants": [],
-            "observers": {"encryptionKey": "test"},
-            "platformId": "EUW1",
-        }
-
-        game = CurrentGameInfoDTO(**data)
-        assert game.game_id == 123456789
-        assert game.map_id == 11
-        assert game.game_queue_config_id == 420
-
-
-class TestFeaturedGamesDTO:
-    """Test cases for FeaturedGamesDTO."""
-
-    def test_valid_featured_games(self):
-        """Test creating valid featured games."""
-        from backend.app.riot_api.models import FeaturedGameInfoDTO
-
-        game = FeaturedGameInfoDTO(
-            gameId=123456789,
-            mapId=11,
-            gameMode="CLASSIC",
-            gameType="MATCHED_GAME",
-            gameQueueConfigId=420,
-            participants=[],
-            observers={"encryptionKey": "test"},
-            platformId="EUW1",
-        )
-
-        featured = FeaturedGamesDTO(gameList=[game], clientRefreshInterval=300)
-
-        assert len(featured.game_list) == 1
-        assert featured.client_refresh_interval == 300
-
-    def test_featured_games_field_alias(self):
-        """Test field alias works correctly."""
-        data = {"gameList": [], "clientRefreshInterval": 300}
-
-        featured = FeaturedGamesDTO(**data)
-        assert featured.game_list == []
-        assert featured.client_refresh_interval == 300
-
-
-class TestActiveShardDTO:
-    """Test cases for ActiveShardDTO."""
-
-    def test_valid_active_shard(self):
-        """Test creating valid active shard."""
-        shard = ActiveShardDTO(puuid="test-puuid", game="lol", activeShard="europe")
-
-        assert shard.puuid == "test-puuid"
-        assert shard.game == "lol"
-        assert shard.active_shard == "europe"
-
-    def test_active_shard_field_alias(self):
-        """Test field alias works correctly."""
-        data = {"puuid": "test-puuid", "game": "lol", "activeShard": "europe"}
-
-        shard = ActiveShardDTO(**data)
-        assert shard.puuid == "test-puuid"
-        assert shard.game == "lol"
-        assert shard.active_shard == "europe"

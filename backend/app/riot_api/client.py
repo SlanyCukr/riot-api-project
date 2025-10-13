@@ -22,9 +22,6 @@ from .models import (
     MatchListDTO,
     MatchDTO,
     LeagueEntryDTO,
-    CurrentGameInfoDTO,
-    FeaturedGamesDTO,
-    ActiveShardDTO,
 )
 from .endpoints import RiotAPIEndpoints, Region, Platform, QueueType
 
@@ -265,11 +262,11 @@ class RiotAPIClient:
 
     def _extract_endpoint_path(self, url: str) -> str:
         """Extract endpoint path from URL for rate limiting."""
-        # Remove base URL and extract the relevant path
-        parts = url.replace("https://", "").replace("http://", "").split("/", 3)
-        if len(parts) > 3:
-            return parts[3]  # Return everything after the domain
-        return url
+        stripped = url.replace("https://", "").replace("http://", "")
+        parts = stripped.split("/", 1)
+        if len(parts) == 2:
+            return parts[1]
+        return stripped
 
     # Account endpoints
     async def get_account_by_riot_id(
@@ -281,26 +278,6 @@ class RiotAPIClient:
         assert isinstance(response, dict), "Expected dict response for account"
         data = cast(dict[str, Any], response)
         return AccountDTO(**data)
-
-    async def get_account_by_puuid(
-        self, puuid: str, region: Optional[Region] = None
-    ) -> AccountDTO:
-        """Get account by PUUID."""
-        url = self.endpoints.account_by_puuid(puuid, region)
-        response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for account"
-        data = cast(dict[str, Any], response)
-        return AccountDTO(**data)
-
-    async def get_active_shard(
-        self, puuid: str, game: str = "lol", region: Optional[Region] = None
-    ) -> ActiveShardDTO:
-        """Get active shard by PUUID."""
-        url = self.endpoints.active_shard(puuid, game, region)
-        response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for active shard"
-        data = cast(dict[str, Any], response)
-        return ActiveShardDTO(**data)
 
     # Summoner endpoints
     async def get_summoner_by_name(
@@ -364,15 +341,6 @@ class RiotAPIClient:
         data = cast(dict[str, Any], response)
         return MatchDTO(**data)
 
-    async def get_match_timeline(
-        self, match_id: str, region: Optional[Region] = None
-    ) -> Dict[str, Any]:
-        """Get match timeline by match ID."""
-        url = self.endpoints.match_timeline_by_id(match_id, region)
-        response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for match timeline"
-        return cast(dict[str, Any], response)
-
     # League endpoints
     async def get_league_entries_by_summoner(
         self, summoner_id: str, platform: Optional[Platform] = None
@@ -390,32 +358,6 @@ class RiotAPIClient:
         data = cast(list[dict[str, Any]], response)
         return [LeagueEntryDTO(**entry) for entry in data]
 
-    # Spectator endpoints
-    async def get_active_game(
-        self, summoner_id: str, platform: Optional[Platform] = None
-    ) -> Optional[CurrentGameInfoDTO]:
-        """Get active game by summoner ID."""
-        url = self.endpoints.active_game_by_summoner(summoner_id, platform)
-
-        try:
-            response = await self._make_request(url)
-            assert isinstance(response, dict), "Expected dict response for active game"
-            data = cast(dict[str, Any], response)
-            return CurrentGameInfoDTO(**data)
-        except NotFoundError:
-            # No active game is normal, return None
-            return None
-
-    async def get_featured_games(
-        self, platform: Optional[Platform] = None
-    ) -> FeaturedGamesDTO:
-        """Get featured games."""
-        url = self.endpoints.featured_games(platform)
-        response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for featured games"
-        data = cast(dict[str, Any], response)
-        return FeaturedGamesDTO(**data)
-
     # Utility methods
     async def get_puuid_by_riot_id(
         self, game_name: str, tag_line: str, region: Optional[Region] = None
@@ -430,15 +372,6 @@ class RiotAPIClient:
         """Get PUUID from summoner name."""
         summoner = await self.get_summoner_by_name(summoner_name, platform)
         return summoner.puuid
-
-    async def get_summoner_id_by_puuid(
-        self, puuid: str, platform: Optional[Platform] = None
-    ) -> str:
-        """Get summoner ID from PUUID."""
-        summoner = await self.get_summoner_by_puuid(puuid, platform)
-        if summoner.id is None:
-            raise ValueError(f"Summoner ID is None for PUUID: {puuid}")
-        return summoner.id
 
     @staticmethod
     def _normalize_queue_type(

@@ -54,20 +54,6 @@ class DatabaseManager:
             finally:
                 await session.close()
 
-    async def create_tables(self) -> None:
-        """Create all database tables."""
-        from .models import Base
-
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    async def drop_tables(self) -> None:
-        """Drop all database tables."""
-        from .models import Base
-
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-
     async def close(self) -> None:
         """Close database connections."""
         await self.engine.dispose()

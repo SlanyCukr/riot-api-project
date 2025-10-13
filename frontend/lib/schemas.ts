@@ -3,13 +3,17 @@ import { z } from "zod";
 // Player Schema
 export const PlayerSchema = z.object({
   puuid: z.string(),
-  riot_id: z.string().optional(),
-  tag_line: z.string().optional(),
+  riot_id: z.string().optional().nullable(),
+  tag_line: z.string().optional().nullable(),
   summoner_name: z.string(),
   platform: z.string(),
-  account_level: z.number().int(),
-  profile_icon_id: z.number().optional(),
-  summoner_id: z.string().optional(),
+  account_level: z.number().int().optional().nullable(),
+  profile_icon_id: z.number().optional().nullable(),
+  summoner_id: z.string().optional().nullable(),
+  id: z.number().optional().nullable(),
+  is_tracked: z.boolean().optional().default(false),
+  is_analyzed: z.boolean().optional().default(false),
+  last_ban_check: z.string().optional().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   last_seen: z.string(),
@@ -24,17 +28,17 @@ export const MatchSchema = z.object({
   queue_id: z.number(),
   game_version: z.string(),
   map_id: z.number(),
-  game_mode: z.string().optional(),
-  game_type: z.string().optional(),
-  game_end_timestamp: z.number().optional(),
-  tournament_id: z.string().optional(),
+  game_mode: z.string().optional().nullable(),
+  game_type: z.string().optional().nullable(),
+  game_end_timestamp: z.number().optional().nullable(),
+  tournament_id: z.string().optional().nullable(),
   is_processed: z.boolean(),
-  processing_error: z.string().optional(),
+  processing_error: z.string().optional().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
-  game_start_datetime: z.string().optional(),
-  game_end_datetime: z.string().optional(),
-  patch_version: z.string().optional(),
+  game_start_datetime: z.string().optional().nullable(),
+  game_end_datetime: z.string().optional().nullable(),
+  patch_version: z.string().optional().nullable(),
   is_ranked_match: z.boolean(),
   is_normal_match: z.boolean(),
 });
@@ -145,3 +149,135 @@ export type DetectionConfigResponse = z.infer<
   typeof DetectionConfigResponseSchema
 >;
 export type DetectionRequest = z.infer<typeof DetectionRequestSchema>;
+
+// ===== JOB SCHEMAS =====
+
+// Job Type Enum (must match backend enum values)
+export const JobTypeSchema = z.enum([
+  "tracked_player_updater",
+  "player_analyzer",
+]);
+
+// Job Status Enum (must match backend enum values)
+export const JobStatusSchema = z.enum([
+  "pending",
+  "running",
+  "success",
+  "failed",
+]);
+
+// Job Configuration Schema
+export const JobConfigurationSchema = z.object({
+  id: z.number(),
+  job_type: JobTypeSchema,
+  name: z.string(),
+  schedule: z.string(),
+  is_active: z.boolean(),
+  config_json: z.record(z.string(), z.any()).nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+// Job Execution Schema
+export const JobExecutionSchema = z.object({
+  id: z.number(),
+  job_config_id: z.number(),
+  started_at: z.string(),
+  completed_at: z.string().nullable().optional(),
+  status: JobStatusSchema,
+  api_requests_made: z.number().default(0),
+  records_created: z.number().default(0),
+  records_updated: z.number().default(0),
+  error_message: z.string().nullable().optional(),
+  execution_log: z.record(z.string(), z.any()).nullable().optional(),
+});
+
+// Job Status Response Schema
+export const JobStatusResponseSchema = z.object({
+  scheduler_running: z.boolean(),
+  active_jobs: z.number(),
+  running_executions: z.number(),
+  last_execution: JobExecutionSchema.nullable().optional(),
+  next_run_time: z.string().nullable().optional(),
+});
+
+// Job Trigger Response Schema
+export const JobTriggerResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  execution_id: z.number().nullable().optional(),
+});
+
+// Job Execution List Response Schema
+export const JobExecutionListResponseSchema = z.object({
+  executions: z.array(JobExecutionSchema),
+  total: z.number(),
+  page: z.number(),
+  size: z.number(),
+  pages: z.number(),
+});
+
+// Infer TypeScript types for Jobs
+export type JobType = z.infer<typeof JobTypeSchema>;
+export type JobStatus = z.infer<typeof JobStatusSchema>;
+export type JobConfiguration = z.infer<typeof JobConfigurationSchema>;
+export type JobExecution = z.infer<typeof JobExecutionSchema>;
+export type JobStatusResponse = z.infer<typeof JobStatusResponseSchema>;
+export type JobTriggerResponse = z.infer<typeof JobTriggerResponseSchema>;
+export type JobExecutionListResponse = z.infer<
+  typeof JobExecutionListResponseSchema
+>;
+
+// Encounter Match Schema
+export const EncounterMatchSchema = z.object({
+  match_id: z.string(),
+  summoner_name: z.string(),
+  champion_name: z.string(),
+  team_id: z.number(),
+  is_teammate: z.boolean(),
+  win: z.boolean(),
+  kda: z.number(),
+});
+
+// Encounter Data Schema
+export const EncounterDataSchema = z.object({
+  total_encounters: z.number(),
+  as_teammate: z.number(),
+  as_opponent: z.number(),
+  teammate_win_rate: z.number(),
+  opponent_win_rate: z.number(),
+  avg_kda: z.number(),
+  recent_matches: z.array(EncounterMatchSchema),
+});
+
+// Encounter Stats Response Schema
+export const EncounterStatsResponseSchema = z.object({
+  puuid: z.string(),
+  encounters: z.record(z.string(), EncounterDataSchema),
+  total_unique_encounters: z.number(),
+  matches_analyzed: z.number(),
+});
+
+// Detection Exists Response Schema
+export const DetectionExistsResponseSchema = z.object({
+  exists: z.boolean(),
+  last_analysis: z.string().optional(),
+  is_smurf: z.boolean().optional(),
+  detection_score: z.number().optional(),
+  confidence_level: z.string().optional(),
+});
+
+// Infer types
+export type EncounterMatch = z.infer<typeof EncounterMatchSchema>;
+export type EncounterData = z.infer<typeof EncounterDataSchema>;
+export type EncounterStatsResponse = z.infer<
+  typeof EncounterStatsResponseSchema
+>;
+export type DetectionExistsResponse = z.infer<
+  typeof DetectionExistsResponseSchema
+>;
+
+// ===== RECENT OPPONENTS SCHEMA =====
+// The backend returns a list of PUUIDs as strings
+export const RecentOpponentsSchema = z.array(z.string());
+export type RecentOpponents = z.infer<typeof RecentOpponentsSchema>;

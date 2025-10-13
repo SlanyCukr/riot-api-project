@@ -3,6 +3,7 @@ Tests for Riot API client.
 """
 
 import pytest
+import pytest_asyncio
 import aiohttp
 from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
@@ -13,22 +14,20 @@ from backend.app.riot_api.models import AccountDTO, SummonerDTO, MatchListDTO, M
 from backend.app.riot_api.endpoints import Region, Platform, QueueType
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     """Create a test client instance."""
     client = RiotAPIClient(
         api_key="test_api_key",
         region=Region.EUROPE,
         platform=Platform.EUN1,
-        enable_cache=True,
-        cache_size=100,
         enable_logging=False,
     )
     yield client
     await client.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mock_session():
     """Create a mock aiohttp session."""
     session = Mock(spec=aiohttp.ClientSession)
@@ -87,6 +86,7 @@ def sample_match_data():
                     "summonerId": "summoner1",
                     "teamId": 100,
                     "win": True,
+                    "championId": 238,
                     "championName": "Zed",
                     "kills": 12,
                     "deaths": 2,
@@ -122,7 +122,6 @@ class TestRiotAPIClient:
         assert client.api_key == "test_api_key"
         assert client.region == Region.EUROPE
         assert client.platform == Platform.EUN1
-        assert client.enable_cache is True
         assert client.enable_logging is False
         assert client.rate_limiter is not None
         assert client.endpoints is not None
@@ -154,27 +153,6 @@ class TestRiotAPIClient:
 
             # Verify the request was made correctly
             mock_request.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_account_by_riot_id_cached(self, client, sample_account_data):
-        """Test cached account lookup."""
-        # Set up cache
-        await client.cache.set_account_by_riot_id(
-            "TestPlayer", "EUW", sample_account_data
-        )
-
-        # Mock the HTTP request
-        with patch.object(
-            client, "_make_request", new_callable=AsyncMock
-        ) as mock_request:
-            result = await client.get_account_by_riot_id("TestPlayer", "EUW")
-
-            # Verify the result
-            assert isinstance(result, AccountDTO)
-            assert result.puuid == "test-puuid-123"
-
-            # Verify no HTTP request was made (cache hit)
-            mock_request.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_summoner_by_puuid(self, client, sample_summoner_data):
@@ -302,8 +280,12 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_success(self, client):
         """Test successful API request."""
-        with patch.object(client, "session") as mock_session:
-            # Mock response
+        with (
+            patch.object(client, "start_session", new_callable=AsyncMock),
+            patch.object(client, "session") as mock_session,
+        ):
+            mock_session.closed = False
+
             mock_response = AsyncMock()
             mock_response.status = 200
             mock_response.json = AsyncMock(return_value={"test": "data"})
@@ -321,7 +303,12 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_401_error(self, client):
         """Test 401 authentication error."""
-        with patch.object(client, "session") as mock_session:
+        with (
+            patch.object(client, "start_session", new_callable=AsyncMock),
+            patch.object(client, "session") as mock_session,
+        ):
+            mock_session.closed = False
+
             mock_response = AsyncMock()
             mock_response.status = 401
             mock_response.headers = {}
@@ -338,7 +325,12 @@ class TestRiotAPIClient:
     @pytest.mark.asyncio
     async def test_make_request_404_error(self, client):
         """Test 404 not found error."""
-        with patch.object(client, "session") as mock_session:
+        with (
+            patch.object(client, "start_session", new_callable=AsyncMock),
+            patch.object(client, "session") as mock_session,
+        ):
+            mock_session.closed = False
+
             mock_response = AsyncMock()
             mock_response.status = 404
             mock_response.headers = {}
@@ -356,6 +348,7 @@ class TestRiotAPIClient:
     async def test_make_request_429_retry(self, client):
         """Test 429 rate limit with retry."""
         with (
+            patch.object(client, "start_session", new_callable=AsyncMock),
             patch.object(client, "session") as mock_session,
             patch.object(
                 client.rate_limiter, "handle_429", new_callable=AsyncMock
@@ -365,6 +358,7 @@ class TestRiotAPIClient:
             ) as mock_backoff,
             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         ):
+            mock_session.closed = False
             # First response: 429
             mock_response_429 = AsyncMock()
             mock_response_429.status = 429
@@ -392,43 +386,17 @@ class TestRiotAPIClient:
             mock_sleep.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_make_request_cache_hit(self, client):
-        """Test request cache hit."""
-        # Set up cache
-        cache_key = client._generate_cache_key(
-            "https://test.com/api", "GET", None, None
-        )
-        await client.cache.cache.set("request", {"cached": True}, 300, cache_key)
-
-        with patch.object(client, "session") as mock_session:
-            result = await client._make_request("https://test.com/api")
-
-            assert result == {"cached": True}
-            assert client.stats["cache_hits"] == 1
-            mock_session.request.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_get_stats(self, client):
         """Test getting client statistics."""
         stats = client.get_stats()
 
         assert "client" in stats
-        assert "cache" in stats
         assert "rate_limiter" in stats
         assert "region" in stats
         assert "platform" in stats
-        assert "cache_enabled" in stats
 
         assert stats["region"] == "europe"
         assert stats["platform"] == "eun1"
-        assert stats["cache_enabled"] is True
-
-    @pytest.mark.asyncio
-    async def test_clear_cache(self, client):
-        """Test clearing cache."""
-        with patch.object(client.cache, "clear", new_callable=AsyncMock) as mock_clear:
-            await client.clear_cache()
-            mock_clear.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_reset_rate_limiter(self, client):
@@ -465,20 +433,6 @@ class TestRiotAPIClient:
 
             assert result.game_list == []
             assert result.client_refresh_interval == 300
-
-    def test_generate_cache_key(self, client):
-        """Test cache key generation."""
-        key1 = client._generate_cache_key("https://test.com/api", "GET", None, None)
-        key2 = client._generate_cache_key(
-            "https://test.com/api", "GET", {"param": "value"}, None
-        )
-        key3 = client._generate_cache_key(
-            "https://test.com/api", "POST", None, {"data": "test"}
-        )
-
-        assert key1 == "GET|https://test.com/api"
-        assert key2 == 'GET|https://test.com/api|{"param": "value"}'
-        assert key3 == 'POST|https://test.com/api|{"data": "test"}'
 
     def test_extract_endpoint_path(self, client):
         """Test endpoint path extraction."""

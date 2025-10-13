@@ -1,7 +1,7 @@
 """Match API endpoints for the Riot API application."""
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 from ..schemas.matches import (
     MatchResponse,
@@ -9,9 +9,15 @@ from ..schemas.matches import (
     MatchStatsResponse,
     MatchSearchRequest,
 )
-from ..api.dependencies import MatchServiceDep, StatsServiceDep
+from ..api.dependencies import (
+    MatchServiceDep,
+    get_match_service,
+    get_stats_service,
+)
 
 router = APIRouter(prefix="/matches", tags=["matches"])
+router.get_match_service = get_match_service  # type: ignore[attr-defined]
+router.get_stats_service = get_stats_service  # type: ignore[attr-defined]
 
 
 @router.get("/player/{puuid}", response_model=MatchListResponse)
@@ -19,7 +25,7 @@ async def get_player_matches(
     puuid: str,
     match_service: MatchServiceDep,
     start: int = Query(0, ge=0, description="Start index for pagination"),
-    count: int = Query(20, ge=1, le=100, description="Number of matches to return"),
+    count: int = Query(20, ge=1, le=500, description="Number of matches to return"),
     queue: Optional[int] = Query(
         None, description="Filter by queue ID (420=ranked solo)"
     ),
@@ -45,6 +51,8 @@ async def get_player_matches(
             end_time=end_time,
         )
         return matches
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -57,6 +65,8 @@ async def get_match_details(match_id: str, match_service: MatchServiceDep):
         if not match:
             raise HTTPException(status_code=404, detail="Match not found")
         return match
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -70,8 +80,12 @@ async def get_player_match_stats(
 ):
     """Get player statistics from recent matches."""
     try:
-        stats = await match_service.get_player_stats(puuid, queue=queue, limit=limit)
+        stats = await match_service.get_player_stats(
+            puuid=puuid, queue=queue, limit=limit
+        )
         return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -84,62 +98,10 @@ async def get_player_encounters(
 ):
     """Get players encountered with/against in recent matches."""
     try:
-        encounters = await match_service.get_player_encounters(puuid, limit=limit)
+        encounters = await match_service.get_player_encounters(puuid=puuid, limit=limit)
         return encounters
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/player/{puuid}/detailed-stats")
-async def get_player_detailed_stats(
-    puuid: str,
-    stats_service: StatsServiceDep,
-    queue: Optional[int] = Query(None, description="Filter by queue ID"),
-    start_time: Optional[int] = Query(None, description="Start timestamp"),
-    end_time: Optional[int] = Query(None, description="End timestamp"),
-    limit: int = Query(100, ge=1, le=200, description="Number of matches to analyze"),
-):
-    """Get comprehensive player statistics including champion and position stats."""
-    try:
-        stats = await stats_service.calculate_player_statistics(
-            puuid=puuid,
-            queue_id=queue,
-            start_time=start_time,
-            end_time=end_time,
-            limit=limit,
-        )
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/player/{puuid}/encounter-stats")
-async def get_player_encounter_stats(
-    puuid: str,
-    stats_service: StatsServiceDep,
-    limit: int = Query(50, ge=1, le=100, description="Number of matches to analyze"),
-    min_encounters: int = Query(
-        3, ge=1, le=10, description="Minimum encounters to include"
-    ),
-):
-    """Get detailed encounter statistics with win rates and performance metrics."""
-    try:
-        encounter_stats = await stats_service.calculate_encounter_statistics(
-            puuid=puuid, limit=limit, min_encounters=min_encounters
-        )
-        return encounter_stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{match_id}/stats")
-async def get_match_stats(match_id: str, stats_service: StatsServiceDep):
-    """Get detailed statistics for a specific match."""
-    try:
-        stats = await stats_service.calculate_match_statistics(match_id)
-        if not stats:
-            raise HTTPException(status_code=404, detail="Match not found")
-        return stats
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -174,32 +136,5 @@ async def get_match_participants(match_id: str, match_service: MatchServiceDep):
         if not match_data:
             raise HTTPException(status_code=404, detail="Match not found")
         return match_data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/player/{puuid}/recent-form")
-async def get_player_recent_form(
-    puuid: str,
-    stats_service: StatsServiceDep,
-    queue: Optional[int] = Query(None, description="Filter by queue ID"),
-    matches: int = Query(
-        10, ge=5, le=20, description="Number of recent matches to analyze"
-    ),
-) -> Dict[str, Any]:
-    """Get player's recent form and performance trends."""
-    try:
-        # Get player statistics to include performance trends
-        stats = await stats_service.calculate_player_statistics(
-            puuid=puuid, queue_id=queue, limit=matches
-        )
-
-        # Return only the relevant performance trend information
-        return {
-            "puuid": puuid,
-            "recent_form": stats["performance_trends"],
-            "matches_analyzed": stats["time_period"]["matches_analyzed"],
-            "queue_filter": queue,
-        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

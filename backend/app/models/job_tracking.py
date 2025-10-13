@@ -1,0 +1,259 @@
+"""Job tracking models for monitoring automated job execution."""
+
+from datetime import datetime
+from enum import Enum as PyEnum
+from typing import Any, Dict, Optional
+
+from sqlalchemy import (
+    Boolean,
+    DateTime as SQLDateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
+from . import Base
+
+
+class JobType(str, PyEnum):
+    """Enumeration of job types."""
+
+    TRACKED_PLAYER_UPDATER = "tracked_player_updater"
+    PLAYER_ANALYZER = "player_analyzer"
+
+
+class JobStatus(str, PyEnum):
+    """Enumeration of job execution statuses."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class JobConfiguration(Base):
+    """Job configuration model storing job scheduling and settings."""
+
+    __tablename__ = "job_configurations"
+
+    # Primary key
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="Unique identifier for job configuration",
+    )
+
+    # Job identification
+    job_type: Mapped[JobType] = mapped_column(
+        Enum(JobType, name="job_type_enum", create_type=True),
+        nullable=False,
+        index=True,
+        comment="Type of job (tracked_player_updater, player_analyzer)",
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="Unique name for this job configuration",
+    )
+
+    # Scheduling configuration
+    schedule: Mapped[str] = mapped_column(
+        String(256),
+        nullable=False,
+        comment="Job schedule (cron expression or interval specification)",
+    )
+
+    # Status and configuration
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        index=True,
+        comment="Whether this job is active and should be scheduled",
+    )
+
+    config_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Job-specific configuration parameters in JSON format",
+    )
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="When this job configuration was created",
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="When this job configuration was last updated",
+    )
+
+    # Relationships
+    executions = relationship(
+        "JobExecution",
+        back_populates="job_config",
+        cascade="all, delete-orphan",
+        order_by="JobExecution.started_at.desc()",
+    )
+
+    def __repr__(self) -> str:
+        """Return string representation of the job configuration."""
+        return f"<JobConfiguration(id={self.id}, name='{self.name}', type='{self.job_type.value}', active={self.is_active})>"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert job configuration to dictionary representation."""
+        return {
+            "id": self.id,
+            "job_type": self.job_type.value,
+            "name": self.name,
+            "schedule": self.schedule,
+            "is_active": self.is_active,
+            "config_json": self.config_json,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class JobExecution(Base):
+    """Job execution model storing job run history and metrics."""
+
+    __tablename__ = "job_executions"
+
+    # Primary key
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="Unique identifier for job execution",
+    )
+
+    # Foreign key to job configuration
+    job_config_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("job_configurations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Reference to the job configuration",
+    )
+
+    # Execution timing
+    started_at: Mapped[datetime] = mapped_column(
+        SQLDateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+        comment="When this job execution started",
+    )
+
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        SQLDateTime(timezone=True),
+        nullable=True,
+        index=True,
+        comment="When this job execution completed",
+    )
+
+    # Execution status
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus, name="job_status_enum", create_type=True),
+        nullable=False,
+        default=JobStatus.PENDING,
+        index=True,
+        comment="Current status of job execution",
+    )
+
+    # Execution metrics
+    api_requests_made: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Number of API requests made during this execution",
+    )
+
+    records_created: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Number of database records created during this execution",
+    )
+
+    records_updated: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Number of database records updated during this execution",
+    )
+
+    # Error handling
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Error message if job execution failed",
+    )
+
+    # Detailed execution log
+    execution_log: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="Detailed execution log and metrics in JSON format",
+    )
+
+    # Relationships
+    job_config = relationship("JobConfiguration", back_populates="executions")
+
+    def __repr__(self) -> str:
+        """Return string representation of the job execution."""
+        return f"<JobExecution(id={self.id}, config_id={self.job_config_id}, status='{self.status.value}', started={self.started_at})>"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert job execution to dictionary representation."""
+        return {
+            "id": self.id,
+            "job_config_id": self.job_config_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
+            "status": self.status.value,
+            "api_requests_made": self.api_requests_made,
+            "records_created": self.records_created,
+            "records_updated": self.records_updated,
+            "error_message": self.error_message,
+            "execution_log": self.execution_log,
+        }
+
+
+# Create composite indexes for common queries
+Index(
+    "idx_job_config_type_active",
+    JobConfiguration.job_type,
+    JobConfiguration.is_active,
+)
+
+Index(
+    "idx_job_execution_config_started",
+    JobExecution.job_config_id,
+    JobExecution.started_at.desc(),
+)
+
+Index(
+    "idx_job_execution_status_started",
+    JobExecution.status,
+    JobExecution.started_at.desc(),
+)
