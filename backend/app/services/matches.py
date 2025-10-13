@@ -326,14 +326,18 @@ class MatchService:
             platform_id = transformed["match"].get("platform_id", "EUN1")
 
             # Ensure all participant PUUIDs exist in players table
+            # Bulk check for existing players
             participant_puuids = {p["puuid"] for p in transformed["participants"]}
-            for puuid in participant_puuids:
-                # Check if player exists
-                existing_player = await self.db.execute(
-                    select(Player).where(Player.puuid == puuid)
-                )
-                if not existing_player.scalar_one_or_none():
-                    # Create minimal player record
+            existing_players_result = await self.db.execute(
+                select(Player.puuid).where(Player.puuid.in_(participant_puuids))
+            )
+            existing_puuids = {row[0] for row in existing_players_result.all()}
+            
+            # Bulk create missing players
+            missing_puuids = participant_puuids - existing_puuids
+            if missing_puuids:
+                new_players = []
+                for puuid in missing_puuids:
                     # Get summoner name from participants
                     summoner_name = next(
                         (
@@ -343,28 +347,32 @@ class MatchService:
                         ),
                         "Unknown",
                     )
-                    player = Player(
-                        puuid=puuid,
-                        summoner_name=summoner_name,
-                        platform=platform_id.lower(),
-                        is_active=True,
+                    new_players.append(
+                        Player(
+                            puuid=puuid,
+                            summoner_name=summoner_name,
+                            platform=platform_id.lower(),
+                            is_active=True,
+                        )
                     )
-                    self.db.add(player)
-                    logger.debug(
-                        "Created minimal player record",
-                        puuid=puuid,
-                        summoner_name=summoner_name,
-                    )
+                
+                self.db.add_all(new_players)
+                logger.debug(
+                    "Created minimal player records",
+                    count=len(new_players),
+                )
 
             # Store match
             match_data_dict = transformed["match"]
             match = Match(**match_data_dict)
             self.db.add(match)
 
-            # Store participants
-            for participant_data in transformed["participants"]:
-                participant = MatchParticipant(**participant_data)
-                self.db.add(participant)
+            # Bulk store participants
+            participants = [
+                MatchParticipant(**participant_data)
+                for participant_data in transformed["participants"]
+            ]
+            self.db.add_all(participants)
 
             await self.db.commit()
             await self.db.refresh(match)
