@@ -22,9 +22,21 @@ jobs:
       - name: Setup deployment directory
         run: |
           echo "🔄 Setting up deployment directory..."
-          rm -rf /home/pi/riot-api
+
+          # Stop containers first to release file locks
+          if [ -d "/home/pi/riot-api" ]; then
+            echo "Stopping existing containers..."
+            cd /home/pi/riot-api
+            docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+          fi
+
+          # Remove old deployment directory (use sudo for Docker-owned files)
+          sudo rm -rf /home/pi/riot-api
+
+          # Copy new code
           mkdir -p /home/pi
           cp -r /home/pi/actions-runner/_work/riot-api-project/riot-api-project /home/pi/riot-api
+
           echo "✅ Repository copied to /home/pi/riot-api"
 
       - name: Generate .env file from secrets
