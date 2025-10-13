@@ -169,7 +169,29 @@ SELECT
 
 ## Common Issues & Solutions
 
-### Issue 1: Foreign Key Violations After Schema Reset
+### Issue 1: Missing Database Column (detailed_logs)
+
+**Symptoms:**
+```
+sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError
+<class 'asyncpg.exceptions.UndefinedColumnError'>: column job_executions.detailed_logs does not exist
+```
+
+**Cause:** Production database schema is outdated after code deployment that added new columns.
+
+**Solution:**
+```bash
+# SSH to production
+ssh -l pi 89.221.212.146 -p 2221
+cd ~/riot-api
+
+# Run the production setup script (resets DB and reseeds data)
+./scripts/setup-production.sh
+```
+
+**Note:** This will reset the database and delete existing job execution history, but preserves the tracked players list by reseeding them.
+
+### Issue 2: Foreign Key Violations After Schema Reset
 
 **Symptoms:**
 ```
@@ -183,7 +205,7 @@ violates foreign key constraint "fk_job_executions_job_config_id_job_configurati
 1. Seed job configurations: `./scripts/seed-job-configs.sh`
 2. Restart backend: `docker compose -f docker-compose.prod.yml restart backend`
 
-### Issue 2: Jobs Not Running
+### Issue 3: Jobs Not Running
 
 **Symptoms:**
 - No job executions in logs
@@ -206,7 +228,7 @@ curl http://localhost:8086/api/v1/jobs/status/overview
 2. Restart backend to reload scheduler
 3. Check Riot API key is valid (expires every 24h for dev keys)
 
-### Issue 3: Transaction Errors
+### Issue 4: Transaction Errors
 
 **Symptoms:**
 ```
@@ -221,7 +243,7 @@ InvalidRequestError: This Session's transaction has been rolled back
 - Handle rollback in single exception handler
 - Don't commit/rollback in helper functions
 
-### Issue 4: Service Won't Start After Schema Change
+### Issue 5: Service Won't Start After Schema Change
 
 **Symptoms:**
 ```
@@ -238,7 +260,7 @@ sqlalchemy.exc.ProgrammingError: relation "table_name" does not exist
    docker compose -f docker-compose.prod.yml exec backend uv run python -m app.init_db reset
    ```
 
-### Issue 5: Stale Docker Images
+### Issue 6: Stale Docker Images
 
 **Symptoms:**
 - Code changes not appearing
