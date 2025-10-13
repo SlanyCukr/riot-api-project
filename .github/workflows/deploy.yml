@@ -81,11 +81,11 @@ jobs:
 
           # Build frontend
           echo "🎨 Building frontend..."
-          docker compose -f docker-compose.yml build frontend
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
 
           # Build backend
           echo "🚀 Building backend..."
-          docker compose -f docker-compose.yml build backend
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml build backend
 
           echo "✅ All images built successfully"
 
@@ -93,14 +93,14 @@ jobs:
         run: |
           cd /home/pi/riot-api
           echo "🛑 Stopping existing containers..."
-          docker compose -f docker-compose.yml down --remove-orphans || true
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml down --remove-orphans || true
           echo "✅ Containers stopped"
 
       - name: Deploy new containers
         run: |
           cd /home/pi/riot-api
           echo "🚀 Deploying new containers..."
-          docker compose -f docker-compose.yml up -d
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
           echo "✅ Containers deployed"
 
       - name: Wait for services to start
@@ -112,13 +112,13 @@ jobs:
         run: |
           cd /home/pi/riot-api
           echo "📊 Container status:"
-          docker compose -f docker-compose.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
           echo "🔍 Running health checks..."
 
           # Test PostgreSQL connectivity
           echo "🗄️  Testing PostgreSQL connectivity..."
-          if docker compose -f docker-compose.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
+          if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
             echo "✅ PostgreSQL is ready"
           else
             echo "❌ PostgreSQL not ready"
@@ -138,7 +138,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Backend API health check failed after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker-compose.yml logs --tail=50 backend
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=50 backend
               exit 1
             fi
           done
@@ -156,7 +156,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Frontend not accessible after 10 attempts"
               echo "Debug: Container logs"
-              docker compose -f docker-compose.yml logs --tail=50 frontend
+              docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=50 frontend
               exit 1
             fi
           done
