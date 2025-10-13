@@ -7,7 +7,7 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     volumes:
-      - ./frontend:/app
+      - ../frontend:/app
       - /app/node_modules
       - /app/.next
     ports:
@@ -24,10 +24,10 @@ services:
     develop:
       watch:
         # Automatically rebuild frontend when .env changes
-        - path: .env
+        - path: ../.env
           action: rebuild
         # Hot reload for frontend code changes
-        - path: ./frontend
+        - path: ../frontend
           action: sync+restart
           target: /app
           ignore:
@@ -51,7 +51,7 @@ services:
       - JOB_TIMEOUT_SECONDS=${JOB_TIMEOUT_SECONDS:-90}
       - MAX_TRACKED_PLAYERS=${MAX_TRACKED_PLAYERS:-10}
     volumes:
-      - ./backend:/app
+      - ../backend:/app
       - /app/.venv
     ports:
       - "${BACKEND_PORT}:8000"
@@ -66,10 +66,10 @@ services:
     develop:
       watch:
         # Automatically rebuild backend when .env changes
-        - path: .env
+        - path: ../.env
           action: rebuild
         # Hot reload for backend code changes (FastAPI auto-reload already handles this)
-        - path: ./backend
+        - path: ../backend
           action: sync
           target: /app
           ignore:
@@ -82,6 +82,6 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app-network
