@@ -49,7 +49,7 @@ class SmurfDetection(Base):
     )
 
     confidence: Mapped[Optional[str]] = mapped_column(
-        String(16),
+        String(32),
         nullable=True,
         index=True,
         comment="Confidence level in the smurf detection",

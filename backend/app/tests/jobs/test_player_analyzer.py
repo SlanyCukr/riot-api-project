@@ -3,6 +3,7 @@ Tests for the player analyzer job.
 """
 
 import pytest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 from uuid import uuid4
@@ -133,6 +134,8 @@ class TestPlayerAnalyzerJob:
         mock_db.execute.return_value = mock_result
 
         with (
+            patch.object(job, "_fetch_discovered_player_matches", AsyncMock()),
+            patch.object(job, "_check_ban_status", AsyncMock()),
             patch("app.jobs.player_analyzer.RiotAPIClient") as mock_client,
             patch("app.jobs.player_analyzer.RiotDataManager") as mock_manager,
             patch("app.jobs.player_analyzer.SmurfDetectionService") as mock_service,
@@ -143,16 +146,23 @@ class TestPlayerAnalyzerJob:
             mock_client.return_value = mock_api
 
             mock_mgr = MagicMock()
+            mock_mgr.get_player_by_puuid = AsyncMock(return_value=None)
             mock_manager.return_value = mock_mgr
 
             mock_detection = MagicMock()
-            mock_detection.analyze_player = AsyncMock()
+            mock_detection.analyze_player = AsyncMock(
+                return_value=SimpleNamespace(
+                    is_smurf=False,
+                    detection_score=0.4,
+                    confidence_level="low",
+                )
+            )
             mock_service.return_value = mock_detection
 
             await job.execute(mock_db)
 
             # Should have processed unanalyzed players
-            assert "unanalyzed_players_count" in job.execution_log
+            assert "players_to_analyze_count" in job.execution_log
 
     @pytest.mark.asyncio
     async def test_execute_no_players(self, job_config, mock_db):
@@ -165,6 +175,8 @@ class TestPlayerAnalyzerJob:
         mock_db.execute.return_value = mock_result
 
         with (
+            patch.object(job, "_fetch_discovered_player_matches", AsyncMock()),
+            patch.object(job, "_check_ban_status", AsyncMock()),
             patch("app.jobs.player_analyzer.RiotAPIClient") as mock_client,
         ):
             mock_api = MagicMock()
@@ -174,8 +186,8 @@ class TestPlayerAnalyzerJob:
             await job.execute(mock_db)
 
             # Should complete without errors
-            assert "unanalyzed_players_count" in job.execution_log
-            assert job.execution_log["unanalyzed_players_count"] == 0
+            assert "players_to_analyze_count" in job.execution_log
+            assert job.execution_log["players_to_analyze_count"] == 0
 
     # Removed test for private method _mark_player_analyzed
     # This is tested through the execute() method
@@ -294,6 +306,70 @@ class TestPlayerAnalyzerJob:
         assert job.min_smurf_confidence == 0.5
         assert low_confidence_result["smurf_score"] < job.min_smurf_confidence
 
+    @pytest.mark.asyncio
+    async def test_store_match_creates_placeholder_players(self, job_config):
+        """Ensure missing participants create placeholder players."""
+        job = PlayerAnalyzerJob(job_config)
+
+        participant = SimpleNamespace(
+            puuid="missing-participant",
+            riot_id_game_name="PlayerOne",
+            riot_id_tagline="EUNE",
+            summoner_name="PlayerOne",
+            summoner_level=30,
+            champion_id=1,
+            champion_name="Annie",
+            team_id=100,
+            team_position="MIDDLE",
+            win=True,
+            kills=10,
+            deaths=2,
+            assists=5,
+            gold_earned=12000,
+            total_minions_killed=200,
+            neutral_minions_killed=20,
+            vision_score=15,
+            total_damage_dealt_to_champions=25000,
+            total_damage_taken=15000,
+        )
+
+        match_dto = SimpleNamespace(
+            metadata=SimpleNamespace(match_id="match-123"),
+            info=SimpleNamespace(
+                platform_id="eun1",
+                game_creation=0,
+                game_duration=1800,
+                game_mode="CLASSIC",
+                game_type="MATCHED_GAME",
+                game_version="1.0.0",
+                map_id=11,
+                queue_id=420,
+                participants=[participant],
+            ),
+        )
+
+        player_missing_result = MagicMock()
+        player_missing_result.scalar_one_or_none.return_value = None
+
+        match_missing_result = MagicMock()
+        match_missing_result.scalar_one_or_none.return_value = None
+
+        db = AsyncMock()
+        db.add = MagicMock()
+        db.execute = AsyncMock(
+            side_effect=[player_missing_result, match_missing_result, match_missing_result]
+        )
+
+        await job._store_match_for_discovered_player(db, match_dto)
+
+        added_players = [
+            call.args[0]
+            for call in db.add.call_args_list
+            if isinstance(call.args[0], Player)
+        ]
+
+        assert any(p.puuid == participant.puuid for p in added_players)
+
 
 class TestPlayerAnalyzerIntegration:
     """Integration tests for player analyzer."""
@@ -311,6 +387,8 @@ class TestPlayerAnalyzerIntegration:
         mock_db.execute.return_value = mock_result
 
         with (
+            patch.object(job, "_fetch_discovered_player_matches", AsyncMock()),
+            patch.object(job, "_check_ban_status", AsyncMock()),
             patch("app.jobs.player_analyzer.RiotAPIClient") as mock_client,
             patch("app.jobs.player_analyzer.RiotDataManager") as mock_manager,
             patch("app.jobs.player_analyzer.SmurfDetectionService") as mock_service,
@@ -321,17 +399,24 @@ class TestPlayerAnalyzerIntegration:
             mock_client.return_value = mock_api
 
             mock_data_mgr = MagicMock()
+            mock_data_mgr.get_player_by_puuid = AsyncMock(return_value=None)
             mock_manager.return_value = mock_data_mgr
 
             mock_detection = MagicMock()
-            mock_detection.analyze_player = AsyncMock()
+            mock_detection.analyze_player = AsyncMock(
+                return_value=SimpleNamespace(
+                    is_smurf=False,
+                    detection_score=0.4,
+                    confidence_level="low",
+                )
+            )
             mock_service.return_value = mock_detection
 
             # Execute job
             await job.execute(mock_db)
 
             # Verify job completed and logged
-            assert "unanalyzed_players_count" in job.execution_log
+            assert "players_to_analyze_count" in job.execution_log
 
     @pytest.mark.asyncio
     async def test_error_handling_during_analysis(
@@ -346,6 +431,8 @@ class TestPlayerAnalyzerIntegration:
         mock_db.execute.return_value = mock_result
 
         with (
+            patch.object(job, "_fetch_discovered_player_matches", AsyncMock()),
+            patch.object(job, "_check_ban_status", AsyncMock()),
             patch("app.jobs.player_analyzer.RiotAPIClient") as mock_client,
             patch("app.jobs.player_analyzer.RiotDataManager") as mock_manager,
             patch("app.jobs.player_analyzer.SmurfDetectionService") as mock_service,
@@ -355,6 +442,7 @@ class TestPlayerAnalyzerIntegration:
             mock_client.return_value = mock_api
 
             mock_data_mgr = MagicMock()
+            mock_data_mgr.get_player_by_puuid = AsyncMock(return_value=None)
             mock_manager.return_value = mock_data_mgr
 
             # Make detection service raise an error
@@ -368,4 +456,4 @@ class TestPlayerAnalyzerIntegration:
             await job.execute(mock_db)
 
             # Job should have logged unanalyzed players even if analysis failed
-            assert "unanalyzed_players_count" in job.execution_log
+            assert "players_to_analyze_count" in job.execution_log

@@ -566,12 +566,39 @@ class PlayerAnalyzerJob(BaseJob):
         db.add(match)
 
         # Create MatchParticipant records
+        ensured_players: set[str] = set()
         for participant in match_dto.info.participants:
+            participant_puuid = participant.puuid
+
+            if participant_puuid not in ensured_players:
+                result_player = await db.execute(
+                    select(Player.puuid).where(Player.puuid == participant_puuid)
+                )
+                if result_player.scalar_one_or_none() is None:
+                    placeholder_player = Player(
+                        puuid=participant_puuid,
+                        platform=platform_id.upper(),
+                        riot_id=participant.riot_id_game_name or None,
+                        tag_line=participant.riot_id_tagline or None,
+                        summoner_name=participant.summoner_name or None,
+                        account_level=participant.summoner_level,
+                        is_active=True,
+                        is_tracked=False,
+                        is_analyzed=False,
+                    )
+                    db.add(placeholder_player)
+                    logger.debug(
+                        "Created placeholder player for participant",
+                        puuid=participant_puuid[:8],
+                        match_id=match_dto.metadata.match_id,
+                    )
+                ensured_players.add(participant_puuid)
+
             # Note: Riot API sometimes returns empty strings for name fields
             # Convert empty strings to None for proper database storage
             match_participant = MatchParticipant(
                 match_id=match_dto.metadata.match_id,
-                puuid=participant.puuid,
+                puuid=participant_puuid,
                 riot_id_name=participant.riot_id_game_name or None,
                 riot_id_tagline=participant.riot_id_tagline or None,
                 summoner_name=participant.summoner_name or None,
