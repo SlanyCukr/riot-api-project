@@ -468,7 +468,14 @@ export function JobExecutions({
                             </p>
                             <div className="max-h-[250px] space-y-2 overflow-auto rounded border border-destructive/20 bg-destructive/5 p-3">
                               {selectedExecution.detailed_logs.summary.errors.map(
-                                (error: any, idx: number) => {
+                                (
+                                  error: {
+                                    message: string;
+                                    timestamp: string;
+                                    context?: Record<string, unknown>;
+                                  },
+                                  idx: number,
+                                ) => {
                                   // Try to parse message if it's JSON
                                   let displayMessage = error.message;
                                   let parsedContext = error.context;
@@ -488,7 +495,7 @@ export function JobExecutions({
                                         ...parsed,
                                       };
                                     }
-                                  } catch (e) {
+                                  } catch {
                                     // Keep original message if parsing fails
                                   }
 
@@ -562,7 +569,13 @@ export function JobExecutions({
                             </p>
                             <div className="max-h-[150px] space-y-2 overflow-auto rounded border border-yellow-500/20 bg-yellow-500/5 p-3">
                               {selectedExecution.detailed_logs.summary.warnings.map(
-                                (warning: any, idx: number) => (
+                                (
+                                  warning: {
+                                    message: string;
+                                    timestamp: string;
+                                  },
+                                  idx: number,
+                                ) => (
                                   <div
                                     key={idx}
                                     className="rounded border border-yellow-500/30 bg-background p-2 text-xs"
@@ -596,7 +609,14 @@ export function JobExecutions({
                       <div className="max-h-[300px] overflow-auto rounded-md border bg-background p-3">
                         <div className="space-y-0.5 font-mono text-[11px]">
                           {selectedExecution.detailed_logs.logs.map(
-                            (log: any, idx: number) => (
+                            (
+                              log: {
+                                level: string;
+                                timestamp: string;
+                                message: string;
+                              },
+                              idx: number,
+                            ) => (
                               <div
                                 key={idx}
                                 className={`flex gap-2 rounded px-2 py-1.5 ${

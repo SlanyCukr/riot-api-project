@@ -41,6 +41,9 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
     },
   });
 
+  // Extract searchType to avoid React Compiler warning about watch()
+  const searchType = form.watch("searchType");
+
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (data: PlayerSearchForm) => {
       const params = {
@@ -123,14 +126,12 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {form.watch("searchType") === "riot_id"
-                      ? "Riot ID"
-                      : "Summoner Name"}
+                    {searchType === "riot_id" ? "Riot ID" : "Summoner Name"}
                   </FormLabel>
                   <FormControl>
                     <Input
                       placeholder={
-                        form.watch("searchType") === "riot_id"
+                        searchType === "riot_id"
                           ? "DangerousDan#EUW"
                           : "DangerousDan"
                       }
