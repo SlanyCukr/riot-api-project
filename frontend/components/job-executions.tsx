@@ -306,7 +306,7 @@ export function JobExecutions({
         open={!!selectedExecution}
         onOpenChange={(open) => !open && setSelectedExecution(null)}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Execution Details</DialogTitle>
             <DialogDescription>
@@ -315,7 +315,7 @@ export function JobExecutions({
           </DialogHeader>
 
           {selectedExecution && (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4">
               {/* Status */}
               <div className="flex items-center justify-between">
                 <span className="font-medium">Status</span>
@@ -403,9 +403,238 @@ export function JobExecutions({
               {selectedExecution.execution_log && (
                 <div className="rounded-lg border bg-muted/50 p-4">
                   <p className="mb-2 font-medium">Execution Log</p>
-                  <pre className="max-h-[200px] overflow-auto text-xs">
+                  <pre className="max-h-[180px] overflow-auto rounded-md border bg-background p-3 text-xs">
                     {JSON.stringify(selectedExecution.execution_log, null, 2)}
                   </pre>
+                </div>
+              )}
+
+              {/* Detailed Logs */}
+              {selectedExecution.detailed_logs && (
+                <div className="space-y-4">
+                  {/* Log Summary */}
+                  {selectedExecution.detailed_logs.summary && (
+                    <div className="rounded-lg border bg-muted/50 p-4">
+                      <p className="mb-3 font-medium">Log Summary</p>
+                      <div className="grid grid-cols-4 gap-3 text-sm">
+                        <div className="rounded border bg-background p-2">
+                          <div className="text-xs text-muted-foreground">
+                            Total Logs
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {selectedExecution.detailed_logs.summary.total_logs}
+                          </div>
+                        </div>
+                        {selectedExecution.detailed_logs.summary.by_level && (
+                          <>
+                            {Object.entries(
+                              selectedExecution.detailed_logs.summary.by_level,
+                            ).map(([level, count]) => (
+                              <div
+                                key={level}
+                                className={`rounded border p-2 ${
+                                  level === "ERROR"
+                                    ? "border-destructive/50 bg-destructive/5"
+                                    : level === "WARNING"
+                                      ? "border-yellow-500/50 bg-yellow-500/5"
+                                      : "bg-background"
+                                }`}
+                              >
+                                <div className="text-xs text-muted-foreground">
+                                  {level}
+                                </div>
+                                <div className="text-lg font-semibold">
+                                  {count as number}
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Errors */}
+                      {selectedExecution.detailed_logs.summary.errors &&
+                        selectedExecution.detailed_logs.summary.errors.length >
+                          0 && (
+                          <div className="mt-4">
+                            <p className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              Errors (
+                              {
+                                selectedExecution.detailed_logs.summary.errors
+                                  .length
+                              }
+                              )
+                            </p>
+                            <div className="max-h-[250px] space-y-2 overflow-auto rounded border border-destructive/20 bg-destructive/5 p-3">
+                              {selectedExecution.detailed_logs.summary.errors.map(
+                                (error: any, idx: number) => {
+                                  // Try to parse message if it's JSON
+                                  let displayMessage = error.message;
+                                  let parsedContext = error.context;
+
+                                  try {
+                                    if (
+                                      typeof error.message === "string" &&
+                                      error.message.startsWith("{")
+                                    ) {
+                                      const parsed = JSON.parse(error.message);
+                                      displayMessage =
+                                        parsed.event ||
+                                        parsed.message ||
+                                        error.message;
+                                      parsedContext = {
+                                        ...parsedContext,
+                                        ...parsed,
+                                      };
+                                    }
+                                  } catch (e) {
+                                    // Keep original message if parsing fails
+                                  }
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="rounded border border-destructive/30 bg-background p-3 text-xs"
+                                    >
+                                      <div className="mb-1 font-medium text-destructive">
+                                        {displayMessage}
+                                      </div>
+                                      {parsedContext && (
+                                        <div className="mt-2 space-y-1 text-muted-foreground">
+                                          {Object.entries(parsedContext)
+                                            .filter(
+                                              ([key]) =>
+                                                ![
+                                                  "event",
+                                                  "message",
+                                                  "timestamp",
+                                                  "logger",
+                                                  "level",
+                                                ].includes(key),
+                                            )
+                                            .slice(0, 3)
+                                            .map(([key, value]) => (
+                                              <div
+                                                key={key}
+                                                className="break-all"
+                                              >
+                                                <span className="font-mono text-[10px]">
+                                                  {key}:
+                                                </span>{" "}
+                                                <span className="text-[10px]">
+                                                  {String(value).substring(
+                                                    0,
+                                                    80,
+                                                  )}
+                                                  {String(value).length > 80 &&
+                                                    "..."}
+                                                </span>
+                                              </div>
+                                            ))}
+                                        </div>
+                                      )}
+                                      <div className="mt-2 text-[10px] text-muted-foreground">
+                                        {new Date(
+                                          error.timestamp,
+                                        ).toLocaleString()}
+                                      </div>
+                                    </div>
+                                  );
+                                },
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Warnings */}
+                      {selectedExecution.detailed_logs.summary.warnings &&
+                        selectedExecution.detailed_logs.summary.warnings
+                          .length > 0 && (
+                          <div className="mt-4">
+                            <p className="mb-2 text-sm font-medium text-yellow-600">
+                              Warnings (
+                              {
+                                selectedExecution.detailed_logs.summary.warnings
+                                  .length
+                              }
+                              )
+                            </p>
+                            <div className="max-h-[150px] space-y-2 overflow-auto rounded border border-yellow-500/20 bg-yellow-500/5 p-3">
+                              {selectedExecution.detailed_logs.summary.warnings.map(
+                                (warning: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="rounded border border-yellow-500/30 bg-background p-2 text-xs"
+                                  >
+                                    <div className="mb-1 font-medium text-yellow-700 dark:text-yellow-600">
+                                      {warning.message}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {new Date(
+                                        warning.timestamp,
+                                      ).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                  {/* Full Logs */}
+                  {selectedExecution.detailed_logs.logs && (
+                    <div className="rounded-lg border bg-muted/50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="font-medium">Detailed Logs</p>
+                        <Badge variant="secondary">
+                          {selectedExecution.detailed_logs.logs.length} entries
+                        </Badge>
+                      </div>
+                      <div className="max-h-[300px] overflow-auto rounded-md border bg-background p-3">
+                        <div className="space-y-0.5 font-mono text-[11px]">
+                          {selectedExecution.detailed_logs.logs.map(
+                            (log: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className={`flex gap-2 rounded px-2 py-1.5 ${
+                                  log.level === "ERROR"
+                                    ? "bg-destructive/5 text-destructive"
+                                    : log.level === "WARNING"
+                                      ? "bg-yellow-500/5 text-yellow-700 dark:text-yellow-600"
+                                      : log.level === "INFO"
+                                        ? "bg-blue-500/5 text-blue-700 dark:text-blue-500"
+                                        : "text-muted-foreground"
+                                }`}
+                              >
+                                <span
+                                  className={`shrink-0 font-bold ${
+                                    log.level === "ERROR"
+                                      ? "text-destructive"
+                                      : log.level === "WARNING"
+                                        ? "text-yellow-600"
+                                        : log.level === "INFO"
+                                          ? "text-blue-600"
+                                          : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {log.level.padEnd(7, " ")}
+                                </span>
+                                <span className="shrink-0 text-muted-foreground">
+                                  {new Date(log.timestamp).toLocaleTimeString()}
+                                </span>
+                                <span className="flex-1 break-all">
+                                  {log.message}
+                                </span>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

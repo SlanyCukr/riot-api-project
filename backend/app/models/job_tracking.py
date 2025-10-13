@@ -214,6 +214,13 @@ class JobExecution(Base):
         comment="Detailed execution log and metrics in JSON format",
     )
 
+    # Detailed logs captured during execution
+    detailed_logs: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB,
+        nullable=True,
+        comment="All logs captured during job execution (INFO, WARNING, ERROR, etc.)",
+    )
+
     # Relationships
     job_config = relationship("JobConfiguration", back_populates="executions")
 
@@ -236,6 +243,7 @@ class JobExecution(Base):
             "records_updated": self.records_updated,
             "error_message": self.error_message,
             "execution_log": self.execution_log,
+            "detailed_logs": self.detailed_logs,
         }
 
 

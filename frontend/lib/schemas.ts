@@ -190,6 +190,7 @@ export const JobExecutionSchema = z.object({
   records_updated: z.number().default(0),
   error_message: z.string().nullable().optional(),
   execution_log: z.record(z.string(), z.any()).nullable().optional(),
+  detailed_logs: z.record(z.string(), z.any()).nullable().optional(),
 });
 
 // Job Status Response Schema

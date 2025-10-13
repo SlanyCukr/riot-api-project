@@ -1,7 +1,6 @@
 """Database initialization script using SQLAlchemy create_all().
 
 This script creates all database tables defined in SQLAlchemy models.
-It replaces Alembic migrations for simpler database initialization.
 """
 
 import asyncio

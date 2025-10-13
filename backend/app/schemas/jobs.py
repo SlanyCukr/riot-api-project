@@ -66,6 +66,10 @@ class JobExecutionResponse(BaseModel):
     execution_log: Optional[Dict[str, Any]] = Field(
         None, description="Detailed execution log"
     )
+    detailed_logs: Optional[Dict[str, Any]] = Field(
+        None,
+        description="All logs captured during execution (includes logs array and summary)",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 

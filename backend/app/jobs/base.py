@@ -3,12 +3,14 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+import logging
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import JobConfiguration, JobExecution, JobStatus
+from .log_handler import JobLogHandler, StructlogJobProcessor
 
 logger = structlog.get_logger(__name__)
 
@@ -40,6 +42,7 @@ class BaseJob(ABC):
             "records_updated": 0,
         }
         self.execution_log: Dict[str, Any] = {}
+        self.log_handler: Optional[JobLogHandler] = None
 
     @abstractmethod
     async def execute(self, db: AsyncSession) -> None:
@@ -57,6 +60,47 @@ class BaseJob(ABC):
         """
         pass
 
+    def _setup_log_capture(self) -> None:
+        """Setup log capture for this job execution."""
+        # Create log handler
+        self.log_handler = JobLogHandler(level=logging.DEBUG)
+
+        # Add handler to root logger to capture all logs
+        root_logger = logging.getLogger()
+        root_logger.addHandler(self.log_handler)
+
+        # Also add to structlog processor chain
+        # Note: This is a best-effort approach; structlog config is typically
+        # set up globally, so we're just capturing what we can
+        try:
+            import structlog
+
+            # Get current processors
+            current_processors = structlog.get_config().get("processors", [])
+
+            # Add our processor at the beginning to capture everything
+            processor = StructlogJobProcessor(self.log_handler)
+
+            # Configure structlog with our processor
+            structlog.configure(
+                processors=[processor] + current_processors,
+            )
+        except Exception as e:
+            # If structlog config fails, just log it and continue
+            # We'll still capture standard logging
+            logger.warning(
+                "Failed to add structlog processor",
+                error=str(e),
+                job_name=self.job_config.name,
+            )
+
+    def _teardown_log_capture(self) -> None:
+        """Cleanup log capture."""
+        if self.log_handler:
+            # Remove handler from root logger
+            root_logger = logging.getLogger()
+            root_logger.removeHandler(self.log_handler)
+
     async def log_start(self, db: AsyncSession) -> None:
         """Log job execution start and create JobExecution record.
 
@@ -64,6 +108,9 @@ class BaseJob(ABC):
             db: Database session for creating execution record.
         """
         try:
+            # Setup log capture BEFORE starting job
+            self._setup_log_capture()
+
             self.job_execution = JobExecution(
                 job_config_id=self.job_config.id,
                 started_at=datetime.now(timezone.utc),
@@ -72,6 +119,7 @@ class BaseJob(ABC):
                 records_created=0,
                 records_updated=0,
                 execution_log={},
+                detailed_logs=None,  # Will be populated on completion
             )
             db.add(self.job_execution)
             await db.commit()
@@ -91,6 +139,8 @@ class BaseJob(ABC):
                 error=str(e),
                 error_type=type(e).__name__,
             )
+            # Cleanup log capture on error
+            self._teardown_log_capture()
             await db.rollback()
             raise
 
@@ -112,9 +162,19 @@ class BaseJob(ABC):
                 "Cannot log completion, job execution not started",
                 job_name=self.job_config.name,
             )
+            # Still cleanup log capture
+            self._teardown_log_capture()
             return
 
         try:
+            # Get captured logs before tearing down
+            detailed_logs = None
+            if self.log_handler:
+                detailed_logs = {
+                    "logs": self.log_handler.get_logs(),
+                    "summary": self.log_handler.get_log_summary(),
+                }
+
             # Get a fresh copy of the job execution from the database
             # This ensures we're working with an attached object in the current session
             from sqlalchemy import update
@@ -135,6 +195,7 @@ class BaseJob(ABC):
                     records_updated=self.metrics["records_updated"],
                     error_message=error_message,
                     execution_log=self.execution_log,
+                    detailed_logs=detailed_logs,
                 )
             )
             await db.execute(stmt)
@@ -157,6 +218,7 @@ class BaseJob(ABC):
                 records_created=self.metrics["records_created"],
                 records_updated=self.metrics["records_updated"],
                 success=success,
+                total_logs_captured=len(detailed_logs["logs"]) if detailed_logs else 0,
             )
 
         except Exception as e:
@@ -175,6 +237,9 @@ class BaseJob(ABC):
                     "Failed to rollback after log_completion error",
                     error=str(rollback_error),
                 )
+        finally:
+            # Always cleanup log capture
+            self._teardown_log_capture()
 
     async def handle_error(self, db: AsyncSession, error: Exception) -> None:
         """Handle job execution error.
