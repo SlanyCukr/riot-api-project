@@ -1,6 +1,5 @@
 """Match service for handling match data operations."""
 
-import asyncio
 from typing import Optional, List, Dict, Any
 import structlog
 
@@ -296,15 +295,13 @@ class MatchService:
             raise
 
     async def _store_matches(self, match_ids: List[str]) -> None:
-        """Store match details in database with parallel fetching for better performance."""
-
-        async def store_single_match(match_id: str) -> None:
-            """Store a single match, skipping if it already exists."""
+        """Store match details in database sequentially to avoid transaction conflicts."""
+        for match_id in match_ids:
             try:
                 # Check if match already exists
                 existing_match = await self._get_match_from_db(match_id)
                 if existing_match:
-                    return
+                    continue
 
                 match_dto = await self.data_manager.get_match(match_id)
                 # Convert MatchDTO to dict for storage - use model_dump with by_alias=True
@@ -313,15 +310,8 @@ class MatchService:
                 await self._store_match_detail(match_data)
             except Exception as e:
                 logger.error("Failed to store match", match_id=match_id, error=str(e))
-
-        # Fetch and store matches in parallel (limit concurrency to avoid rate limits)
-        # Process in batches of 10 to balance speed and rate limiting
-        batch_size = 10
-        for i in range(0, len(match_ids), batch_size):
-            batch = match_ids[i : i + batch_size]
-            await asyncio.gather(
-                *[store_single_match(mid) for mid in batch], return_exceptions=True
-            )
+                # Continue with next match instead of failing the entire batch
+                continue
 
     async def _store_match_detail(self, match_data: Dict[str, Any]) -> Match:
         """Store match detail in database."""
