@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import structlog
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
@@ -172,9 +172,9 @@ class PlayerAnalyzerJob(BaseJob):
         """
         stmt = (
             select(Player)
-            .where(not Player.is_tracked)
-            .where(not Player.is_analyzed)
-            .where(Player.is_active)
+            .where(Player.is_tracked.is_(False))
+            .where(Player.is_analyzed.is_(False))
+            .where(Player.is_active.is_(True))
             .limit(self.unanalyzed_players_per_run)
         )
         result = await db.execute(stmt)
@@ -430,11 +430,10 @@ class PlayerAnalyzerJob(BaseJob):
         stmt = (
             select(Player)
             .join(SmurfDetection, Player.puuid == SmurfDetection.puuid)
-            .where(SmurfDetection.is_smurf)
+            .where(SmurfDetection.is_smurf.is_(True))
             .where(
-                and_(
-                    (Player.last_ban_check is None)
-                    | (Player.last_ban_check < cutoff_time)
+                or_(
+                    Player.last_ban_check.is_(None), Player.last_ban_check < cutoff_time
                 )
             )
             .limit(10)  # Check max 10 players per run
