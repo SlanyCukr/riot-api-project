@@ -1,254 +1,262 @@
 # Backend Development Guide
 
-Backend-specific patterns and implementation details. **See root `AGENTS.md` for common Docker/testing/database commands.**
+**WHEN TO USE THIS**: Working on Python backend, FastAPI endpoints, Riot API integration, smurf detection, or background jobs.
 
-## Directory Structure
-- `app/api/` - FastAPI endpoints (players, matches, detection, jobs)
-- `app/services/` - Business logic (players, matches, detection, stats, jobs)
-- `app/models/` - SQLAlchemy models (see `docker/postgres/AGENTS.md`)
-- `app/riot_api/` - HTTP client with rate limiting
-- `app/algorithms/` - Smurf detection (win_rate, rank_progression, performance)
-- `app/jobs/` - Background job system (scheduler, tracked player updater, player analyzer)
-- `app/config.py` - Pydantic settings
+**QUICK NAVIGATION**: Need to add/modify? → [Jump to Common Tasks](#common-tasks)
 
-## Backend-Specific Patterns
+---
 
-### FastAPI Dependency Injection
-Use dependency injection for services and database sessions:
+## 📁 File Structure Map
 
-```python
-from fastapi import Depends
-from app.services.player_service import PlayerService
-
-@router.get("/players/{puuid}")
-async def get_player(
-    puuid: str,
-    player_service: PlayerService = Depends()
-):
-    return await player_service.get_player(puuid)
+```
+backend/app/
+├── main.py                      # FastAPI app setup, CORS, middleware, startup/shutdown
+├── config.py                    # Settings (Pydantic BaseSettings), env vars
+├── database.py                  # SQLAlchemy async engine, session management
+├── protocols.py                 # Type protocols for dependency injection
+│
+├── api/                         # 🔍 API endpoints (FastAPI routers)
+│   ├── players.py              # Player search, tracking, rank endpoints
+│   ├── matches.py              # Match history, stats, encounters
+│   ├── detection.py            # Smurf detection analysis endpoints
+│   ├── jobs.py                 # Job management and execution endpoints
+│   └── dependencies.py         # FastAPI Depends() factories
+│
+├── services/                    # 🧠 Business logic layer
+│   ├── players.py              # Player data operations, tracking
+│   ├── matches.py              # Match retrieval, statistics
+│   ├── detection.py            # Smurf detection orchestration
+│   ├── stats.py                # Statistical analysis, aggregations
+│   └── jobs.py                 # Job configuration management
+│
+├── riot_api/                    # 🌐 Riot Games API integration
+│   ├── client.py               # HTTP client with auth & rate limiting
+│   ├── data_manager.py         # Database-first data fetching (PRIMARY)
+│   ├── rate_limiter.py         # Token bucket rate limiting
+│   ├── transformers.py         # API response → DB model conversion
+│   ├── endpoints.py            # Riot API endpoint definitions
+│   ├── errors.py               # Custom exception classes
+│   └── models.py               # Pydantic models for API responses
+│
+├── algorithms/                  # 🔍 Smurf detection algorithms
+│   ├── win_rate.py             # Win rate pattern analysis
+│   ├── rank_progression.py     # Rank climbing detection
+│   └── performance.py          # Performance consistency analysis
+│
+├── jobs/                        # ⏰ Background job system
+│   ├── scheduler.py            # APScheduler setup & lifecycle
+│   ├── base.py                 # BaseJob class (extend for new jobs)
+│   ├── tracked_player_updater.py  # Fetch matches for tracked players
+│   ├── player_analyzer.py      # Run smurf detection on discovered players
+│   └── log_handler.py          # Job execution logging
+│
+├── models/                      # 📊 SQLAlchemy ORM models
+│   ├── players.py              # Player table
+│   ├── matches.py              # Match table
+│   ├── participants.py         # Match participant table
+│   ├── ranks.py                # Player rank history
+│   ├── smurf_detection.py      # Detection results
+│   └── job_tracking.py         # Job configs & executions
+│
+├── schemas/                     # ✅ Pydantic validation schemas
+│   └── (request/response models for API)
+│
+└── tests/                       # 🧪 Test suite
+    ├── api/                    # API endpoint tests
+    ├── services/               # Service layer tests
+    ├── riot_api/               # Riot API client tests
+    └── jobs/                   # Background job tests
 ```
 
-### Error Handling
-Use structured exceptions with proper HTTP status codes:
+---
 
-```python
-from fastapi import HTTPException
+## 🎯 Common Tasks
 
-# Client errors (400s)
-raise HTTPException(status_code=404, detail="Player not found")
-raise HTTPException(status_code=429, detail="Rate limit exceeded")
+### I want to add a new API endpoint
 
-# Server errors (500s)
-raise HTTPException(status_code=503, detail="Riot API unavailable")
-```
+1. **Choose/create router**: `app/api/<domain>.py` (e.g., `players.py`)
+2. **Define endpoint**:
+   ```python
+   from fastapi import APIRouter, Depends
+   from ..api.dependencies import PlayerServiceDep
 
-### Structured Logging
-Use structlog for consistent logging:
+   router = APIRouter(prefix="/players", tags=["players"])
 
-```python
-import structlog
+   @router.get("/{puuid}/stats")
+   async def get_player_stats(
+       puuid: str,
+       player_service: PlayerServiceDep,
+   ):
+       return await player_service.get_stats(puuid)
+   ```
+3. **Register in `main.py`**: Already done if router exists
+4. **See**: `app/api/AGENTS.md` for patterns
 
-logger = structlog.get_logger()
+### I want to add business logic
 
-logger.info("player_fetched", puuid=puuid, region=region)
-logger.error("riot_api_error", error=str(e), endpoint=endpoint)
-```
+1. **Add to existing service**: `app/services/<domain>.py`
+2. **Example**:
+   ```python
+   # app/services/players.py
+   from sqlalchemy.ext.asyncio import AsyncSession
+   from ..riot_api.data_manager import RiotDataManager
+   import structlog
 
-## Riot API Integration
+   logger = structlog.get_logger(__name__)
 
-### Authentication
-- API key via `X-Riot-Token` header
-- **Dev keys expire every 24h** - regenerate at https://developer.riotgames.com
-- Rate limits: 20 req/sec, 100 req/2min (dev keys)
-- Automatic backoff on 429 responses
+   class PlayerService:
+       def __init__(self, db: AsyncSession, riot_data_manager: RiotDataManager):
+           self.db = db
+           self.data_manager = riot_data_manager
 
-### Key Endpoints
-- **Account v1** - Riot ID ↔ PUUID (preferred for dev keys)
-- **Match v5** - Match history and details
-- **League v4** - Ranked information
-- **Spectator v4** - Live game data
+       async def my_new_method(self, puuid: str):
+           logger.info("doing_thing", puuid=puuid)
+           # Business logic here
+   ```
+3. **See**: `app/services/AGENTS.md` for patterns
 
-See `app/riot_api/endpoints.py` for complete mappings.
+### I want to fetch data from Riot API
 
-### Caching Strategy
-- **Database-first**: PostgreSQL is primary cache
-- **Flow**: DB → Riot API (if miss) → Store → Return
-- **No TTL**: Data in DB is considered valid
-- **Rate limiting**: `RiotAPIClient` returns `None` or raises `RateLimitError` when throttled
-- Services handle `None` gracefully
+1. **ALWAYS use `RiotDataManager`** (not `RiotAPIClient` directly)
+2. **Pattern**:
+   ```python
+   from ..riot_api.data_manager import RiotDataManager
 
-## Smurf Detection Algorithms
+   # Inside service class
+   player = await self.data_manager.get_player_by_riot_id(
+       game_name="Player", tag_line="EUW", platform="eun1"
+   )
 
-Located in `app/algorithms/`. Each returns confidence score (0-100).
+   matches = await self.data_manager.get_match_history(
+       puuid="player-puuid", count=20
+   )
+   ```
+3. **See**: `app/riot_api/AGENTS.md` for data manager usage
 
-- **Win rate**: ≥65% win rate over 30+ ranked games
-- **Account level vs rank**: Low level with high rank
-- **Performance consistency**: Consistent high performance
-- **Rank progression**: Rapid climbing
+### I want to add a smurf detection algorithm
 
-Final detection combines scores with configurable thresholds.
+1. **Create**: `app/algorithms/<name>.py`
+2. **Implement**:
+   ```python
+   from typing import List
+   from ..models.matches import Match
 
-## Code Conventions
-- **Type hints required** - Enforced by pyright
-- **Pydantic models** - All request/response validation
-- **SQLAlchemy ORM** - All database operations
-- **Docstrings** - Required for public functions
-- **Async/await** - Use async for I/O operations (DB, HTTP)
-- **Service layer** - Business logic separated from API endpoints
+   class MyDetector:
+       def calculate_confidence(self, matches: List[Match], **kwargs) -> float:
+           """Return confidence score 0-100."""
+           return 42.0
+   ```
+3. **Register**: Add to `SmurfDetectionService` in `app/services/detection.py`
+4. **See**: `app/algorithms/AGENTS.md` for patterns
 
-Example service pattern:
-```python
-class PlayerService:
-    def __init__(self, db: AsyncSession = Depends(get_db)):
-        self.db = db
-        self.riot_client = RiotAPIClient()
+### I want to create a background job
 
-    async def get_or_fetch_player(self, puuid: str) -> Player:
-        # Check DB first
-        player = await self.db.get(Player, puuid)
-        if player:
-            return player
+1. **Create**: `app/jobs/<name>.py`
+2. **Extend BaseJob**:
+   ```python
+   from .base import BaseJob
+   from sqlalchemy.ext.asyncio import AsyncSession
+   import structlog
 
-        # Fetch from Riot API
-        data = await self.riot_client.get_account(puuid)
-        player = Player(**data)
-        self.db.add(player)
-        await self.db.commit()
-        return player
-```
+   logger = structlog.get_logger(__name__)
 
-## Background Job System
+   class MyJob(BaseJob):
+       async def execute(self, db: AsyncSession) -> None:
+           logger.info("job_starting", job_id=self.job_config.id)
+           # Job logic
+           self.increment_metric("records_processed", 10)
+   ```
+3. **Register**: Add to scheduler in `app/jobs/scheduler.py`
+4. **See**: `app/jobs/AGENTS.md` for patterns
 
-The application includes an automated job system for continuous data fetching and player analysis.
-
-### Job Configuration
-
-Jobs are configured via environment variables in `.env`:
+### I want to write tests
 
 ```bash
-# Enable/disable the job scheduler
-JOB_SCHEDULER_ENABLED=true
+# Run all tests
+docker compose exec backend uv run pytest
 
-# How often jobs run (default: every 2 minutes = 120 seconds)
-JOB_INTERVAL_SECONDS=120
+# Run specific test file
+docker compose exec backend uv run pytest tests/api/test_players.py
 
-# Job timeout (default: 90 seconds)
-JOB_TIMEOUT_SECONDS=90
-
-# Maximum tracked players (default: 10)
-MAX_TRACKED_PLAYERS=10
+# Run with coverage
+docker compose exec backend uv run pytest --cov=app
 ```
 
-### Job Types
+**See**: `app/tests/AGENTS.md` for test patterns and fixtures
 
-**1. Tracked Player Updater Job** (`tracked_player_updater.py`)
-- Runs every 2 minutes (configurable)
-- Fetches new matches for players marked as "tracked" (`is_tracked=True`)
-- Updates player rank information
-- Discovers new players from match participants
-- Respects API rate limits with automatic backoff
+---
 
-**2. Player Analyzer Job** (`player_analyzer.py`)
-- Runs after the Tracked Player Updater
-- Analyzes discovered players for smurf/boosted behavior
-- Runs detection algorithms on players marked `is_analyzed=False`
-- Checks ban status for previously detected accounts (every 7 days)
+## 🛠️ Tech Stack
 
-### Managing Tracked Players
+| Component | Purpose | Key Features |
+|-----------|---------|--------------|
+| **FastAPI** | Web framework | Async, auto OpenAPI docs, dependency injection |
+| **SQLAlchemy 2.0+** | ORM | Async engine, declarative models |
+| **Pydantic v2** | Validation | Request/response schemas, settings |
+| **structlog** | Logging | Structured JSON logs with context |
+| **APScheduler** | Job scheduler | Persistent jobs, async execution |
+| **httpx** | HTTP client | Async Riot API requests |
+| **pytest** | Testing | Async support, fixtures, coverage |
 
-**Track a player** (via API or frontend UI):
-```bash
-curl -X POST http://localhost:8000/api/v1/players/{puuid}/track
-```
+---
 
-**Untrack a player**:
-```bash
-curl -X DELETE http://localhost:8000/api/v1/players/{puuid}/track
-```
+## ⚠️ Critical Conventions
 
-**List tracked players**:
-```bash
-curl http://localhost:8000/api/v1/players/tracked
-```
+### ✅ DO
 
-### Monitoring Jobs
+- **Type hints on everything** (enforced by pyright)
+- **Use async/await** for all I/O (DB, HTTP, file)
+- **Use `RiotDataManager`** for all Riot API calls (handles caching, rate limits)
+- **Log with context**: `logger.info("action", puuid=puuid, count=5)`
+- **Service layer for logic**: Keep API endpoints thin
+- **Dependency injection**: Use FastAPI `Depends()` pattern
 
-**View job status**:
-```bash
-curl http://localhost:8000/api/v1/jobs/status/overview
-```
+### ❌ DON'T
 
-**View job execution history**:
-```bash
-curl http://localhost:8000/api/v1/jobs/{job_id}/executions
-```
+- **Don't call `RiotAPIClient` directly** → Use `RiotDataManager` instead
+- **Don't block event loop** → No `time.sleep()`, use `asyncio.sleep()`
+- **Don't catch generic `Exception`** → Catch specific exceptions
+- **Don't forget transactions** → Commit/rollback explicitly when needed
+- **Don't hardcode config** → Use `app/config.py` settings
 
-**Manually trigger a job**:
-```bash
-curl -X POST http://localhost:8000/api/v1/jobs/{job_id}/trigger
-```
+---
 
-### Job Architecture
+## 🔗 Related Documentation
 
-Jobs extend the `BaseJob` class which provides:
-- Automatic execution tracking (start time, end time, status)
-- Metrics collection (API requests, records created/updated)
-- Error handling and logging
-- Database transaction management
+- **`app/api/AGENTS.md`** - API endpoint patterns, dependency injection, error handling
+- **`app/services/AGENTS.md`** - Service layer architecture, transaction handling
+- **`app/riot_api/AGENTS.md`** - Riot API integration, data manager, rate limiting
+- **`app/algorithms/AGENTS.md`** - Smurf detection algorithm implementation
+- **`app/jobs/AGENTS.md`** - Background job creation, scheduler, monitoring
+- **`app/tests/AGENTS.md`** - Testing patterns, fixtures, mocking
+- **`../docker/postgres/AGENTS.md`** - Database schema, queries, performance tuning
 
-Example job structure:
-```python
-from app.jobs.base import BaseJob
+---
 
-class MyCustomJob(BaseJob):
-    def __init__(self, job_config: JobConfiguration):
-        super().__init__(job_config)
-        # Extract config
-        self.my_setting = job_config.config_json.get("my_setting", "default")
+## 🚨 Common Pitfalls
 
-    async def execute(self, db: AsyncSession) -> None:
-        # Job logic here
-        logger.info("Job starting", job_id=self.job_config.id)
+1. **Hot reload only works for code changes**
+   - Changing dependencies requires rebuild: `docker compose build backend`
+   - Modifying Dockerfile requires rebuild
 
-        # Track metrics
-        self.increment_metric("api_requests_made", 1)
-        self.increment_metric("records_created", 5)
+2. **Rate limiting returns `None`, not exceptions**
+   - Check for `None` return from `RiotDataManager` methods
+   - Log and handle gracefully
 
-        # Add custom log entries
-        self.add_log_entry("custom_metric", 123)
+3. **Database sessions must be closed**
+   - Use FastAPI's `Depends(get_db)` (auto-closes)
+   - Or use `async with` for manual session management
 
-        logger.info("Job complete")
-```
+4. **Riot API dev keys expire every 24h**
+   - Update `RIOT_API_KEY` in `.env` when you get 403 errors
+   - Get new key: https://developer.riotgames.com
 
-### Job Lifecycle
+5. **Jobs can timeout**
+   - Default: 10 minutes (`JOB_TIMEOUT_SECONDS`)
+   - Long-running jobs should process in batches
 
-1. **Startup**: When the backend starts, the scheduler:
-   - Marks stale "running" jobs as failed
-   - Loads active job configurations from database
-   - Schedules jobs based on their interval settings
+---
 
-2. **Execution**: When a job runs:
-   - Creates a `JobExecution` record (status: "running")
-   - Executes the job's `execute()` method
-   - Updates the record with results (status: "success" or "failed")
-   - Logs metrics (API requests, records created/updated, execution time)
+## 🔍 Keywords for Search
 
-3. **Shutdown**: When the backend stops:
-   - Gracefully shuts down the scheduler
-   - Waits for running jobs to complete (with timeout)
-
-### Troubleshooting
-
-**Jobs not running:**
-- Check `JOB_SCHEDULER_ENABLED=true` in `.env`
-- Verify backend logs for scheduler startup messages
-- Check database for active job configurations
-
-**Rate limit errors:**
-- Jobs automatically back off when rate limits are hit
-- Check `job_executions` table for error messages
-- Adjust `JOB_INTERVAL_SECONDS` to run less frequently
-
-**Job stuck in "running" state:**
-- On next startup, stale jobs are automatically marked as failed
-- Or manually update: `UPDATE job_executions SET status='failed' WHERE status='running'`
+Backend, FastAPI, Python, async, SQLAlchemy, Riot API, smurf detection, background jobs, scheduler, API endpoints, service layer, data manager, rate limiting, testing, pytest, dependency injection, ORM, Pydantic validation

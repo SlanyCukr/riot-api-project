@@ -1,97 +1,140 @@
-# Frontend Development Guide
+# Frontend Agent Instructions
 
-Frontend-specific patterns and conventions. **See root `AGENTS.md` for common Docker/testing/build commands.**
+Instructions for AI agents working on frontend code. **See root `AGENTS.md` for Docker/testing/build commands.**
+
+## Documentation Structure
+
+This is the **frontend overview**. For detailed patterns and code generation:
+
+- **`app/AGENTS.md`** - Next.js App Router patterns, page generation, routing
+- **`components/AGENTS.md`** - Component generation patterns, shadcn/ui, forms
+- **`lib/AGENTS.md`** - API client usage, Zod schema definitions, utilities
 
 ## Tech Stack
 
-- **Next.js 15** with App Router + **React 19**
-- **TypeScript** + **Tailwind CSS** + **shadcn/ui**
-- **TanStack Query** for data fetching
-- **Zod** for schema validation
+- **Next.js 15** with App Router + **React 19** (Turbopack in dev)
+- **TypeScript** + **Tailwind CSS 4** + **shadcn/ui** (New York style)
+- **TanStack Query v5** for data fetching and caching
+- **Zod v4** for schema validation
 - **react-hook-form** + **@hookform/resolvers** for forms
-- **Axios** for HTTP client
+- **Axios** for HTTP client with interceptors
+- **next-themes** for dark mode support
+- **sonner** for toast notifications
+- **lucide-react** for icons
 
-## Directory Structure
+## Quick Reference
+
+### Directory Structure
 
 ```
-app/                        # Next.js App Router
-  ├── layout.tsx           # Root layout with providers
-  ├── page.tsx             # Dashboard (main route)
-  └── globals.css          # Global styles + shadcn variables
-components/
-  ├── ui/                  # shadcn/ui components (auto-generated)
-  ├── player-search.tsx    # Player search form
-  ├── player-card.tsx      # Player info display
-  ├── match-history.tsx    # Match history table
-  ├── smurf-detection.tsx  # Smurf analysis
-  └── providers.tsx        # Client-side providers
-lib/
-  ├── utils.ts             # Utilities (cn helper)
-  ├── api.ts               # API client with Zod validation
-  ├── schemas.ts           # Zod schemas for API types
-  └── validations.ts       # Form validation schemas
+frontend/
+  ├── app/              # Pages & routing → See app/AGENTS.md
+  ├── components/       # UI components → See components/AGENTS.md
+  ├── lib/              # API & utilities → See lib/AGENTS.md
+  ├── hooks/            # Custom React hooks
+  ├── types/            # TypeScript types (use lib/schemas.ts instead)
+  └── public/           # Static assets
 ```
 
-## Adding shadcn/ui Components
+### Application Pages
 
-```bash
-cd frontend
-npx shadcn@latest add button
-npx shadcn@latest add card
-npx shadcn@latest add form
-npx shadcn@latest add input
-```
+- **`/`** - Home/Landing page
+- **`/smurf-detection`** - Player analysis & smurf detection
+- **`/jobs`** - Background jobs monitoring
 
-Components are auto-generated in `components/ui/`. Always use shadcn/ui for UI primitives.
+### Common Tasks for Agents
 
-## Code Patterns
+#### Generate New Page
 
-### Client Components
+→ See `app/AGENTS.md` for complete code templates
 
-Most components need `"use client"` directive:
+1. Create `app/my-page/page.tsx` with appropriate structure
+2. Add `"use client"` directive if using hooks/interactivity
+3. Add navigation entry in `components/sidebar-nav.tsx`
+4. Follow existing page patterns for consistency
+
+#### Generate New Component
+
+→ See `components/AGENTS.md` for component templates
+
+1. Create file in `components/` with descriptive kebab-case name
+2. Add `"use client"` directive if using hooks, events, or browser APIs
+3. Use shadcn/ui primitives from `components/ui/` (never create custom UI primitives)
+4. Define TypeScript interface for props with proper types
+5. Implement component following established patterns
+
+#### Add API Endpoint Integration
+
+→ See `lib/AGENTS.md` for API patterns and schema definitions
+
+1. Define or update Zod schema in `lib/schemas.ts`
+2. Export inferred TypeScript type from schema
+3. Use `validatedGet`/`validatedPost`/`validatedPut`/`validatedDelete` from `lib/api.ts`
+4. Wrap with TanStack Query `useQuery` or `useMutation`
+5. Always handle both success and error cases in `ApiResponse<T>`
+
+#### Generate Form Component
+
+→ See `components/AGENTS.md` for complete form templates
+
+1. Define validation schema in `lib/validations.ts` using Zod
+2. Use `react-hook-form` with `zodResolver` for validation
+3. Use shadcn Form components (Form, FormField, FormItem, FormLabel, FormControl, FormMessage)
+4. Handle submission with proper error handling and toast notifications
+
+### Code Generation Templates
+
+#### Data Fetching with TanStack Query
+
+**Always use this pattern for API data fetching:**
 
 ```tsx
 "use client";
+import { useQuery } from "@tanstack/react-query";
+import { validatedGet } from "@/lib/api";
+import { DataSchema } from "@/lib/schemas"; // Import appropriate schema
+import { LoadingSkeleton } from "@/components/loading-skeleton";
 
-import { Card } from "@/components/ui/card";
+export function MyComponent({ id }: { id: string }) {
+  const { data: result, isLoading } = useQuery({
+    queryKey: ["data", id], // Unique key including all params
+    queryFn: () => validatedGet(DataSchema, `/api/endpoint/${id}`),
+    refetchInterval: 15000, // Optional: for auto-refresh
+  });
 
-interface Props {
-  data: string;
-}
+  if (isLoading) return <LoadingSkeleton />;
 
-export function MyComponent({ data }: Props) {
-  return <Card>{data}</Card>;
+  if (!result?.success) {
+    return <div>Error: {result?.error.message}</div>;
+  }
+
+  const data = result.data; // Type-safe data access
+  return <div>{/* Use data here */}</div>;
 }
 ```
 
-### Zod Schema Validation
+#### Form with Validation
 
-Define schemas in `lib/schemas.ts`:
+**Always use this pattern for forms:**
 
-```typescript
-import { z } from "zod";
-
-export const PlayerSchema = z.object({
-  puuid: z.string(),
-  summoner_name: z.string(),
-  account_level: z.number().int(),
-});
-
-export type Player = z.infer<typeof PlayerSchema>;
-```
-
-### Form Handling
-
-Use react-hook-form + Zod:
-
-```typescript
+```tsx
+"use client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
-  searchValue: z.string().min(1, "Required"),
-  platform: z.string(),
+  name: z.string().min(1, "Name is required"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -99,108 +142,187 @@ type FormData = z.infer<typeof formSchema>;
 export function MyForm() {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: { searchValue: "", platform: "eun1" },
+    defaultValues: { name: "" },
   });
 
   const onSubmit = (data: FormData) => {
     // Handle submission
   };
 
-  return <Form {...form}>...</Form>;
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
+  );
 }
 ```
 
-### API Integration with TanStack Query
+#### Adding shadcn/ui Components
 
-```typescript
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { validatedGet, validatedPost } from "@/lib/api";
-import { PlayerSchema } from "@/lib/schemas";
-
-// Query
-const { data, isLoading } = useQuery({
-  queryKey: ["player", riotId],
-  queryFn: () =>
-    validatedGet(PlayerSchema, "/players/search", { riot_id: riotId }),
-});
-
-// Mutation
-const { mutate } = useMutation({
-  mutationFn: (data) => validatedPost(PlayerSchema, "/players", data),
-  onSuccess: (player) => console.log("Created:", player),
-});
-```
-
-### Styling with shadcn/ui
-
-```tsx
-import { cn } from "@/lib/utils";
-
-<div
-  className={cn(
-    "base-classes",
-    condition && "conditional-classes",
-    variant === "primary" && "primary-classes",
-  )}
-/>;
-```
-
-## Environment Variables
-
-**Must be prefixed with `NEXT_PUBLIC_`** to be accessible in client-side code:
+**When new UI primitives are needed:**
 
 ```bash
-# .env.local (gitignored)
-NEXT_PUBLIC_API_URL=http://localhost:8000
+npx shadcn@latest add <component-name>
 ```
 
-⚠️ **Restart dev server after changing env vars.**
+Available: button, card, form, input, select, tabs, table, dialog, progress, badge, alert, label, skeleton
 
-## Common Tasks
+### Critical Rules for Agents
 
-### Add New API Endpoint
+1. **Client Directive**: Add `"use client"` at the top of any component using:
+   - React hooks (useState, useEffect, etc.)
+   - Event handlers (onClick, onChange, etc.)
+   - Browser APIs (localStorage, window, document)
+   - TanStack Query hooks (useQuery, useMutation)
 
-1. Define Zod schema in `lib/schemas.ts`
-2. Use `validatedGet`/`validatedPost` in component
-3. Wrap with TanStack Query hooks
+2. **API Response Handling**: Always handle both success and error states:
 
-### Add New Form
+   ```tsx
+   if (!result?.success) {
+     return <div>Error: {result?.error.message}</div>;
+   }
+   const data = result.data; // Type-safe
+   ```
 
-1. Create validation schema in `lib/validations.ts`
-2. Use `react-hook-form` with `zodResolver`
-3. Use shadcn Form components
+3. **Never Edit `components/ui/`**: These are auto-generated by shadcn. Use CLI to add/update.
 
-### Add New Page
+4. **Schema-First**: Always define Zod schema in `lib/schemas.ts` before using API endpoints.
 
-1. Create `app/my-page/page.tsx`
-2. Export default component
-3. Add navigation link
+5. **Type Safety**: Use `z.infer<typeof Schema>` for TypeScript types from Zod schemas.
 
-## Troubleshooting
+6. **Environment Variables**: Must use `NEXT_PUBLIC_` prefix for client-side access:
 
-**Module not found:**
+   ```bash
+   # .env.local (gitignored)
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   ```
+
+7. **File Naming**: Use kebab-case for files, PascalCase for component names.
+
+### Important Notes for Agents
+
+**Hot Reload**: Frontend supports hot reload - do NOT restart containers for code changes. Only rebuild when:
+
+- Changing dependencies (package.json, package-lock.json)
+- Modifying Dockerfile or docker-compose.yml
+- Adding system packages
+
+**No Container Restart Needed**: When you modify `.tsx`, `.ts`, or `.css` files, changes apply immediately. The user does not need to restart anything.
+
+### Common Commands
+
+```bash
+cd frontend
+
+# Development
+npm run dev           # Start dev server (hot reload enabled)
+
+# Production
+npm run build         # Type-check, lint, and build
+npm run start         # Start production server
+
+# Maintenance
+rm -rf .next          # Clear build cache
+npm install           # Install dependencies
+```
+
+### Troubleshooting Quick Fixes
+
+**Build cache issues:**
 
 ```bash
 rm -rf .next && npm run dev
 ```
 
+**Hot reload not working:**
+
+- Save file and wait a moment
+- Check file is in `app/` or `components/`
+- Clear `.next` and restart
+
 **Environment variables not working:**
 
-- Ensure `NEXT_PUBLIC_` prefix
-- Restart dev server (env vars are loaded at build time)
+- Use `NEXT_PUBLIC_` prefix
+- Restart dev server
+- Check `.env.local` exists
 
 **Hydration errors:**
 
-- Ensure server/client render same content
-- Avoid browser-only APIs (localStorage, window) during initial render
 - Use `useEffect` for client-only code
-- Add `suppressHydrationWarning` on `<html>` if needed
+- Avoid browser APIs during initial render
+- Check server/client render same content
 
-## Code Conventions
+**TanStack Query not refetching:**
 
-- Use TypeScript for all files
-- Zod schemas for all API types
-- shadcn/ui for all UI components
-- TanStack Query for all data fetching
-- react-hook-form for all forms
-- Functional components only
+```typescript
+queryClient.invalidateQueries({ queryKey: ["myData"] });
+```
+
+### Code Conventions for Generated Code
+
+**MUST follow these conventions:**
+
+- **TypeScript only** - No JavaScript files (strict mode enabled)
+- **Zod schemas** - All API types defined in `lib/schemas.ts`
+- **shadcn/ui only** - Never create custom UI primitives (button, input, card, etc.)
+- **TanStack Query** - All data fetching uses useQuery/useMutation (never fetch/axios directly in components)
+- **react-hook-form** - All forms use react-hook-form + Zod validation
+- **Functional components** - No class components
+- **`"use client"`** - Required for hooks/events/browser APIs
+- **File naming** - kebab-case for files, PascalCase for component names
+- **Error handling** - Always handle both success and error in ApiResponse<T>
+- **Loading states** - Use LoadingSkeleton component from `components/loading-skeleton.tsx`
+
+### Key Features
+
+#### Smurf Detection
+
+- Player search by Riot ID or summoner name
+- Real-time match history from Riot API
+- Multi-factor smurf analysis
+- Opponent encounter tracking
+- Player tracking for auto-updates
+
+#### Background Jobs
+
+- Job configuration & triggering
+- Real-time execution monitoring
+- System health dashboard
+- Auto-refresh every 15 seconds
+
+#### Dark Mode
+
+System-aware dark mode with `next-themes` and theme toggle.
+
+## When to Consult Detailed Docs
+
+- **Generating pages or routing?** → Consult `app/AGENTS.md` for complete patterns
+- **Creating components or forms?** → Consult `components/AGENTS.md` for templates
+- **Working with APIs or schemas?** → Consult `lib/AGENTS.md` for API client details
+- **Troubleshooting?** → Check troubleshooting sections in specific docs
+
+## Quick Checklist Before Code Generation
+
+- [ ] Determined if component needs `"use client"` directive
+- [ ] Checked if Zod schema exists in `lib/schemas.ts` (create if needed)
+- [ ] Using shadcn/ui components from `components/ui/` (not creating custom UI)
+- [ ] Following kebab-case file naming convention
+- [ ] Implementing proper error handling for API responses
+- [ ] Using TanStack Query for data fetching (not direct axios calls)
+- [ ] Adding loading states with LoadingSkeleton
+- [ ] Following TypeScript strict mode (proper types, no `any`)
