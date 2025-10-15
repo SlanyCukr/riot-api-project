@@ -57,29 +57,27 @@ repos:
         exclude: ^frontend/node_modules/
         pass_filenames: false
 
-  # Prettier - Code formatter for consistent style (disabled - optional formatting)
-  # Note: Run manually with: cd frontend && npm run format
-  # - repo: local
-  #   hooks:
-  #     - id: prettier
-  #       name: prettier
-  #       entry: bash -c 'cd frontend && npx prettier --write --ignore-unknown'
-  #       language: system
-  #       files: ^frontend/.*\.(ts|tsx|js|jsx|json|yaml|yml|md|css|scss)$
-  #       exclude: ^frontend/node_modules/
-  #       pass_filenames: false
+  # Prettier - Code formatter for consistent style
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Prettier Format
+        entry: bash -c 'cd frontend && npx prettier --write --ignore-unknown'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css)$
+        exclude: ^frontend/node_modules/
+        pass_filenames: false
 
-  # Frontend TypeScript type checking (optional - uncomment if you have node_modules installed)
-  # Uncomment to enable: Requires 'cd frontend && npm install' first
-  # - repo: local
-  #   hooks:
-  #     - id: frontend-typecheck
-  #       name: Frontend TypeScript Check
-  #       entry: bash -c 'cd frontend && npm run build -- --no-lint'
-  #       language: system
-  #       files: ^frontend/.*\.(ts|tsx)$
-  #       exclude: ^frontend/node_modules/
-  #       pass_filenames: false
+  # Frontend TypeScript type checking
+  - repo: local
+    hooks:
+      - id: frontend-typecheck
+        name: TypeScript Type Check
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        exclude: ^frontend/node_modules/
+        pass_filenames: false
 
 # Configuration for pre-commit
 default_stages: [pre-commit]
