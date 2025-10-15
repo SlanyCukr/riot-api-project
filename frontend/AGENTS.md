@@ -39,7 +39,7 @@ frontend/
 ### Application Pages
 
 - **`/`** - Home/Landing page
-- **`/smurf-detection`** - Player analysis & smurf detection
+- **`/player-analysis`** - Player analysis & smurf detection
 - **`/jobs`** - Background jobs monitoring
 
 ### Common Tasks for Agents
@@ -185,6 +185,7 @@ Available: button, card, form, input, select, tabs, table, dialog, progress, bad
 ### Critical Rules for Agents
 
 1. **Client Directive**: Add `"use client"` at the top of any component using:
+
    - React hooks (useState, useEffect, etc.)
    - Event handlers (onClick, onChange, etc.)
    - Browser APIs (localStorage, window, document)
@@ -290,7 +291,7 @@ queryClient.invalidateQueries({ queryKey: ["myData"] });
 
 ### Key Features
 
-#### Smurf Detection
+#### Player Analysis
 
 - Player search by Riot ID or summoner name
 - Real-time match history from Riot API

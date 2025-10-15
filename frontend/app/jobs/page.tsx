@@ -70,7 +70,7 @@ export default function JobsPage() {
     const lastUpdate = Math.max(
       jobsUpdatedAt,
       executionsUpdatedAt,
-      statusUpdatedAt,
+      statusUpdatedAt
     );
     if (lastUpdate === 0) return;
 
@@ -78,7 +78,7 @@ export default function JobsPage() {
       const elapsed = Date.now() - lastUpdate;
       const remaining = Math.max(
         0,
-        Math.ceil((REFRESH_INTERVAL - elapsed) / 1000),
+        Math.ceil((REFRESH_INTERVAL - elapsed) / 1000)
       );
       setSecondsUntilRefresh(remaining);
     }, 100);
@@ -93,12 +93,13 @@ export default function JobsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <Card className="mb-6 bg-[#2c3e6f] p-6 text-white dark:bg-[#151e46]">
+      <Card
+        id="header-card"
+        className="mb-6 bg-[#152b56] p-6 text-white dark:bg-[#0a1428]"
+      >
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-medium text-[#c8aa6e]">
-              Background Jobs
-            </h1>
+            <h1 className="text-2xl font-semibold">Background Jobs</h1>
             <div className="mt-2 flex items-center gap-2 text-sm text-white/70">
               <Clock className="h-4 w-4" />
               <span>Auto-refresh in {secondsUntilRefresh}s</span>

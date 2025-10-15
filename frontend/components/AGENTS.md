@@ -28,7 +28,7 @@ components/
   ├── player-card.tsx            # Player info display with rank badges
   ├── player-stats.tsx           # Match statistics overview
   ├── match-history.tsx          # Match history table with filters
-  ├── smurf-detection.tsx        # Smurf analysis with factors breakdown
+  ├── smurf-detection.tsx        # Player analysis with factors breakdown
   ├── recent-opponents.tsx       # Recent opponents with encounter tracking
   ├── encounter-stats.tsx        # Detailed encounter statistics
   ├── track-player-button.tsx   # Player tracking toggle button
@@ -340,7 +340,7 @@ import { cn } from "@/lib/utils";
     "base-classes p-4 rounded-lg",
     isActive && "bg-blue-500",
     isDisabled && "opacity-50 cursor-not-allowed",
-    className, // Accept className prop for customization
+    className // Accept className prop for customization
   )}
 />;
 ```

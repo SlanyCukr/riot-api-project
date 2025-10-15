@@ -58,7 +58,7 @@ export function MatchHistorySkeleton() {
   );
 }
 
-export function SmurfDetectionSkeleton() {
+export function PlayerAnalysisSkeleton() {
   return (
     <Card>
       <CardHeader>

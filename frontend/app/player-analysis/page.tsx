@@ -13,11 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   PlayerCardSkeleton,
   MatchHistorySkeleton,
-  SmurfDetectionSkeleton,
+  PlayerAnalysisSkeleton,
 } from "@/components/loading-skeleton";
 import { Card } from "@/components/ui/card";
 
-export default function SmurfDetectionPage() {
+export default function PlayerAnalysisPage() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const handlePlayerFound = (player: Player) => {
@@ -29,11 +29,12 @@ export default function SmurfDetectionPage() {
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column - Header Card */}
         <div className="space-y-2">
-          <Card className="bg-[#2c3e6f] p-6 text-white dark:bg-[#151e46]">
+          <Card
+            id="header-card"
+            className="bg-[#152b56] p-6 text-white dark:bg-[#0a1428]"
+          >
             <div className="mb-4 flex items-start justify-between">
-              <h1 className="text-2xl font-medium text-[#c8aa6e]">
-                Smurf Detection
-              </h1>
+              <h1 className="text-2xl font-semibold">Player Analysis</h1>
               <ThemeToggle />
             </div>
             <p className="text-sm leading-relaxed">
@@ -73,7 +74,7 @@ export default function SmurfDetectionPage() {
               <Tabs defaultValue="matches" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="matches">Match History</TabsTrigger>
-                  <TabsTrigger value="smurf">Smurf Detection</TabsTrigger>
+                  <TabsTrigger value="smurf">Player Analysis</TabsTrigger>
                   <TabsTrigger value="opponents">Recent Opponents</TabsTrigger>
                 </TabsList>
                 <TabsContent value="matches" className="mt-6">
@@ -85,7 +86,7 @@ export default function SmurfDetectionPage() {
                   </Suspense>
                 </TabsContent>
                 <TabsContent value="smurf" className="mt-6">
-                  <Suspense fallback={<SmurfDetectionSkeleton />}>
+                  <Suspense fallback={<PlayerAnalysisSkeleton />}>
                     <SmurfDetection puuid={selectedPlayer.puuid} />
                   </Suspense>
                 </TabsContent>

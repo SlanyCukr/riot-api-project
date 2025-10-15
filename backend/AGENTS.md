@@ -1,6 +1,6 @@
 # Backend Development Guide
 
-**WHEN TO USE THIS**: Working on Python backend, FastAPI endpoints, Riot API integration, smurf detection, or background jobs.
+**WHEN TO USE THIS**: Working on Python backend, FastAPI endpoints, Riot API integration, player analysis, or background jobs.
 
 **QUICK NAVIGATION**: Need to add/modify? → [Jump to Common Tasks](#common-tasks)
 
@@ -76,6 +76,7 @@ backend/app/
 
 1. **Choose/create router**: `app/api/<domain>.py` (e.g., `players.py`)
 2. **Define endpoint**:
+
    ```python
    from fastapi import APIRouter, Depends
    from ..api.dependencies import PlayerServiceDep
@@ -89,6 +90,7 @@ backend/app/
    ):
        return await player_service.get_stats(puuid)
    ```
+
 3. **Register in `main.py`**: Already done if router exists
 4. **See**: `app/api/AGENTS.md` for patterns
 
@@ -96,6 +98,7 @@ backend/app/
 
 1. **Add to existing service**: `app/services/<domain>.py`
 2. **Example**:
+
    ```python
    # app/services/players.py
    from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,12 +116,14 @@ backend/app/
            logger.info("doing_thing", puuid=puuid)
            # Business logic here
    ```
+
 3. **See**: `app/services/AGENTS.md` for patterns
 
 ### I want to fetch data from Riot API
 
 1. **ALWAYS use `RiotDataManager`** (not `RiotAPIClient` directly)
 2. **Pattern**:
+
    ```python
    from ..riot_api.data_manager import RiotDataManager
 
@@ -131,12 +136,14 @@ backend/app/
        puuid="player-puuid", count=20
    )
    ```
+
 3. **See**: `app/riot_api/AGENTS.md` for data manager usage
 
 ### I want to add a smurf detection algorithm
 
 1. **Create**: `app/algorithms/<name>.py`
 2. **Implement**:
+
    ```python
    from typing import List
    from ..models.matches import Match
@@ -146,6 +153,7 @@ backend/app/
            """Return confidence score 0-100."""
            return 42.0
    ```
+
 3. **Register**: Add to `SmurfDetectionService` in `app/services/detection.py`
 4. **See**: `app/algorithms/AGENTS.md` for patterns
 
@@ -153,6 +161,7 @@ backend/app/
 
 1. **Create**: `app/jobs/<name>.py`
 2. **Extend BaseJob**:
+
    ```python
    from .base import BaseJob
    from sqlalchemy.ext.asyncio import AsyncSession
@@ -166,6 +175,7 @@ backend/app/
            # Job logic
            self.increment_metric("records_processed", 10)
    ```
+
 3. **Register**: Add to scheduler in `app/jobs/scheduler.py`
 4. **See**: `app/jobs/AGENTS.md` for patterns
 
@@ -188,15 +198,15 @@ docker compose exec backend uv run pytest --cov=app
 
 ## 🛠️ Tech Stack
 
-| Component | Purpose | Key Features |
-|-----------|---------|--------------|
-| **FastAPI** | Web framework | Async, auto OpenAPI docs, dependency injection |
-| **SQLAlchemy 2.0+** | ORM | Async engine, declarative models |
-| **Pydantic v2** | Validation | Request/response schemas, settings |
-| **structlog** | Logging | Structured JSON logs with context |
-| **APScheduler** | Job scheduler | Persistent jobs, async execution |
-| **httpx** | HTTP client | Async Riot API requests |
-| **pytest** | Testing | Async support, fixtures, coverage |
+| Component           | Purpose       | Key Features                                   |
+| ------------------- | ------------- | ---------------------------------------------- |
+| **FastAPI**         | Web framework | Async, auto OpenAPI docs, dependency injection |
+| **SQLAlchemy 2.0+** | ORM           | Async engine, declarative models               |
+| **Pydantic v2**     | Validation    | Request/response schemas, settings             |
+| **structlog**       | Logging       | Structured JSON logs with context              |
+| **APScheduler**     | Job scheduler | Persistent jobs, async execution               |
+| **httpx**           | HTTP client   | Async Riot API requests                        |
+| **pytest**          | Testing       | Async support, fixtures, coverage              |
 
 ---
 
@@ -236,18 +246,22 @@ docker compose exec backend uv run pytest --cov=app
 ## 🚨 Common Pitfalls
 
 1. **Hot reload only works for code changes**
+
    - Changing dependencies requires rebuild: `docker compose build backend`
    - Modifying Dockerfile requires rebuild
 
 2. **Rate limiting returns `None`, not exceptions**
+
    - Check for `None` return from `RiotDataManager` methods
    - Log and handle gracefully
 
 3. **Database sessions must be closed**
+
    - Use FastAPI's `Depends(get_db)` (auto-closes)
    - Or use `async with` for manual session management
 
 4. **Riot API dev keys expire every 24h**
+
    - Update `RIOT_API_KEY` in `.env` when you get 403 errors
    - Get new key: https://developer.riotgames.com
 

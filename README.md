@@ -1,4 +1,4 @@
-# Riot API - Match History & Smurf Detection
+# Riot API - Match History & Player Analysis
 
 A comprehensive application for analyzing League of Legends match history and detecting potential smurf accounts using Riot API data.
 
@@ -48,6 +48,7 @@ cp .env.example .env
 ```
 
 Edit `.env` file with your configuration:
+
 - Set your Riot API key: `RIOT_API_KEY=your_actual_api_key`
 - Configure database credentials
 - Set appropriate region and platform for your use case
@@ -61,6 +62,7 @@ To update your API key after expiry, use the provided script:
 ```
 
 This script will:
+
 - Prompt you for the new API key
 - Update the `.env` file
 - Restart the backend container to apply changes immediately
@@ -119,16 +121,19 @@ uv run mypy .
 The application provides the following main endpoints:
 
 ### Player Lookup
+
 - Get player information by Riot ID or Summoner Name
 - Retrieve match history with filtering options
 - Analyze player statistics and performance patterns
 
-### Smurf Detection
+### Player Analysis
+
 - Calculate win rates over recent matches
 - Flag accounts with suspicious performance patterns
 - Provide confidence scores for smurf detection
 
 ### Encounter Analysis
+
 - Track players encountered in your matches
 - Analyze teammate and opponent performance
 - Identify recurring players and their tendencies
@@ -138,17 +143,20 @@ The application provides the following main endpoints:
 The application includes an automated job system that continuously monitors tracked players:
 
 **Tracked Player Updater**
+
 - Runs every 2 minutes (configurable)
 - Fetches new matches for tracked players
 - Updates rank information
 - Discovers new players from match participants
 
 **Player Analyzer**
+
 - Analyzes discovered players for smurf/boosted behavior
 - Checks ban status for previously detected accounts
 - Runs detection algorithms automatically
 
 **Job Management Endpoints**
+
 - `POST /api/v1/players/{puuid}/track` - Mark player as tracked
 - `DELETE /api/v1/players/{puuid}/track` - Unmark player as tracked
 - `GET /api/v1/players/tracked` - List all tracked players
@@ -160,35 +168,36 @@ For detailed job configuration and monitoring, see `backend/AGENTS.md`.
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RIOT_API_KEY` | Your Riot Games API key | Required |
-| `RIOT_REGION` | Regional routing (e.g., europe, americas) | europe |
-| `RIOT_PLATFORM` | Platform routing (e.g., eun1, euw1) | eun1 |
-| `NEXT_PUBLIC_API_URL` | Backend URL for frontend API calls | http://localhost:8000 |
-| `POSTGRES_DB` | Database name | riot_api_db |
-| `POSTGRES_USER` | Database username | riot_api_user |
-| `POSTGRES_PASSWORD` | Database password | Required |
-| `POSTGRES_PORT` | Host port for PostgreSQL | 5432 |
-| `BACKEND_PORT` | Host port for backend service | 8000 |
-| `FRONTEND_PORT` | Host port for frontend service | 3000 |
-| `DATABASE_URL` | SQLAlchemy connection string | See `.env.example` |
-| `DEBUG` | Backend debug mode | false |
-| `LOG_LEVEL` | Backend logging level | INFO |
-| `DB_POOL_SIZE` | Connection pool size | 10 |
-| `DB_MAX_OVERFLOW` | Additional connections beyond pool | 20 |
-| `DB_POOL_TIMEOUT` | Pool timeout (seconds) | 30 |
-| `DB_POOL_RECYCLE` | Pool recycle interval (seconds) | 1800 |
-| `CORS_ORIGINS` | Allowed origins for frontend requests | http://localhost:3000,http://127.0.0.1:3000 |
-| `COMPOSE_PROJECT_NAME` | Docker Compose project prefix | riot_api_app |
-| `JOB_SCHEDULER_ENABLED` | Enable background job scheduler | true |
-| `JOB_INTERVAL_SECONDS` | Job execution interval (seconds) | 120 |
-| `JOB_TIMEOUT_SECONDS` | Job execution timeout (seconds) | 90 |
-| `MAX_TRACKED_PLAYERS` | Maximum tracked players limit | 10 |
+| Variable                | Description                               | Default                                     |
+| ----------------------- | ----------------------------------------- | ------------------------------------------- |
+| `RIOT_API_KEY`          | Your Riot Games API key                   | Required                                    |
+| `RIOT_REGION`           | Regional routing (e.g., europe, americas) | europe                                      |
+| `RIOT_PLATFORM`         | Platform routing (e.g., eun1, euw1)       | eun1                                        |
+| `NEXT_PUBLIC_API_URL`   | Backend URL for frontend API calls        | http://localhost:8000                       |
+| `POSTGRES_DB`           | Database name                             | riot_api_db                                 |
+| `POSTGRES_USER`         | Database username                         | riot_api_user                               |
+| `POSTGRES_PASSWORD`     | Database password                         | Required                                    |
+| `POSTGRES_PORT`         | Host port for PostgreSQL                  | 5432                                        |
+| `BACKEND_PORT`          | Host port for backend service             | 8000                                        |
+| `FRONTEND_PORT`         | Host port for frontend service            | 3000                                        |
+| `DATABASE_URL`          | SQLAlchemy connection string              | See `.env.example`                          |
+| `DEBUG`                 | Backend debug mode                        | false                                       |
+| `LOG_LEVEL`             | Backend logging level                     | INFO                                        |
+| `DB_POOL_SIZE`          | Connection pool size                      | 10                                          |
+| `DB_MAX_OVERFLOW`       | Additional connections beyond pool        | 20                                          |
+| `DB_POOL_TIMEOUT`       | Pool timeout (seconds)                    | 30                                          |
+| `DB_POOL_RECYCLE`       | Pool recycle interval (seconds)           | 1800                                        |
+| `CORS_ORIGINS`          | Allowed origins for frontend requests     | http://localhost:3000,http://127.0.0.1:3000 |
+| `COMPOSE_PROJECT_NAME`  | Docker Compose project prefix             | riot_api_app                                |
+| `JOB_SCHEDULER_ENABLED` | Enable background job scheduler           | true                                        |
+| `JOB_INTERVAL_SECONDS`  | Job execution interval (seconds)          | 120                                         |
+| `JOB_TIMEOUT_SECONDS`   | Job execution timeout (seconds)           | 90                                          |
+| `MAX_TRACKED_PLAYERS`   | Maximum tracked players limit             | 10                                          |
 
 ## Rate Limiting
 
 The application respects Riot API rate limits:
+
 - 20 requests per second
 - 100 requests per 2 minutes
 
@@ -197,12 +206,14 @@ Built-in backoff and retry mechanisms handle rate limit responses automatically.
 ## Data Model
 
 ### Core Entities
+
 - **Players**: PUUID-based player identification
 - **Matches**: Match details and participant information
 - **Participants**: Individual player performance in matches
 - **Encounters**: Player interaction tracking
 
-### Smurf Detection Heuristics
+### Player Analysis Heuristics
+
 - Win rate ≥ 65% over 30+ ranked games
 - Account level relative to rank
 - Rank volatility and climbing speed
@@ -231,6 +242,7 @@ This project is for educational and research purposes. Please ensure compliance 
 ## Support
 
 For issues and questions:
+
 - Check the existing issues on GitHub
 - Review the API documentation
 - Contact the development team

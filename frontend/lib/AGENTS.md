@@ -150,7 +150,11 @@ import { useQuery } from "@tanstack/react-query";
 import { validatedGet } from "@/lib/api";
 import { PlayerSchema } from "@/lib/schemas";
 
-const { data: result, isLoading, error } = useQuery({
+const {
+  data: result,
+  isLoading,
+  error,
+} = useQuery({
   queryKey: ["player", puuid],
   queryFn: () => validatedGet(PlayerSchema, `/players/${puuid}`),
   refetchInterval: 15000, // Optional: auto-refresh
@@ -329,7 +333,7 @@ export const MatchParticipantSchema = z.object({
 });
 ```
 
-#### Smurf Detection Schemas
+#### Player Analysis Schemas
 
 ```typescript
 export const SmurfDetectionSchema = z.object({
@@ -341,7 +345,7 @@ export const SmurfDetectionSchema = z.object({
       score: z.number(),
       weight: z.number(),
       description: z.string(),
-    }),
+    })
   ),
 });
 ```

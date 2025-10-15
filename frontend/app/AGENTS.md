@@ -16,8 +16,8 @@ app/
   ├── error.tsx                  # Error boundary
   ├── loading.tsx                # Root loading state
   ├── not-found.tsx              # 404 page
-  ├── smurf-detection/
-  │   └── page.tsx               # Smurf detection & player analysis page
+  ├── player-analysis/
+  │   └── page.tsx               # Player analysis page
   └── jobs/
       └── page.tsx               # Background jobs monitoring page
 ```
@@ -28,9 +28,9 @@ app/
 
 - Project overview and introduction
 - Navigation to main features
-- Quick links to smurf detection and jobs monitoring
+- Quick links to player analysis and jobs monitoring
 
-### `/smurf-detection` - Player Analysis
+### `/player-analysis` - Player Analysis
 
 - Player search by Riot ID (gameName#tagLine) or summoner name
 - Real-time match history fetching from Riot API
@@ -159,8 +159,8 @@ const navItems = [
     icon: HomeIcon,
   },
   {
-    title: "Smurf Detection",
-    href: "/smurf-detection",
+    title: "Player Analysis",
+    href: "/player-analysis",
     icon: SearchIcon,
   },
   {
@@ -183,7 +183,7 @@ To add a new page to navigation:
 
 - `app/page.tsx` → `/`
 - `app/jobs/page.tsx` → `/jobs`
-- `app/smurf-detection/page.tsx` → `/smurf-detection`
+- `app/player-analysis/page.tsx` → `/player-analysis`
 
 ### Dynamic Routes (if needed)
 

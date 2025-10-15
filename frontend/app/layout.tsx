@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Toaster } from "sonner";
 
-const inter = Inter({
+const montserrat = Montserrat({
   subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
   variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
-  title: "Riot API Smurf Detection",
+  title: "League Eye Spy",
   description:
     "Analyze League of Legends players for smurf behavior using match history and performance metrics",
 };
@@ -24,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${montserrat.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

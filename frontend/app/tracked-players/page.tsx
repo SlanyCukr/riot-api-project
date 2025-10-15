@@ -10,11 +10,12 @@ export default function TrackedPlayersPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 space-y-6">
         {/* Header Card */}
-        <Card className="bg-[#2c3e6f] p-6 text-white dark:bg-[#151e46]">
+        <Card
+          id="header-card"
+          className="bg-[#152b56] p-6 text-white dark:bg-[#0a1428]"
+        >
           <div className="mb-4 flex items-start justify-between">
-            <h1 className="text-2xl font-medium text-[#c8aa6e]">
-              Tracked Players
-            </h1>
+            <h1 className="text-2xl font-semibold">Tracked Players</h1>
             <ThemeToggle />
           </div>
           <p className="text-sm leading-relaxed">
