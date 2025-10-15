@@ -240,10 +240,17 @@ class MatchService:
 
         Raises:
             RateLimitError: If Riot API rate limit is hit
+            AuthenticationError: If API key is invalid
+            ForbiddenError: If API key is expired
             ValueError: If invalid platform provided
         """
         from ..riot_api.endpoints import Platform
-        from ..riot_api.errors import RateLimitError, NotFoundError
+        from ..riot_api.errors import (
+            RateLimitError,
+            NotFoundError,
+            AuthenticationError,
+            ForbiddenError,
+        )
 
         try:
             # Validate platform
@@ -324,6 +331,8 @@ class MatchService:
 
         except RateLimitError:
             raise  # Propagate rate limit errors
+        except (AuthenticationError, ForbiddenError):
+            raise  # Propagate authentication errors so jobs fail
         except Exception as e:
             logger.error(
                 "Failed to fetch and store matches",
@@ -661,3 +670,145 @@ class MatchService:
                 "Failed to get match with participants", match_id=match_id, error=str(e)
             )
             raise
+
+    # ============================================
+    # Helper Methods for Jobs
+    # ============================================
+
+    async def store_match_from_dto(
+        self, match_dto: Any, default_platform: str = "EUN1"
+    ) -> Match:
+        """Store match and participants from Riot API DTO.
+
+        This method handles:
+        - Creating Match record
+        - Creating MatchParticipant records
+        - Ensuring all participant players exist in database
+
+        Args:
+            match_dto: Match DTO from Riot API
+            default_platform: Default platform if not in DTO
+
+        Returns:
+            Stored Match object
+
+        Raises:
+            Exception: If storage fails
+
+        Note:
+            Caller must commit the transaction.
+        """
+        from ..schemas.transformers import MatchDTOTransformer
+
+        try:
+            # Extract platform
+            platform_id = match_dto.info.platform_id or default_platform
+
+            # Create Match record
+            match = Match(
+                match_id=match_dto.metadata.match_id,
+                platform_id=platform_id.upper(),
+                game_creation=match_dto.info.game_creation,
+                game_duration=match_dto.info.game_duration,
+                game_mode=match_dto.info.game_mode,
+                game_type=match_dto.info.game_type,
+                game_version=match_dto.info.game_version,
+                map_id=match_dto.info.map_id,
+                queue_id=match_dto.info.queue_id,
+            )
+
+            self.db.add(match)
+
+            # Create MatchParticipant records
+            for participant in match_dto.info.participants:
+                participant_data = MatchDTOTransformer.extract_participant_data(
+                    participant
+                )
+                match_participant = MatchParticipant(
+                    match_id=match_dto.metadata.match_id,
+                    **participant_data,
+                )
+                self.db.add(match_participant)
+
+            logger.debug(
+                "Stored match from DTO",
+                match_id=match_dto.metadata.match_id,
+                participant_count=len(match_dto.info.participants),
+            )
+
+            return match
+
+        except Exception as e:
+            logger.error(
+                "Failed to store match from DTO",
+                match_id=(
+                    match_dto.metadata.match_id
+                    if hasattr(match_dto, "metadata")
+                    else "unknown"
+                ),
+                error=str(e),
+            )
+            raise
+
+    async def count_player_matches(self, puuid: str) -> int:
+        """Get count of matches for a player in database.
+
+        Args:
+            puuid: Player PUUID
+
+        Returns:
+            Number of matches in database
+        """
+        count_stmt = (
+            select(func.count(Match.match_id))
+            .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
+            .where(MatchParticipant.puuid == puuid)
+        )
+        count_result = await self.db.execute(count_stmt)
+        return count_result.scalar() or 0
+
+    async def get_player_last_match_time(self, puuid: str) -> Optional[int]:
+        """Get timestamp of player's most recent match in database.
+
+        Args:
+            puuid: Player PUUID
+
+        Returns:
+            Timestamp in milliseconds, or None if no matches
+        """
+        stmt = (
+            select(Match.game_creation)
+            .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
+            .where(MatchParticipant.puuid == puuid)
+            .order_by(Match.game_creation.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def filter_existing_matches(self, match_ids: List[str]) -> List[str]:
+        """Filter out matches that already exist in database.
+
+        Args:
+            match_ids: List of match IDs to check
+
+        Returns:
+            List of match IDs not in database
+        """
+        if not match_ids:
+            return []
+
+        stmt = select(Match.match_id).where(Match.match_id.in_(match_ids))
+        result = await self.db.execute(stmt)
+        existing_match_ids = set(result.scalars().all())
+
+        new_match_ids = [mid for mid in match_ids if mid not in existing_match_ids]
+
+        logger.debug(
+            "Filtered existing matches",
+            total_ids=len(match_ids),
+            existing=len(existing_match_ids),
+            new=len(new_match_ids),
+        )
+
+        return new_match_ids

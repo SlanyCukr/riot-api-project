@@ -67,8 +67,8 @@ class BaseJob(ABC):
     async def log_start(self, db: AsyncSession) -> None:
         """Log job execution start and create JobExecution record.
 
-        Args:
-            db: Database session for creating execution record.
+        :param db: Database session for creating execution record.
+        :raises Exception: If job execution record creation fails.
         """
         try:
             self.job_execution = JobExecution(
@@ -111,11 +111,12 @@ class BaseJob(ABC):
     ) -> None:
         """Log job execution completion and update JobExecution record.
 
-        Args:
-            db: Database session for updating execution record.
-            success: Whether job completed successfully.
-            error_message: Error message if job failed.
+        :param db: Database session for updating execution record.
+        :param success: Whether job completed successfully.
+        :param error_message: Error message if job failed.
+        :param logs: Detailed log entries from job execution.
         """
+        # Exit early if job execution was never started
         if self.job_execution is None:
             logger.warning(
                 "Cannot log completion, job execution not started",
@@ -124,110 +125,29 @@ class BaseJob(ABC):
             return
 
         try:
-            # Get a fresh copy of the job execution from the database
-            # This ensures we're working with an attached object in the current session
-            from sqlalchemy import update
             from ..models.job_tracking import JobExecution
 
             completed_at = datetime.now(timezone.utc)
             duration = (completed_at - self.job_execution.started_at).total_seconds()
 
-            logger.debug(
-                "Job execution completed",
-                job_type=self.job_config.job_type.value,
-                job_name=self.job_config.name,
-                execution_id=self.job_execution.id,
-                status=JobStatus.SUCCESS.value if success else JobStatus.FAILED.value,
-                duration_seconds=duration,
-                api_requests=self.metrics["api_requests_made"],
-                records_created=self.metrics["records_created"],
-                records_updated=self.metrics["records_updated"],
-                success=success,
+            self._log_completion_details(success, duration)
+
+            detailed_logs = self._prepare_detailed_logs(logs)
+            update_stmt = self._build_completion_update_statement(
+                JobExecution, completed_at, success, error_message, detailed_logs
             )
 
-            # Strip redundant fields before DB storage (keep in stdout for debugging)
-            detailed_logs = (
-                {"logs": self._strip_redundant_fields(logs)} if logs else None
-            )
-
-            # Use an UPDATE statement instead of ORM to avoid session state issues
-            stmt = (
-                update(JobExecution)
-                .where(JobExecution.id == self.job_execution.id)
-                .values(
-                    completed_at=completed_at,
-                    status=JobStatus.SUCCESS if success else JobStatus.FAILED,
-                    api_requests_made=self.metrics["api_requests_made"],
-                    records_created=self.metrics["records_created"],
-                    records_updated=self.metrics["records_updated"],
-                    error_message=error_message,
-                    execution_log=self.execution_log,
-                    detailed_logs=detailed_logs,
-                )
-            )
-
-            try:
-                await db.execute(stmt)
-                await db.commit()
-            except Exception as commit_error:
-                logger.error(
-                    "Failed to commit job completion - attempting rollback and retry",
-                    job_name=self.job_config.name,
-                    execution_id=self.job_execution.id,
-                    error=str(commit_error),
-                    error_type=type(commit_error).__name__,
-                )
-                try:
-                    await db.rollback()
-                    # Try one more time with a fresh transaction
-                    await db.execute(stmt)
-                    await db.commit()
-                    logger.info(
-                        "Successfully committed job completion on retry",
-                        execution_id=self.job_execution.id,
-                    )
-                except Exception as retry_error:
-                    logger.error(
-                        "Failed to commit job completion even after retry - job may remain stuck",
-                        job_name=self.job_config.name,
-                        execution_id=self.job_execution.id,
-                        error=str(retry_error),
-                        error_type=type(retry_error).__name__,
-                    )
-                    # Don't raise - we want the job to complete even if logging fails
-                    return
-
-            # Update local object for logging purposes
-            self.job_execution.completed_at = completed_at
-            self.job_execution.status = (
-                JobStatus.SUCCESS if success else JobStatus.FAILED
-            )
+            await self._execute_completion_update(db, update_stmt)
+            self._update_local_execution_state(completed_at, success)
 
         except Exception as e:
-            logger.error(
-                "Failed to log job completion",
-                job_name=self.job_config.name,
-                execution_id=self.job_execution.id if self.job_execution else None,
-                error=str(e),
-                error_type=type(e).__name__,
-                exc_info=True,  # Include full traceback
-            )
-            try:
-                await db.rollback()
-            except Exception as rollback_error:
-                logger.error(
-                    "Failed to rollback after log_completion error",
-                    error=str(rollback_error),
-                )
+            await self._handle_completion_error(db, e)
 
     async def is_already_running(self, db: AsyncSession) -> bool:
         """Check if this job is already running.
 
-        Args:
-            db: Database session for querying execution records.
-
-        Returns:
-            True if job is already running, False otherwise.
+        :param db: Database session for querying execution records.
+        :returns: True if job is already running, False otherwise.
         """
         from sqlalchemy import select
 
@@ -259,9 +179,9 @@ class BaseJob(ABC):
     async def handle_error(self, db: AsyncSession, error: Exception) -> str:
         """Handle job execution error.
 
-        Args:
-            db: Database session for updating execution record.
-            error: Exception that was raised during job execution.
+        :param db: Database session for updating execution record.
+        :param error: Exception that was raised during job execution.
+        :returns: Formatted error message string.
         """
         error_message = f"{type(error).__name__}: {str(error)}"
 
@@ -369,14 +289,124 @@ class BaseJob(ABC):
         ]
 
     def increment_metric(self, metric_name: str, count: int = 1) -> None:
-        """Increment a metric counter."""
+        """Increment a metric counter.
+
+        :param metric_name: Name of the metric to increment.
+        :param count: Amount to increment by (default: 1).
+        """
         self.metrics[metric_name] += count
 
     def add_log_entry(self, key: str, value: Any) -> None:
         """Add an entry to the execution log.
 
-        Args:
-            key: Log entry key.
-            value: Log entry value.
+        :param key: Log entry key.
+        :param value: Log entry value.
         """
         self.execution_log[key] = value
+
+    # Private helper methods
+
+    def _log_completion_details(self, success: bool, duration: float) -> None:
+        """Log completion details to structured logger."""
+        logger.debug(
+            "Job execution completed",
+            job_type=self.job_config.job_type.value,
+            job_name=self.job_config.name,
+            execution_id=self.job_execution.id,
+            status=JobStatus.SUCCESS.value if success else JobStatus.FAILED.value,
+            duration_seconds=duration,
+            api_requests=self.metrics["api_requests_made"],
+            records_created=self.metrics["records_created"],
+            records_updated=self.metrics["records_updated"],
+            success=success,
+        )
+
+    def _prepare_detailed_logs(
+        self, logs: Optional[List[Dict[str, Any]]]
+    ) -> Optional[Dict[str, Any]]:
+        """Prepare detailed logs for database storage."""
+        if not logs:
+            return None
+        return {"logs": self._strip_redundant_fields(logs)}
+
+    def _build_completion_update_statement(
+        self, job_execution_model, completed_at, success, error_message, detailed_logs
+    ):
+        """Build SQLAlchemy update statement for job completion."""
+        from sqlalchemy import update
+
+        return (
+            update(job_execution_model)
+            .where(job_execution_model.id == self.job_execution.id)
+            .values(
+                completed_at=completed_at,
+                status=JobStatus.SUCCESS if success else JobStatus.FAILED,
+                api_requests_made=self.metrics["api_requests_made"],
+                records_created=self.metrics["records_created"],
+                records_updated=self.metrics["records_updated"],
+                error_message=error_message,
+                execution_log=self.execution_log,
+                detailed_logs=detailed_logs,
+            )
+        )
+
+    async def _execute_completion_update(self, db: AsyncSession, stmt) -> None:
+        """Execute the completion update with retry logic."""
+        try:
+            await db.execute(stmt)
+            await db.commit()
+            return
+        except Exception as commit_error:
+            logger.error(
+                "Failed to commit job completion - attempting rollback and retry",
+                job_name=self.job_config.name,
+                execution_id=self.job_execution.id,
+                error=str(commit_error),
+                error_type=type(commit_error).__name__,
+            )
+
+        # Retry once after rollback
+        try:
+            await db.rollback()
+            await db.execute(stmt)
+            await db.commit()
+            logger.info(
+                "Successfully committed job completion on retry",
+                execution_id=self.job_execution.id,
+            )
+        except Exception as retry_error:
+            logger.error(
+                "Failed to commit job completion even after retry - job may remain stuck",
+                job_name=self.job_config.name,
+                execution_id=self.job_execution.id,
+                error=str(retry_error),
+                error_type=type(retry_error).__name__,
+            )
+            # Don't raise - we want the job to complete even if logging fails
+
+    def _update_local_execution_state(
+        self, completed_at: datetime, success: bool
+    ) -> None:
+        """Update local job execution object state."""
+        self.job_execution.completed_at = completed_at
+        self.job_execution.status = JobStatus.SUCCESS if success else JobStatus.FAILED
+
+    async def _handle_completion_error(
+        self, db: AsyncSession, error: Exception
+    ) -> None:
+        """Handle errors that occur during completion logging."""
+        logger.error(
+            "Failed to log job completion",
+            job_name=self.job_config.name,
+            execution_id=self.job_execution.id if self.job_execution else None,
+            error=str(error),
+            error_type=type(error).__name__,
+            exc_info=True,
+        )
+        try:
+            await db.rollback()
+        except Exception as rollback_error:
+            logger.error(
+                "Failed to rollback after log_completion error",
+                error=str(rollback_error),
+            )

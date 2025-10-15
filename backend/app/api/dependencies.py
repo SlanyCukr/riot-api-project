@@ -18,17 +18,21 @@ from ..config import get_global_settings
 
 async def get_riot_client() -> AsyncGenerator[RiotAPIClient, None]:
     """Get Riot API client instance."""
+    from ..config import get_riot_api_key
+
     settings = get_global_settings()
-    if not settings.riot_api_key:
+
+    # Get API key from database first, fallback to environment
+    api_key = await get_riot_api_key()
+
+    if not api_key:
         raise HTTPException(status_code=500, detail="Riot API key not configured")
 
     # Convert string settings to enums
     region = Region(settings.riot_region.lower())
     platform = Platform(settings.riot_platform.lower())
 
-    client = RiotAPIClient(
-        api_key=settings.riot_api_key, region=region, platform=platform
-    )
+    client = RiotAPIClient(api_key=api_key, region=region, platform=platform)
     await client.start_session()
     try:
         yield client

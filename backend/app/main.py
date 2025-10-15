@@ -7,11 +7,12 @@ from typing import Dict, Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_global_settings
+from app.config import get_global_settings, get_riot_api_key
 from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
 from app.api.jobs import router as jobs_router
+from app.api.settings import router as settings_router
 from app.jobs import start_scheduler, shutdown_scheduler
 from app.jobs.log_capture import job_log_capture
 import structlog
@@ -53,19 +54,19 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting up Riot API Backend application")
 
-    # Validate Riot API key
+    # Validate Riot API key (check database first, then environment)
     try:
-        api_key = settings.riot_api_key
+        api_key = await get_riot_api_key()
         if not api_key or api_key == "your_riot_api_key_here":
             logger.warning(
-                "⚠️  RIOT_API_KEY not configured! Set it in .env file.",
+                "⚠️  RIOT_API_KEY not configured! Set it in .env file or update via /settings.",
                 hint="Get your key from https://developer.riotgames.com",
             )
         elif api_key.startswith("RGAPI-"):
             logger.info("✓ Riot API key configured (development key detected)")
             logger.warning(
                 "⚠️  Development API keys expire every 24 hours!",
-                hint="Update with: ./scripts/update-riot-api-key.sh",
+                hint="Update via web UI at /settings or with ./scripts/update-riot-api-key.sh",
             )
         else:
             logger.info("✓ Riot API key configured")
@@ -119,6 +120,10 @@ tags_metadata = [
     {
         "name": "jobs",
         "description": "Job management and monitoring endpoints for automated tasks.",
+    },
+    {
+        "name": "settings",
+        "description": "System settings and configuration management.",
     },
     {
         "name": "health",
@@ -178,6 +183,7 @@ app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
 app.include_router(detection_router, prefix="/api/v1", tags=["smurf-detection"])
 app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
+app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 
 # Legacy route compatibility (tests and existing clients expect root-level paths)
 app.include_router(players_router)

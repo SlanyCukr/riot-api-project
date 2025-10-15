@@ -47,29 +47,81 @@ def get_scheduler() -> Optional[AsyncIOScheduler]:
 def _resolve_interval_seconds(
     job_config: JobConfiguration, default_interval: int
 ) -> int:
-    """Determine interval seconds for a job configuration."""
+    """Determine interval seconds for a job configuration.
+
+    :param job_config: Job configuration with schedule settings.
+    :param default_interval: Default interval if no valid config found.
+    :returns: Interval in seconds (minimum 1).
+    """
     config = job_config.config_json or {}
     custom_value = config.get("interval_seconds")
 
+    # Try to parse custom value from config
+    interval_from_config = _parse_interval_from_config(custom_value)
+    if interval_from_config:
+        return interval_from_config
+
+    # Try to parse from schedule string
+    schedule = (job_config.schedule or "").strip().lower()
+    interval_from_schedule = _parse_interval_from_schedule(schedule)
+    if interval_from_schedule:
+        return interval_from_schedule
+
+    # Fall back to default
+    return default_interval
+
+
+def _parse_interval_from_config(custom_value: any) -> Optional[int]:
+    """Parse interval from config JSON value.
+
+    :param custom_value: Value from config_json['interval_seconds'].
+    :returns: Parsed interval in seconds, or None if invalid.
+    """
+    # Exit early if no value provided
+    if not custom_value:
+        return None
+
+    # Convert string digits to int
     if isinstance(custom_value, str) and custom_value.isdigit():
         custom_value = int(custom_value)
 
+    # Return if valid positive integer
     if isinstance(custom_value, int) and custom_value > 0:
         return custom_value
 
-    schedule = (job_config.schedule or "").strip().lower()
+    return None
+
+
+def _parse_interval_from_schedule(schedule: str) -> Optional[int]:
+    """Parse interval from schedule string.
+
+    Supports formats:
+    - "60" - plain number
+    - "interval:60" - interval prefix
+    - "60s" - seconds suffix
+
+    :param schedule: Schedule string from job configuration.
+    :returns: Parsed interval in seconds (minimum 1), or None if invalid.
+    """
+    # Exit early if empty
+    if not schedule:
+        return None
+
+    # Try plain digit format: "60"
     if schedule.isdigit():
         return max(int(schedule), 1)
 
+    # Try "interval:60" format
     if schedule.startswith("interval:"):
         candidate = schedule.split(":", 1)[1].strip()
         if candidate.isdigit():
             return max(int(candidate), 1)
 
+    # Try "60s" format
     if schedule.endswith("s") and schedule[:-1].isdigit():
         return max(int(schedule[:-1]), 1)
 
-    return default_interval
+    return None
 
 
 async def _mark_stale_jobs_as_failed(db: AsyncSession) -> None:

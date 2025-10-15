@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -16,15 +16,22 @@ const navItems: NavItem[] = [
   { name: "Smurf Detection", path: "/smurf-detection" },
   { name: "Tracked Players", path: "/tracked-players" },
   { name: "Jobs", path: "/jobs" },
+  { name: "Settings", path: "/settings" },
   { name: "Boosted Detection", path: "#" },
   { name: "Matchmaking Analysis", path: "#" },
 ];
 
 export function SidebarNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const isActive = (path: string) => {
+    if (!mounted) return false; // Prevent hydration mismatch
     if (path === "/") {
       return pathname === "/";
     }
