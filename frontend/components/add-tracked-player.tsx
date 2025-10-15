@@ -71,7 +71,9 @@ export function AddTrackedPlayer() {
       queryClient.invalidateQueries({ queryKey: ["tracked-players"] });
 
       // Show success toast
-      toast.success(`Successfully added ${player.summoner_name} to tracked players!`);
+      toast.success(
+        `Successfully added ${player.summoner_name} to tracked players!`,
+      );
 
       // Reset form
       form.reset({

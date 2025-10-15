@@ -1,6 +1,6 @@
 """Player service for handling player data operations."""
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -721,3 +721,162 @@ class PlayerService:
                 error=str(e),
             )
             return False
+
+    # ============================================
+    # Helper Methods for Jobs
+    # ============================================
+
+    async def discover_players_from_match(self, match_dto: Any, platform: str) -> int:
+        """Discover and create player records from match participants.
+
+        This method checks if players exist in the database and creates
+        minimal player records for any new players discovered in a match.
+        These discovered players are marked as not tracked and not analyzed.
+
+        Args:
+            match_dto: Match DTO from Riot API
+            platform: Platform for the players
+
+        Returns:
+            Number of newly discovered players
+
+        Note:
+            Caller must commit the transaction.
+        """
+        from ..schemas.transformers import PlayerDataSanitizer
+
+        discovered_count = 0
+
+        for participant in match_dto.info.participants:
+            # Check if player exists in database
+            stmt = select(Player).where(Player.puuid == participant.puuid)
+            result = await self.db.execute(stmt)
+            existing_player = result.scalar_one_or_none()
+
+            if not existing_player:
+                # Sanitize player data
+                player_data = {
+                    "riot_id": participant.riot_id_game_name,
+                    "tag_line": participant.riot_id_tagline,
+                    "summoner_name": participant.summoner_name,
+                }
+                player_data = PlayerDataSanitizer.sanitize_player_fields(player_data)
+
+                # Create new player record marked for analysis
+                new_player = Player(
+                    puuid=participant.puuid,
+                    riot_id=player_data["riot_id"],
+                    tag_line=player_data["tag_line"],
+                    summoner_name=player_data["summoner_name"],
+                    platform=platform.upper(),
+                    account_level=participant.summoner_level,
+                    is_tracked=False,  # Discovered, not tracked
+                    is_analyzed=False,  # Needs analysis
+                    is_active=True,
+                )
+                self.db.add(new_player)
+                discovered_count += 1
+
+                logger.debug(
+                    "Marked new discovered player",
+                    puuid=participant.puuid,
+                    riot_id=f"{player_data['riot_id']}#{player_data['tag_line']}"
+                    if player_data["riot_id"] and player_data["tag_line"]
+                    else None,
+                )
+
+        if discovered_count > 0:
+            logger.info(
+                "Discovered players from match",
+                match_id=match_dto.metadata.match_id,
+                discovered_count=discovered_count,
+            )
+
+        return discovered_count
+
+    async def update_player_rank(self, player: Player) -> bool:
+        """Update player's current rank from Riot API.
+
+        Fetches the player's ranked league entries and stores their
+        Solo/Duo rank in the PlayerRank table.
+
+        Args:
+            player: Player to update rank for
+
+        Returns:
+            True if rank was updated, False if no rank data found or error occurred
+
+        Raises:
+            ValueError: If player has invalid platform
+        """
+        from ..riot_api.endpoints import Platform
+        from ..riot_api.errors import NotFoundError
+        from ..models.ranks import PlayerRank
+
+        logger.debug("Updating player rank", puuid=player.puuid)
+
+        # Convert platform string to Platform enum
+        try:
+            platform_enum = Platform(player.platform.lower())
+        except ValueError:
+            logger.warning(
+                "Invalid platform for player",
+                puuid=player.puuid,
+                platform=player.platform,
+            )
+            raise ValueError(f"Invalid platform: {player.platform}")
+
+        try:
+            # Fetch rank data from Riot API using PUUID-based endpoint
+            league_entries = (
+                await self.data_manager.api_client.get_league_entries_by_puuid(
+                    player.puuid, platform_enum
+                )
+            )
+        except NotFoundError:
+            logger.warning("Summoner not found when fetching rank", puuid=player.puuid)
+            return False
+
+        if not league_entries:
+            logger.debug("No ranked data found for player", puuid=player.puuid)
+            return False
+
+        # Find Solo/Duo ranked entry
+        solo_entry = next(
+            (e for e in league_entries if e.queue_type == "RANKED_SOLO_5x5"), None
+        )
+
+        if not solo_entry:
+            logger.debug("No Solo/Duo rank found for player", puuid=player.puuid)
+            return False
+
+        # Create rank record
+        rank_record = PlayerRank(
+            puuid=player.puuid,
+            queue_type=solo_entry.queue_type,
+            tier=solo_entry.tier,
+            rank=solo_entry.rank,
+            league_points=solo_entry.league_points,
+            wins=solo_entry.wins,
+            losses=solo_entry.losses,
+            veteran=solo_entry.veteran,
+            inactive=solo_entry.inactive,
+            fresh_blood=solo_entry.fresh_blood,
+            hot_streak=solo_entry.hot_streak,
+            league_id=solo_entry.league_id
+            if hasattr(solo_entry, "league_id")
+            else None,
+            is_current=True,
+        )
+
+        self.db.add(rank_record)
+
+        logger.info(
+            "Updated player rank",
+            puuid=player.puuid,
+            tier=solo_entry.tier,
+            rank=solo_entry.rank,
+            lp=solo_entry.league_points,
+        )
+
+        return True

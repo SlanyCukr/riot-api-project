@@ -181,8 +181,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
                     <span>Level {player.account_level}</span>
                   )}
                   <span>
-                    Last seen:{" "}
-                    {new Date(player.last_seen).toLocaleDateString()}
+                    Last seen: {new Date(player.last_seen).toLocaleDateString()}
                   </span>
                 </div>
               </div>

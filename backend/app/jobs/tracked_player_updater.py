@@ -5,19 +5,18 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 import structlog
 
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
+from .error_handling import handle_riot_api_errors
 from ..models.players import Player
-from ..models.matches import Match
-from ..models.participants import MatchParticipant
 from ..models.job_tracking import JobConfiguration
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.data_manager import RiotDataManager
-from ..riot_api.errors import RateLimitError, NotFoundError
+from ..riot_api.errors import NotFoundError
 from ..riot_api.endpoints import Platform
-from ..config import get_global_settings
+from ..config import get_global_settings, get_riot_api_key
 
 logger = structlog.get_logger(__name__)
 
@@ -56,8 +55,12 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
     @asynccontextmanager
     async def _riot_resources(self, db: AsyncSession):
+        # Get API key from database first, fallback to environment
+        # Pass the db session so it can query settings without creating a new engine
+        api_key = await get_riot_api_key(db)
+
         self.api_client = RiotAPIClient(
-            api_key=self.settings.riot_api_key,
+            api_key=api_key,
             region=self.settings.riot_region,
             platform=self.settings.riot_platform,
             request_callback=self._record_api_request,
@@ -72,15 +75,18 @@ class TrackedPlayerUpdaterJob(BaseJob):
             self.data_manager = None
 
     def _record_api_request(self, metric: str, count: int) -> None:
-        """Record API request metrics from Riot API client callbacks."""
+        """Record API request metrics from Riot API client callbacks.
+
+        :param metric: Name of the metric being recorded.
+        :param count: Number of requests made.
+        """
         if metric == "requests_made":
             self.increment_metric("api_requests_made", count)
 
     async def execute(self, db: AsyncSession) -> None:
         """Execute the tracked player updater job.
 
-        Args:
-            db: Database session for job execution.
+        :param db: Database session for job execution.
         """
         logger.info(
             "Starting tracked player updater job",
@@ -102,49 +108,27 @@ class TrackedPlayerUpdaterJob(BaseJob):
             summary["total"] = len(tracked_players)
             summary["tracked_ids"] = [p.puuid for p in tracked_players]
 
+            # Exit early if no tracked players
             if not tracked_players:
                 logger.info("No tracked players found, job complete")
-            else:
-                logger.debug(
-                    "Found tracked players to update",
-                    count=len(tracked_players),
-                    player_ids=summary["tracked_ids"],
-                )
+                self._log_summary_to_execution_log(summary)
+                return
+
+            logger.debug(
+                "Found tracked players to update",
+                count=len(tracked_players),
+                player_ids=summary["tracked_ids"],
+            )
 
             for player in tracked_players:
-                if self._should_skip_player(player):
-                    summary["skipped"].append(player.puuid)
-                    continue
+                player_result = await self._sync_tracked_player(db, player)
+                # None if non-critical error occurred
+                if player_result is not None:
+                    summary["processed"] += 1
+                    summary["matches"] += player_result["matches"]
+                    summary["discovered"] += player_result["discovered"]
 
-                try:
-                    player_result = await self._sync_tracked_player(db, player)
-                except RateLimitError as rate_error:
-                    logger.warning(
-                        "Rate limit hit while updating player",
-                        puuid=player.puuid,
-                        retry_after=getattr(rate_error, "retry_after", None),
-                    )
-                    raise
-                except Exception as error:
-                    logger.error(
-                        "Failed to update tracked player",
-                        puuid=player.puuid,
-                        error=str(error),
-                        error_type=type(error).__name__,
-                    )
-                    continue
-
-                summary["processed"] += 1
-                summary["matches"] += player_result["matches"]
-                summary["discovered"] += player_result["discovered"]
-
-        self.add_log_entry("tracked_players_count", summary["total"])
-        self.add_log_entry("tracked_players", summary["tracked_ids"])
-        self.add_log_entry("players_processed", summary["processed"])
-        if summary["skipped"]:
-            self.add_log_entry("players_skipped", summary["skipped"])
-        self.add_log_entry("matches_processed", summary["matches"])
-        self.add_log_entry("players_discovered", summary["discovered"])
+        self._log_summary_to_execution_log(summary)
 
         logger.debug(
             "Tracked player updater job completed successfully",
@@ -159,11 +143,8 @@ class TrackedPlayerUpdaterJob(BaseJob):
     async def _get_tracked_players(self, db: AsyncSession) -> List[Player]:
         """Get all players marked as tracked.
 
-        Args:
-            db: Database session.
-
-        Returns:
-            List of tracked players.
+        :param db: Database session.
+        :returns: List of tracked players.
         """
         stmt = (
             select(Player)
@@ -175,36 +156,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         players = result.scalars().all()
         return list(players)
 
-    def _should_skip_player(self, player: Player) -> bool:
-        if not self.api_client:
-            return True
-
-        try:
-            player_platform = Platform(player.platform.lower())
-        except ValueError:
-            logger.warning(
-                "Skipping player with invalid platform",
-                puuid=player.puuid,
-                player_platform=player.platform,
-            )
-            return True
-
-        player_region = self.api_client.endpoints.get_region_for_platform(
-            player_platform
-        )
-
-        if player_region != self.api_client.region:
-            logger.warning(
-                "Skipping player from different region",
-                puuid=player.puuid,
-                player_platform=player.platform,
-                player_region=player_region.value,
-                configured_region=self.api_client.region.value,
-            )
-            return True
-
-        return False
-
+    @handle_riot_api_errors(
+        operation="update tracked player",
+        critical=False,
+        log_context=lambda self, db, player: {"puuid": player.puuid},
+    )
     async def _sync_tracked_player(
         self, db: AsyncSession, player: Player
     ) -> Dict[str, int]:
@@ -230,26 +186,10 @@ class TrackedPlayerUpdaterJob(BaseJob):
         players_discovered = 0
 
         for match_id in new_matches:
-            try:
-                discovered = await self._process_match(db, match_id, player)
+            discovered = await self._process_match(db, match_id, player)
+            if discovered is not None:  # None if non-critical error occurred
                 players_discovered += discovered
                 matches_processed += 1
-            except RateLimitError:
-                logger.warning(
-                    "Rate limit hit processing match",
-                    match_id=match_id,
-                    puuid=player.puuid,
-                )
-                raise
-            except Exception as error:
-                logger.error(
-                    "Failed to process match",
-                    match_id=match_id,
-                    puuid=player.puuid,
-                    error=str(error),
-                    error_type=type(error).__name__,
-                )
-                continue
 
         await self._update_player_rank(db, player)
 
@@ -269,154 +209,20 @@ class TrackedPlayerUpdaterJob(BaseJob):
     async def _fetch_new_matches(self, db: AsyncSession, player: Player) -> List[str]:
         """Fetch new match IDs for a player since last check.
 
-        Args:
-            db: Database session.
-            player: Player to fetch matches for.
-
-        Returns:
-            List of new match IDs.
+        :param db: Database session.
+        :param player: Player to fetch matches for.
+        :returns: List of new match IDs.
         """
         try:
-            # Count how many matches we have for this player
-            count_stmt = (
-                select(func.count(Match.match_id))
-                .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
-                .where(MatchParticipant.puuid == player.puuid)
-            )
-            count_result = await db.execute(count_stmt)
-            existing_match_count = count_result.scalar() or 0
+            existing_match_count = await self._get_existing_match_count(db, player)
+            last_match_time = await self._get_last_match_time(db, player)
 
-            # Get the timestamp of the most recent match in database
-            stmt = (
-                select(Match.game_creation)
-                .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
-                .where(MatchParticipant.puuid == player.puuid)
-                .order_by(Match.game_creation.desc())
-                .limit(1)
-            )
-            result = await db.execute(stmt)
-            last_match_time = result.scalar_one_or_none()
-
-            # Calculate start time based on fetch strategy
-            if self.max_new_matches_per_player > 0:
-                # Limited fetch mode - always respect the limit
-                if last_match_time:
-                    # Fetch only new matches since last one
-                    # last_match_time is already a timestamp in milliseconds
-                    # Convert to seconds for Riot API
-                    start_time = int(last_match_time / 1000)
-                    logger.debug(
-                        "Fetching new matches only",
-                        puuid=player.puuid,
-                        existing_matches=existing_match_count,
-                    )
-                else:
-                    # First run for this player - fetch limited history
-                    # Go back enough to get max_new_matches_per_player matches
-                    # Estimate: ~30 days for 20 matches (average 1-2 games per day)
-                    days_back = max(30, self.max_new_matches_per_player * 2)
-                    start_date = datetime.now() - timedelta(days=days_back)
-                    start_time = int(start_date.timestamp())
-                    logger.info(
-                        "First run - fetching limited history",
-                        puuid=player.puuid,
-                        max_matches=self.max_new_matches_per_player,
-                        days_back=days_back,
-                        start_date=start_date.isoformat(),
-                    )
-            else:
-                # Unlimited fetch mode (max_new_matches_per_player == 0)
-                # Fetch from far back to get entire history
-                # Riot API stores matches for ~2-3 years, so go back 2 years
-                two_years_ago = datetime.now() - timedelta(days=730)
-                start_time = int(two_years_ago.timestamp())
-                logger.info(
-                    "Unlimited mode - fetching all historical matches",
-                    puuid=player.puuid,
-                    existing_matches=existing_match_count,
-                    start_date=two_years_ago.isoformat(),
-                )
-
-            logger.debug(
-                "Fetching matches since timestamp",
-                puuid=player.puuid,
-                start_time=start_time,
+            start_time = self._calculate_fetch_start_time(
+                last_match_time, existing_match_count, player.puuid
             )
 
-            # Fetch match list from Riot API
-            # Note: Platform is stored as string in DB, no need to convert to enum
-            # The API client will handle platform routing based on player's region
-
-            # Fetch ALL available matches for tracked players
-            # Riot API allows max 100 per request, so we fetch in batches
-            match_ids = []
-            start_index = 0
-            batch_size = 100  # Riot API maximum
-
-            # Keep fetching until we get all matches or reach the limit
-            max_total_matches = (
-                self.max_new_matches_per_player
-                if self.max_new_matches_per_player > 0
-                else 1000
-            )
-
-            while len(match_ids) < max_total_matches:
-                # Use API client directly for match list (specific queue filtering)
-                # Queue 420 = Ranked Solo/Duo, 440 = Ranked Flex
-                match_list_dto = await self.api_client.get_match_list_by_puuid(
-                    puuid=player.puuid,
-                    queue=420,  # Ranked Solo/Duo only
-                    start_time=start_time,
-                    start=start_index,
-                    count=batch_size,
-                )
-                if hasattr(match_list_dto, "match_ids"):
-                    batch_match_ids = list(match_list_dto.match_ids)
-                else:
-                    batch_match_ids = list(match_list_dto or [])
-
-                if not batch_match_ids:
-                    # No more matches available
-                    logger.debug(
-                        "No more matches available",
-                        puuid=player.puuid,
-                        total_fetched=len(match_ids),
-                    )
-                    break
-
-                match_ids.extend(batch_match_ids)
-
-                # If we got fewer than batch_size, we've reached the end
-                if len(batch_match_ids) < batch_size:
-                    logger.debug(
-                        "Fetched all available matches",
-                        puuid=player.puuid,
-                        total_fetched=len(match_ids),
-                    )
-                    break
-
-                start_index += batch_size
-
-            logger.info(
-                "Fetched match list",
-                puuid=player.puuid,
-                total_matches=len(match_ids),
-            )
-
-            # Filter out matches we already have in database
-            new_match_ids = []
-            for match_id in match_ids:
-                stmt = select(Match).where(Match.match_id == match_id)
-                try:
-                    result = await db.execute(stmt)
-                except StopAsyncIteration:
-                    # Tests may exhaust mocked side effects; treat as no existing match
-                    existing_match = None
-                else:
-                    existing_match = result.scalar_one_or_none()
-
-                if not existing_match:
-                    new_match_ids.append(match_id)
+            match_ids = await self._fetch_match_ids_in_batches(player, start_time)
+            new_match_ids = await self._filter_new_matches(db, match_ids)
 
             logger.info(
                 "Filtered new matches",
@@ -431,19 +237,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
             logger.warning("Player not found in Riot API", puuid=player.puuid)
             return []
 
-        except RateLimitError:
-            logger.warning("Rate limit hit fetching match list", puuid=player.puuid)
-            raise
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch new matches",
-                puuid=player.puuid,
-                error=str(e),
-                exc_info=True,
-            )
-            raise
-
+    @handle_riot_api_errors(
+        operation="process match",
+        critical=False,
+        log_context=lambda self, db, match_id, player: {
+            "match_id": match_id,
+            "puuid": player.puuid,
+        },
+    )
     async def _process_match(
         self, db: AsyncSession, match_id: str, player: Player
     ) -> int:
@@ -454,22 +255,33 @@ class TrackedPlayerUpdaterJob(BaseJob):
             match_id: Match ID to process.
             player: The tracked player (for context).
         """
+        logger.debug("Processing match", match_id=match_id, puuid=player.puuid)
+
+        # Fetch match details from Riot API using data manager
+        match_dto = await self.api_client.get_match(match_id)
+
+        if not match_dto:
+            logger.warning("Match not found", match_id=match_id)
+            return 0
+
         try:
-            logger.debug("Processing match", match_id=match_id, puuid=player.puuid)
+            # Use PlayerService to discover and mark new players from match
+            from ..services.players import PlayerService
+            from ..services.matches import MatchService
 
-            # Fetch match details from Riot API using data manager
-            match_dto = await self.api_client.get_match(match_id)
-
-            if not match_dto:
-                logger.warning("Match not found", match_id=match_id)
-                return 0
+            player_service = PlayerService(db, self.data_manager)
+            match_service = MatchService(db, self.data_manager)
 
             # Extract and mark discovered players FIRST (before creating match participants)
             # This ensures players exist before we create foreign key references
-            discovered_players = await self._mark_discovered_players(db, match_dto)
+            discovered_players = await player_service.discover_players_from_match(
+                match_dto, player.platform
+            )
 
             # Store match in database (this creates match and participants)
-            await self._store_match(db, match_dto)
+            await match_service.store_match_from_dto(
+                match_dto, default_platform=player.platform
+            )
 
             # Commit the transaction once for all changes
             await db.commit()
@@ -478,117 +290,21 @@ class TrackedPlayerUpdaterJob(BaseJob):
             logger.debug("Successfully processed match", match_id=match_id)
             return discovered_players
 
-        except RateLimitError:
-            logger.warning("Rate limit hit processing match", match_id=match_id)
+        except Exception:
             await db.rollback()
             raise
 
-        except Exception as e:
-            logger.error(
-                "Failed to process match",
-                match_id=match_id,
-                error=str(e),
-            )
-            await db.rollback()
-            raise
+    # NOTE: _store_match has been moved to MatchService.store_match_from_dto()
+    # This method is no longer used and can be removed in future cleanup
 
-    async def _store_match(self, db: AsyncSession, match_dto: Any) -> None:
-        """Store match and participants in database.
+    # NOTE: _mark_discovered_players has been moved to PlayerService.discover_players_from_match()
+    # This method is no longer used and can be removed in future cleanup
 
-        Args:
-            db: Database session.
-            match_dto: Match DTO from Riot API.
-
-        Note: Does not commit - caller must commit the transaction.
-        """
-        # Create Match record
-        platform_id = match_dto.info.platform_id or self.settings.riot_platform
-
-        match = Match(
-            match_id=match_dto.metadata.match_id,
-            platform_id=platform_id.upper(),
-            game_creation=match_dto.info.game_creation,
-            game_duration=match_dto.info.game_duration,
-            game_mode=match_dto.info.game_mode,
-            game_type=match_dto.info.game_type,
-            game_version=match_dto.info.game_version,
-            map_id=match_dto.info.map_id,
-            queue_id=match_dto.info.queue_id,
-        )
-
-        db.add(match)
-
-        # Create MatchParticipant records
-        for participant in match_dto.info.participants:
-            # Note: Riot API sometimes returns empty strings for name fields
-            # Convert empty strings to None for proper database storage
-            match_participant = MatchParticipant(
-                match_id=match_dto.metadata.match_id,
-                puuid=participant.puuid,
-                riot_id_name=participant.riot_id_game_name or None,
-                riot_id_tagline=participant.riot_id_tagline or None,
-                summoner_name=participant.summoner_name or None,
-                summoner_level=participant.summoner_level,
-                champion_id=participant.champion_id,
-                champion_name=participant.champion_name,
-                team_id=participant.team_id,
-                team_position=participant.team_position,
-                win=participant.win,
-                kills=participant.kills,
-                deaths=participant.deaths,
-                assists=participant.assists,
-                gold_earned=participant.gold_earned,
-                cs=participant.total_minions_killed
-                + participant.neutral_minions_killed,
-                vision_score=participant.vision_score or 0,
-                total_damage_dealt_to_champions=participant.total_damage_dealt_to_champions,
-                total_damage_taken=participant.total_damage_taken,
-            )
-            db.add(match_participant)
-
-        logger.debug(
-            "Prepared match for database", match_id=match_dto.metadata.match_id
-        )
-
-    async def _mark_discovered_players(self, db: AsyncSession, match_dto: Any) -> int:
-        """Mark new players discovered in match as needing analysis.
-
-        Returns number of newly discovered players.
-        """
-        discovered_count = 0
-        for participant in match_dto.info.participants:
-            # Check if player exists in database
-            stmt = select(Player).where(Player.puuid == participant.puuid)
-            result = await db.execute(stmt)
-            existing_player = result.scalar_one_or_none()
-
-            if not existing_player:
-                # Create new player record marked for analysis
-                # Note: Riot API sometimes returns empty strings instead of None
-                # Use "or None" to convert empty strings to None for proper database storage
-                new_player = Player(
-                    puuid=participant.puuid,
-                    riot_id=participant.riot_id_game_name or None,
-                    tag_line=participant.riot_id_tagline or None,
-                    summoner_name=participant.summoner_name or None,
-                    platform=self.settings.riot_platform,
-                    account_level=participant.summoner_level,
-                    is_tracked=False,  # Discovered, not tracked
-                    is_analyzed=False,  # Needs analysis
-                    is_active=True,
-                )
-                db.add(new_player)
-                self.increment_metric("records_created")
-                discovered_count += 1
-
-                logger.debug(
-                    "Marked new discovered player",
-                    puuid=participant.puuid,
-                    riot_id=f"{participant.riot_id_game_name}#{participant.riot_id_tagline}",
-                )
-
-        return discovered_count
-
+    @handle_riot_api_errors(
+        operation="update player rank",
+        critical=False,
+        log_context=lambda self, db, player: {"puuid": player.puuid},
+    )
     async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
         """Update player's current rank from Riot API.
 
@@ -596,81 +312,213 @@ class TrackedPlayerUpdaterJob(BaseJob):
             db: Database session.
             player: Player to update rank for.
         """
+        from ..services.players import PlayerService
+
+        player_service = PlayerService(db, self.data_manager)
+
         try:
-            logger.debug("Updating player rank", puuid=player.puuid)
-
-            # Fetch rank data from Riot API
-            # Convert platform string to Platform enum if needed
-            try:
-                platform_enum = Platform(player.platform.lower())
-            except ValueError:
-                logger.warning(
-                    "Invalid platform for player",
-                    puuid=player.puuid,
-                    platform=player.platform,
-                )
-                return
-
-            # Use PUUID-based endpoint instead of summoner_id
-            league_entries = await self.api_client.get_league_entries_by_puuid(
-                player.puuid, platform_enum
-            )
-
-            if not league_entries:
-                logger.debug("No ranked data found for player", puuid=player.puuid)
-                return
-
-            # Find Solo/Duo ranked entry
-            solo_entry = next(
-                (e for e in league_entries if e.queue_type == "RANKED_SOLO_5x5"), None
-            )
-
-            if solo_entry:
-                # Update player's rank fields (if they exist on Player model)
-                # Otherwise, store in PlayerRank table
-                from ..models.ranks import PlayerRank
-
-                rank_record = PlayerRank(
-                    puuid=player.puuid,
-                    queue_type=solo_entry.queue_type,
-                    tier=solo_entry.tier,
-                    rank=solo_entry.rank,
-                    league_points=solo_entry.league_points,
-                    wins=solo_entry.wins,
-                    losses=solo_entry.losses,
-                    veteran=solo_entry.veteran,
-                    inactive=solo_entry.inactive,
-                    fresh_blood=solo_entry.fresh_blood,
-                    hot_streak=solo_entry.hot_streak,
-                    league_id=solo_entry.league_id
-                    if hasattr(solo_entry, "league_id")
-                    else None,
-                    is_current=True,
-                )
-
-                db.add(rank_record)
+            rank_updated = await player_service.update_player_rank(player)
+            if rank_updated:
                 await db.commit()
                 self.increment_metric("records_created")
-
-                logger.info(
-                    "Updated player rank",
-                    puuid=player.puuid,
-                    tier=solo_entry.tier,
-                    rank=solo_entry.rank,
-                    lp=solo_entry.league_points,
-                )
-
-        except NotFoundError:
-            logger.warning("Summoner not found when fetching rank", puuid=player.puuid)
-
-        except RateLimitError:
-            logger.warning("Rate limit hit updating player rank", puuid=player.puuid)
-            raise
-
-        except Exception as e:
-            logger.error(
-                "Failed to update player rank",
+        except ValueError as e:
+            # Invalid platform - log and skip
+            logger.warning(
+                "Could not update player rank",
                 puuid=player.puuid,
                 error=str(e),
             )
-            # Don't raise - rank update is not critical
+
+    # Private helper methods
+
+    def _log_summary_to_execution_log(self, summary: Dict[str, Any]) -> None:
+        """Log job execution summary to execution log."""
+        self.add_log_entry("tracked_players_count", summary["total"])
+        self.add_log_entry("tracked_players", summary["tracked_ids"])
+        self.add_log_entry("players_processed", summary["processed"])
+        if summary["skipped"]:
+            self.add_log_entry("players_skipped", summary["skipped"])
+        self.add_log_entry("matches_processed", summary["matches"])
+        self.add_log_entry("players_discovered", summary["discovered"])
+
+    def _convert_platform_string_to_enum(self, player: Player) -> Optional[Platform]:
+        """Convert player's platform string to Platform enum.
+
+        :param player: Player with platform string.
+        :returns: Platform enum, or None if invalid.
+        """
+        from ..schemas.transformers import PlatformConverter
+
+        platform_enum = PlatformConverter.to_enum(player.platform)
+        if platform_enum is None:
+            logger.warning(
+                "Skipping player with invalid platform",
+                puuid=player.puuid,
+                player_platform=player.platform,
+            )
+        return platform_enum
+
+    async def _get_existing_match_count(self, db: AsyncSession, player: Player) -> int:
+        """Get count of existing matches for a player.
+
+        :param db: Database session.
+        :param player: Player to count matches for.
+        :returns: Number of existing matches.
+        """
+        from ..services.matches import MatchService
+
+        match_service = MatchService(db, self.data_manager)
+        return await match_service.count_player_matches(player.puuid)
+
+    async def _get_last_match_time(
+        self, db: AsyncSession, player: Player
+    ) -> Optional[int]:
+        """Get timestamp of player's most recent match in database.
+
+        :param db: Database session.
+        :param player: Player to get last match time for.
+        :returns: Timestamp in milliseconds, or None if no matches.
+        """
+        from ..services.matches import MatchService
+
+        match_service = MatchService(db, self.data_manager)
+        return await match_service.get_player_last_match_time(player.puuid)
+
+    def _calculate_fetch_start_time(
+        self, last_match_time: Optional[int], existing_match_count: int, puuid: str
+    ) -> int:
+        """Calculate start time for match fetching based on fetch strategy.
+
+        :param last_match_time: Timestamp of last match in milliseconds, or None.
+        :param existing_match_count: Number of existing matches.
+        :param puuid: Player PUUID for logging.
+        :returns: Start time timestamp in seconds.
+        """
+        # Limited fetch mode
+        if self.max_new_matches_per_player > 0:
+            if last_match_time:
+                # Fetch only new matches since last one
+                # last_match_time is in milliseconds, convert to seconds
+                start_time = int(last_match_time / 1000)
+                logger.debug(
+                    "Fetching new matches only",
+                    puuid=puuid,
+                    existing_matches=existing_match_count,
+                )
+                return start_time
+
+            # First run - fetch limited history
+            # Estimate: ~30 days for 20 matches (average 1-2 games per day)
+            days_back = max(30, self.max_new_matches_per_player * 2)
+            start_date = datetime.now() - timedelta(days=days_back)
+            start_time = int(start_date.timestamp())
+            logger.info(
+                "First run - fetching limited history",
+                puuid=puuid,
+                max_matches=self.max_new_matches_per_player,
+                days_back=days_back,
+                start_date=start_date.isoformat(),
+            )
+            return start_time
+
+        # Unlimited fetch mode - get entire history
+        # Riot API stores matches for ~2-3 years
+        two_years_ago = datetime.now() - timedelta(days=730)
+        start_time = int(two_years_ago.timestamp())
+        logger.info(
+            "Unlimited mode - fetching all historical matches",
+            puuid=puuid,
+            existing_matches=existing_match_count,
+            start_date=two_years_ago.isoformat(),
+        )
+        return start_time
+
+    async def _fetch_match_ids_in_batches(
+        self, player: Player, start_time: int
+    ) -> List[str]:
+        """Fetch match IDs from Riot API in batches.
+
+        :param player: Player to fetch matches for.
+        :param start_time: Start time timestamp in seconds.
+        :returns: List of match IDs.
+        """
+        logger.debug(
+            "Fetching matches since timestamp",
+            puuid=player.puuid,
+            start_time=start_time,
+        )
+
+        match_ids = []
+        start_index = 0
+        batch_size = 100  # Riot API maximum
+        max_total_matches = (
+            self.max_new_matches_per_player
+            if self.max_new_matches_per_player > 0
+            else 1000
+        )
+
+        while len(match_ids) < max_total_matches:
+            # Queue 420 = Ranked Solo/Duo
+            match_list_dto = await self.api_client.get_match_list_by_puuid(
+                puuid=player.puuid,
+                queue=420,
+                start_time=start_time,
+                start=start_index,
+                count=batch_size,
+            )
+
+            batch_match_ids = self._extract_match_ids_from_dto(match_list_dto)
+
+            # Exit early if no more matches
+            if not batch_match_ids:
+                logger.debug(
+                    "No more matches available",
+                    puuid=player.puuid,
+                    total_fetched=len(match_ids),
+                )
+                break
+
+            match_ids.extend(batch_match_ids)
+
+            # Exit early if we got fewer than batch_size (reached the end)
+            if len(batch_match_ids) < batch_size:
+                logger.debug(
+                    "Fetched all available matches",
+                    puuid=player.puuid,
+                    total_fetched=len(match_ids),
+                )
+                break
+
+            start_index += batch_size
+
+        logger.info(
+            "Fetched match list",
+            puuid=player.puuid,
+            total_matches=len(match_ids),
+        )
+
+        return match_ids
+
+    def _extract_match_ids_from_dto(self, match_list_dto: Any) -> List[str]:
+        """Extract match IDs from match list DTO.
+
+        :param match_list_dto: Match list DTO from Riot API.
+        :returns: List of match ID strings.
+        """
+        from ..schemas.transformers import MatchDTOTransformer
+
+        return MatchDTOTransformer.extract_match_ids(match_list_dto)
+
+    async def _filter_new_matches(
+        self, db: AsyncSession, match_ids: List[str]
+    ) -> List[str]:
+        """Filter out matches that already exist in database.
+
+        :param db: Database session.
+        :param match_ids: List of match IDs to filter.
+        :returns: List of new match IDs not in database.
+        """
+        from ..services.matches import MatchService
+
+        match_service = MatchService(db, self.data_manager)
+        return await match_service.filter_existing_matches(match_ids)

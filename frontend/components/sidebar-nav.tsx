@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { name: "Tracked Players", path: "/tracked-players" },
   { name: "Matchmaking Analysis", path: "/matchmaking-analysis" },
   { name: "Jobs", path: "/jobs" },
+  { name: "Settings", path: "/settings" },
 ];
 
 export function SidebarNav() {

@@ -313,3 +313,27 @@ export const PlayerRankSchema = z.object({
 });
 
 export type PlayerRank = z.infer<typeof PlayerRankSchema>;
+
+// ===== SYSTEM SETTINGS SCHEMA =====
+export const SettingSchema = z.object({
+  key: z.string(),
+  masked_value: z.string(),
+  category: z.string(),
+  is_sensitive: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const SettingUpdateSchema = z.object({
+  value: z.string().min(1, "Value is required"),
+});
+
+export const SettingTestResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  details: z.record(z.string(), z.any()).nullable().optional(),
+});
+
+export type Setting = z.infer<typeof SettingSchema>;
+export type SettingUpdate = z.infer<typeof SettingUpdateSchema>;
+export type SettingTestResponse = z.infer<typeof SettingTestResponseSchema>;
