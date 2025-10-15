@@ -361,6 +361,72 @@ class PlayerService:
 
     # === Player Tracking Methods for Automated Jobs ===
 
+    async def add_and_track_player(
+        self,
+        game_name: str | None = None,
+        tag_line: str | None = None,
+        summoner_name: str | None = None,
+        platform: str = "eun1",
+    ) -> PlayerResponse:
+        """
+        Fetch player from Riot API and immediately track them.
+        Combines get_player + track_player in one transaction.
+
+        Args:
+            game_name: Riot game name (for Riot ID search)
+            tag_line: Riot tag line (for Riot ID search)
+            summoner_name: Summoner name (legacy, database-only search)
+            platform: Platform region (default: eun1)
+
+        Returns:
+            PlayerResponse with is_tracked=True
+
+        Raises:
+            ValueError: If player not found or tracking limit reached
+        """
+        settings = get_global_settings()
+
+        # Check current tracked player count before fetching
+        tracked_count = await self.count_tracked_players()
+        if tracked_count >= settings.max_tracked_players:
+            raise ValueError(
+                f"Maximum tracked players limit reached ({settings.max_tracked_players}). "
+                f"Please untrack a player before adding a new one."
+            )
+
+        # Fetch player data (this will add to DB if not exists)
+        if game_name and tag_line:
+            player_response = await self.get_player_by_riot_id(
+                game_name, tag_line, platform
+            )
+        elif summoner_name:
+            player_response = await self.get_player_by_summoner_name(
+                summoner_name, platform
+            )
+        else:
+            raise ValueError("Either game_name+tag_line or summoner_name required")
+
+        # Check if already tracked
+        if player_response.is_tracked:
+            logger.info(
+                "Player is already tracked",
+                puuid=player_response.puuid,
+                summoner_name=player_response.summoner_name,
+            )
+            return player_response
+
+        # Track the player
+        tracked_player = await self.track_player(player_response.puuid)
+
+        logger.info(
+            "Player added and tracked successfully",
+            puuid=tracked_player.puuid,
+            summoner_name=tracked_player.summoner_name,
+            platform=platform,
+        )
+
+        return tracked_player
+
     async def track_player(self, puuid: str) -> PlayerResponse:
         """Mark a player as tracked for automated monitoring.
 

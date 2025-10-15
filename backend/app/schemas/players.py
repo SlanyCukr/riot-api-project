@@ -12,7 +12,7 @@ class PlayerBase(BaseModel):
     puuid: str = Field(..., description="Player's PUUID")
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     tag_line: Optional[str] = Field(None, description="Riot tag line")
-    summoner_name: Optional[str] = Field(None, description="Current summoner name")
+    summoner_name: str = Field(..., description="Current summoner name")
     platform: str = Field(..., description="Platform region")
     account_level: Optional[int] = Field(None, description="Account level")
     profile_icon_id: Optional[int] = Field(None, description="Profile icon ID")

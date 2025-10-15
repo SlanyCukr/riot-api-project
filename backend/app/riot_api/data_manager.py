@@ -175,11 +175,16 @@ class RiotDataManager:
             summoner = await self.api_client.get_summoner_by_puuid(puuid, platform_enum)
 
             # 3. Store in database
+            # Ensure summoner_name is never null or empty
+            summoner_name = summoner.name
+            if not summoner_name or summoner_name.strip() == "":
+                summoner_name = "Unknown Player"  # Fallback for missing summoner name
+
             player_data = PlayerCreate(
                 puuid=puuid,
                 riot_id=None,  # Not available when fetching by PUUID
                 tag_line=None,  # Not available when fetching by PUUID
-                summoner_name=summoner.name or "Unknown",  # Fallback if name is None
+                summoner_name=summoner_name,
                 platform=platform,
                 account_level=summoner.summoner_level,
                 profile_icon_id=summoner.profile_icon_id,

@@ -264,7 +264,30 @@ export async function getTrackedPlayers(): Promise<
   ApiResponse<{ players: unknown[] }>
 > {
   try {
-    const response = await api.get(`/players/tracked`);
+    const response = await api.get(`/players/tracked/list`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
+}
+
+export interface AddTrackedPlayerParams {
+  riot_id?: string;
+  summoner_name?: string;
+  platform: string;
+}
+
+export async function addTrackedPlayer(
+  params: AddTrackedPlayerParams,
+): Promise<ApiResponse<unknown>> {
+  try {
+    const response = await api.post(`/players/add-tracked`, null, { params });
     return {
       success: true,
       data: response.data,

@@ -460,8 +460,14 @@ class MatchService:
                             for p in transformed["participants"]
                             if p["puuid"] == puuid
                         ),
-                        "Unknown",
+                        None,
                     )
+                    # Ensure summoner_name is never null or empty
+                    if not summoner_name or summoner_name.strip() == "":
+                        summoner_name = (
+                            "Unknown Player"  # Fallback for missing summoner name
+                        )
+
                     new_players.append(
                         Player(
                             puuid=puuid,
