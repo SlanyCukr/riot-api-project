@@ -119,7 +119,24 @@ if [ "$FORCE_BUILD" = true ]; then
         echo -e "${YELLOW}   Building without cache (this may take longer)...${NC}"
     fi
 
-    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" build "${BUILD_ARGS[@]}" "${SERVICES[@]}"
+    # Add progress output for CI/CD environments
+    BUILD_ARGS+=("--progress=plain")
+
+    echo -e "${YELLOW}🔍 Build environment info:${NC}"
+    echo "   Docker version: $(docker --version)"
+    echo "   Docker Compose version: $(docker compose version)"
+    echo "   NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-not set}"
+    echo ""
+
+    if ! docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" build "${BUILD_ARGS[@]}" "${SERVICES[@]}"; then
+        echo -e "${RED}❌ Build failed!${NC}"
+        echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
+        echo -e "   1. Check Docker logs: docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs"
+        echo -e "   2. Check disk space: df -h"
+        echo -e "   3. Clean Docker cache: docker system prune -a"
+        echo -e "   4. Check .env file has NEXT_PUBLIC_API_URL set"
+        exit 1
+    fi
     echo ""
 fi
 

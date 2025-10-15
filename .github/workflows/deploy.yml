@@ -96,7 +96,18 @@ jobs:
           chmod +x scripts/prod.sh
 
           echo "🚀 Deploying production environment..."
-          ./scripts/prod.sh --build --no-cache --down
+          
+          # Run build with explicit error handling and detailed output
+          if ! ./scripts/prod.sh --build --no-cache --down 2>&1 | tee build.log; then
+            echo "❌ Deployment failed! Showing build logs..."
+            echo "=== Last 100 lines of build output ==="
+            tail -100 build.log
+            echo "=== Checking for frontend build errors ==="
+            docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs frontend 2>&1 || true
+            echo "=== Docker build cache info ==="
+            docker buildx du || docker builder df || true
+            exit 1
+          fi
 
       - name: Wait for services to start
         run: |

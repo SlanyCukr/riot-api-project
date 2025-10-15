@@ -19,9 +19,20 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# Build Next.js
+# Build Next.js with memory and error handling optimizations
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
+# Debug: Show environment and configuration
+RUN echo "=== Build Configuration ===" && \
+    echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}" && \
+    echo "Node version: $(node --version)" && \
+    echo "NPM version: $(npm --version)" && \
+    echo "Memory: $(free -h || echo 'N/A')" && \
+    echo "Platform: $(uname -a)"
+
+# Run the build with error output
+RUN npm run build 2>&1 || (echo "❌ Build failed! Check errors above." && exit 1)
 
 # Production image, copy all the files and run next
 FROM base AS runner
