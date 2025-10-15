@@ -357,7 +357,11 @@ class TestPlayerAnalyzerJob:
         db = AsyncMock()
         db.add = MagicMock()
         db.execute = AsyncMock(
-            side_effect=[player_missing_result, match_missing_result, match_missing_result]
+            side_effect=[
+                player_missing_result,
+                match_missing_result,
+                match_missing_result,
+            ]
         )
 
         await job._store_match_for_discovered_player(db, match_dto)

@@ -5,7 +5,6 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-import json
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -148,9 +147,7 @@ class BaseJob(ABC):
 
             # Strip redundant fields before DB storage (keep in stdout for debugging)
             detailed_logs = (
-                {"logs": self._strip_redundant_fields(logs)}
-                if logs
-                else None
+                {"logs": self._strip_redundant_fields(logs)} if logs else None
             )
 
             # Use an UPDATE statement instead of ORM to avoid session state issues
@@ -314,7 +311,7 @@ class BaseJob(ABC):
                     )
 
                 await self.execute(db)
-                
+
             except Exception as job_error:
                 error_message = await self.handle_error(db, job_error)
                 job_logs = self._get_job_logs()
@@ -339,9 +336,10 @@ class BaseJob(ABC):
         """Extract logs for this job execution."""
         if self.job_execution is None:
             return []
-        
+
         return [
-            entry for entry in job_log_capture.entries
+            entry
+            for entry in job_log_capture.entries
             if entry.get("job_execution_id") == self.job_execution.id
         ]
 
@@ -350,13 +348,21 @@ class BaseJob(ABC):
         if len(job_log_capture.entries) > 10000:
             job_log_capture.entries.clear()
 
-    def _strip_redundant_fields(self, logs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _strip_redundant_fields(
+        self, logs: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Remove fields that are redundant in DB (already in job_execution table).
-        
+
         Keep them in stdout for debugging, strip only before DB storage.
         """
-        redundant_fields = {"job_execution_id", "job_name", "job_type", "logger", "level"}
-        
+        redundant_fields = {
+            "job_execution_id",
+            "job_name",
+            "job_type",
+            "logger",
+            "level",
+        }
+
         return [
             {k: v for k, v in entry.items() if k not in redundant_fields}
             for entry in logs

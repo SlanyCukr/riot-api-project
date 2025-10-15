@@ -610,8 +610,9 @@ export function JobExecutions({
                         <div className="space-y-2 font-mono text-[11px]">
                           {selectedExecution.detailed_logs.logs.map(
                             (log: Record<string, unknown>, idx: number) => {
-                              const logLevel = log.log_level?.toUpperCase() || "INFO";
-                              
+                              const logLevel =
+                                log.log_level?.toUpperCase() || "INFO";
+
                               // Extract extra fields (everything except the standard fields)
                               const standardFields = new Set([
                                 "log_level",
@@ -619,9 +620,9 @@ export function JobExecutions({
                                 "event",
                               ]);
                               const extraFields = Object.entries(log).filter(
-                                ([key]) => !standardFields.has(key)
+                                ([key]) => !standardFields.has(key),
                               );
-                              
+
                               return (
                                 <div
                                   key={idx}
@@ -661,7 +662,7 @@ export function JobExecutions({
                                       {log.event}
                                     </span>
                                   </div>
-                                  
+
                                   {/* Extra fields */}
                                   {extraFields.length > 0 && (
                                     <div className="space-y-0.5 text-[10px] text-muted-foreground/80 bg-background/50 rounded p-2 border border-muted">

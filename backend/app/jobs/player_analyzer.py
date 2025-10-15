@@ -8,7 +8,6 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
-from ..models.players import Player
 from ..models.job_tracking import JobConfiguration
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.data_manager import RiotDataManager

@@ -108,45 +108,45 @@ export function RecentOpponents({
       <CardContent>
         <div className="grid gap-4 md:grid-cols-2">
           {players.map((player) => (
-              <Card
-                key={player.puuid}
-                className="transition-shadow hover:shadow-md"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold">
-                          {player.riot_id || player.summoner_name}
-                        </p>
-                        {player.is_tracked && (
-                          <Badge variant="outline" className="text-xs">
-                            Tracked
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {player.platform.toUpperCase()}
+            <Card
+              key={player.puuid}
+              className="transition-shadow hover:shadow-md"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-semibold">
+                        {player.riot_id || player.summoner_name}
                       </p>
-                      {player.account_level && (
-                        <p className="text-xs text-muted-foreground">
-                          Level {player.account_level}
-                        </p>
+                      {player.is_tracked && (
+                        <Badge variant="outline" className="text-xs">
+                          Tracked
+                        </Badge>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onAnalyzePlayer?.(player)}
-                      className="shrink-0"
-                    >
-                      <UserSearch className="mr-1 h-4 w-4" />
-                      Analyze
-                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {player.platform.toUpperCase()}
+                    </p>
+                    {player.account_level && (
+                      <p className="text-xs text-muted-foreground">
+                        Level {player.account_level}
+                      </p>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onAnalyzePlayer?.(player)}
+                    className="shrink-0"
+                  >
+                    <UserSearch className="mr-1 h-4 w-4" />
+                    Analyze
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </CardContent>
     </Card>

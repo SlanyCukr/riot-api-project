@@ -96,7 +96,7 @@ jobs:
           chmod +x scripts/prod.sh
 
           echo "🚀 Deploying production environment..."
-          
+
           # Run build with explicit error handling and detailed output
           if ! ./scripts/prod.sh --build --no-cache --down 2>&1 | tee build.log; then
             echo "❌ Deployment failed! Showing build logs..."

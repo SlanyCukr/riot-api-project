@@ -260,7 +260,9 @@ async def _load_and_schedule_jobs() -> None:
             if not job_class:
                 logger.warning(
                     "Unknown job type, skipping",
-                    job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+                    job_type=job_type.value
+                    if isinstance(job_type, JobType)
+                    else str(job_type),
                     job_name=job_config.name,
                 )
                 continue
@@ -283,7 +285,9 @@ async def _load_and_schedule_jobs() -> None:
                 "Scheduled job",
                 job_id=job_config.id,
                 job_name=job_config.name,
-                job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+                job_type=job_type.value
+                if isinstance(job_type, JobType)
+                else str(job_type),
                 interval_seconds=interval_seconds,
             )
 

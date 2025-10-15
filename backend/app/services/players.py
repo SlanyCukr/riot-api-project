@@ -587,11 +587,7 @@ class PlayerService:
             select(Player)
             .join(SmurfDetection, Player.puuid == SmurfDetection.puuid)
             .where(SmurfDetection.is_smurf.is_(True))
-            .where(
-                or_(
-                    Player.last_ban_check.is_(None), Player.last_ban_check < cutoff
-                )
-            )
+            .where(or_(Player.last_ban_check.is_(None), Player.last_ban_check < cutoff))
             .limit(limit)
         )
 

@@ -226,25 +226,25 @@ class MatchService:
     ) -> int:
         """
         Fetch match history from Riot API and store new matches for a player.
-        
+
         This method checks the database before fetching to avoid duplicate API calls.
-        
+
         Args:
             puuid: Player PUUID
             count: Maximum number of NEW matches to fetch (not total matches)
             queue: Queue ID filter (default: 420 = Ranked Solo/Duo)
             platform: Platform ID for the player
-            
+
         Returns:
             Number of new matches fetched and stored
-            
+
         Raises:
             RateLimitError: If Riot API rate limit is hit
             ValueError: If invalid platform provided
         """
         from ..riot_api.endpoints import Platform
         from ..riot_api.errors import RateLimitError, NotFoundError
-        
+
         try:
             # Validate platform
             try:
@@ -447,7 +447,7 @@ class MatchService:
                 select(Player.puuid).where(Player.puuid.in_(participant_puuids))
             )
             existing_puuids = {row[0] for row in existing_players_result.all()}
-            
+
             # Bulk create missing players
             missing_puuids = participant_puuids - existing_puuids
             if missing_puuids:
@@ -470,7 +470,7 @@ class MatchService:
                             is_active=True,
                         )
                     )
-                
+
                 self.db.add_all(new_players)
                 logger.debug(
                     "Created minimal player records",

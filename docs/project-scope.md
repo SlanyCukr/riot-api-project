@@ -31,10 +31,10 @@
   - The job will then fetch data for those players and matches
   - Could be expanded to fetch data recursively (i.e., in case of duo boosting → higher chance to find another smurf)
 - The job should run **shortly before** the daily limit reset and reach the daily limit
-  - The reason for this is that some requests will likely be manual, which will dynamically change the number of 
+  - The reason for this is that some requests will likely be manual, which will dynamically change the number of
   automated requests
   - If the job ran earlier and used all requests, the tool couldn't be used manually, defeating its main purpose
-  - It can also be set to run earlier and leave about 3–5 requests to be used manually, but the first approach is generally better; 
+  - It can also be set to run earlier and leave about 3–5 requests to be used manually, but the first approach is generally better;
   this is just a fallback option
 
 ### BACKLOG: Vertical DB Expansion
@@ -100,7 +100,7 @@ Gathers info about specific player.
   - Winrate past X games
   - KDA past X games
   - Champions played past X games
-    - How many of these games were played on the current champion 
+    - How many of these games were played on the current champion
   - Games played on the current champion
   - Overall winrate
   - Overall winrate on the current champion
@@ -114,7 +114,7 @@ Gathers info about specific player.
   - Winrate past X games
   - KDA past X games
   - Champions played past X games
-    - How many of these games were played on the current champion 
+    - How many of these games were played on the current champion
   - Games played on the current champion
   - Overall winrate
   - Overall winrate on the current champion
