@@ -46,20 +46,16 @@ repos:
         args: ["--project", "backend/pyproject.toml"]
         exclude: ^(tests/|docs/)
 
-  # TypeScript/React hooks for frontend
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.37.0
+  # Frontend linting with Next.js (local hook for better compatibility)
+  - repo: local
     hooks:
-      - id: eslint
+      - id: frontend-lint
+        name: Frontend ESLint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         exclude: ^frontend/node_modules/
-        additional_dependencies:
-          - "eslint@8.57.0"
-          - "@typescript-eslint/eslint-plugin@6.21.0"
-          - "@typescript-eslint/parser@6.21.0"
-          - "eslint-plugin-react@7.33.2"
-          - "eslint-plugin-react-hooks@4.6.0"
-          - "eslint-plugin-react-refresh@0.4.5"
+        pass_filenames: false
 
   # Prettier - Code formatter for consistent style
   # Note: mirrors-prettier was archived in April 2024, using local hook instead
@@ -72,22 +68,16 @@ repos:
         files: ^frontend/.*\.(ts|tsx|js|jsx|json|yaml|yml|md|css|scss)$
         exclude: ^frontend/node_modules/
 
-  # Check for frontend package.json consistency (temporarily disabled due to version issues)
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.37.0
+  # Frontend TypeScript type checking
+  - repo: local
     hooks:
-      - id: eslint
-        name: ESLint for frontend package.json
-        files: ^frontend/package\.json$
-        additional_dependencies:
-          - "eslint@8.57.0"
-        args:
-          [
-            --rule,
-            "package-json/valid-package-def: error",
-            --rule,
-            "package-json/sort-keys: error",
-          ]
+      - id: frontend-typecheck
+        name: Frontend TypeScript Check
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        exclude: ^frontend/node_modules/
+        pass_filenames: false
 
 # Configuration for pre-commit
 default_stages: [pre-commit]

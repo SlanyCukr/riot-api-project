@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
 import {
   Play,
@@ -155,7 +155,7 @@ export function JobCard({ job }: JobCardProps) {
 
   // Update job config mutation
   const updateConfigMutation = useMutation({
-    mutationFn: (config: Record<string, any>) =>
+    mutationFn: (config: Record<string, unknown>) =>
       validatedPut(JobConfigurationSchema, `/jobs/${job.id}`, {
         config_json: config,
       }),
@@ -176,7 +176,7 @@ export function JobCard({ job }: JobCardProps) {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error?.message || "Failed to update configuration",
@@ -197,7 +197,7 @@ export function JobCard({ job }: JobCardProps) {
     try {
       const parsed = JSON.parse(configJson);
       updateConfigMutation.mutate(parsed);
-    } catch (error) {
+    } catch {
       toast({
         title: "Invalid JSON",
         description: "Please check your configuration JSON syntax",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Player, PlayerRank, PlayerRankSchema } from "@/lib/schemas";
+import { Player, PlayerRankSchema } from "@/lib/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Trophy } from "lucide-react";
