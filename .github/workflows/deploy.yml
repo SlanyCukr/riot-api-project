@@ -112,7 +112,7 @@ jobs:
       - name: Wait for services to start
         run: |
           echo "⏳ Waiting for services to start..."
-          sleep 30
+          sleep 10
 
       - name: Verify deployment
         run: |
@@ -120,16 +120,32 @@ jobs:
           echo "📊 Container status:"
           docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps
 
+          echo ""
           echo "🔍 Running health checks..."
+          echo ""
 
-          # Test PostgreSQL connectivity
+          # Test PostgreSQL connectivity with retries
           echo "🗄️  Testing PostgreSQL connectivity..."
-          if docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db; then
-            echo "✅ PostgreSQL is ready"
-          else
-            echo "❌ PostgreSQL not ready"
-            exit 1
-          fi
+          for i in {1..10}; do
+            if docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db 2>/dev/null; then
+              echo "✅ PostgreSQL is ready"
+              break
+            else
+              echo "⏳ Attempt $i/10: PostgreSQL not ready yet, waiting..."
+              sleep 3
+            fi
+            if [ $i -eq 10 ]; then
+              echo "❌ PostgreSQL not ready after 10 attempts"
+              echo ""
+              echo "=== PostgreSQL Container Status ==="
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps postgres
+              echo ""
+              echo "=== PostgreSQL Logs ==="
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 postgres
+              exit 1
+            fi
+          done
+          echo ""
 
           # Test backend API health endpoint
           echo "🔍 Testing Backend API health endpoint..."
