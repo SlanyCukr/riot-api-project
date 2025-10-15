@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { validatedGet, validatedPut, validatedPost } from "@/lib/api";
-import {
-  SettingSchema,
-  SettingUpdateSchema,
-  SettingTestResponseSchema,
-} from "@/lib/schemas";
+import { SettingSchema, SettingTestResponseSchema } from "@/lib/schemas";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +44,9 @@ export default function SettingsPage() {
         toast.success("API key updated successfully!", {
           description: "Changes take effect immediately - no restart needed!",
         });
-        queryClient.invalidateQueries({ queryKey: ["settings", "riot_api_key"] });
+        queryClient.invalidateQueries({
+          queryKey: ["settings", "riot_api_key"],
+        });
         setApiKey(""); // Clear input
         setTestResult(null);
       } else {
@@ -57,7 +55,7 @@ export default function SettingsPage() {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Failed to update API key", {
         description: error.message || "An unexpected error occurred",
       });
@@ -67,11 +65,9 @@ export default function SettingsPage() {
   // Test API key mutation
   const testMutation = useMutation({
     mutationFn: (value: string) =>
-      validatedPost(
-        SettingTestResponseSchema,
-        "/settings/riot_api_key/test",
-        { value },
-      ),
+      validatedPost(SettingTestResponseSchema, "/settings/riot_api_key/test", {
+        value,
+      }),
     onSuccess: (result) => {
       if (result.success) {
         setTestResult({
@@ -89,7 +85,7 @@ export default function SettingsPage() {
         }
       }
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error("Failed to test API key", {
         description: error.message || "An unexpected error occurred",
       });
@@ -124,8 +120,6 @@ export default function SettingsPage() {
     updateMutation.mutate(apiKey);
   };
 
-
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -146,8 +140,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-
-
       {/* Settings Form */}
       <Card className="p-6">
         <h2 className="mb-4 text-lg font-semibold">Riot API Configuration</h2>
@@ -166,8 +158,7 @@ export default function SettingsPage() {
                   {setting.masked_value}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Last updated:{" "}
-                  {new Date(setting.updated_at).toLocaleString()}
+                  Last updated: {new Date(setting.updated_at).toLocaleString()}
                 </p>
               </div>
             )}

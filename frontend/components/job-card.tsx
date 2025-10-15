@@ -272,7 +272,10 @@ export function JobCard({ job }: JobCardProps) {
           <div className="rounded-md border p-3">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-medium">Configuration</p>
-              <Dialog open={showConfigDialog} onOpenChange={setShowConfigDialog}>
+              <Dialog
+                open={showConfigDialog}
+                onOpenChange={setShowConfigDialog}
+              >
                 <DialogTrigger asChild>
                   <Button size="sm" variant="ghost" className="h-7 px-2">
                     <Settings className="h-3.5 w-3.5" />
@@ -282,8 +285,8 @@ export function JobCard({ job }: JobCardProps) {
                   <DialogHeader>
                     <DialogTitle>Edit Job Configuration</DialogTitle>
                     <DialogDescription>
-                      Update the JSON configuration for {job.name}. Changes
-                      take effect on the next job run.
+                      Update the JSON configuration for {job.name}. Changes take
+                      effect on the next job run.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
