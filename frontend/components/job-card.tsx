@@ -172,7 +172,7 @@ export function JobCard({ job }: JobCardProps) {
         toast({
           title: "Failed to Update Configuration",
           description: result.error.message,
-          variant: "destructive",
+          variant: "error",
         });
       }
     },
@@ -180,7 +180,7 @@ export function JobCard({ job }: JobCardProps) {
       toast({
         title: "Error",
         description: error?.message || "Failed to update configuration",
-        variant: "destructive",
+        variant: "error",
       });
     },
   });
@@ -201,7 +201,7 @@ export function JobCard({ job }: JobCardProps) {
       toast({
         title: "Invalid JSON",
         description: "Please check your configuration JSON syntax",
-        variant: "destructive",
+        variant: "error",
       });
     }
   };
