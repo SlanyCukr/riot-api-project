@@ -41,6 +41,12 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
+COMPOSE_OVERRIDE="$PROJECT_ROOT/docker/docker-compose.override.yml"
+
+# Docker compose command helper with both base and override files
+docker_compose_cmd() {
+    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_OVERRIDE" "$@"
+}
 
 # Parse arguments
 FORCE_BUILD=false
@@ -110,7 +116,7 @@ fi
 if [ "$STOP_FIRST" = true ]; then
     echo -e "${YELLOW}⏹️  Stopping existing services...${NC}"
     cd "$PROJECT_ROOT"
-    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" down
+    docker_compose_cmd down
     echo ""
 fi
 
@@ -118,7 +124,7 @@ fi
 if [ "$FORCE_BUILD" = true ]; then
     echo -e "${YELLOW}🔨 Building containers...${NC}"
     cd "$PROJECT_ROOT"
-    docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" build "${SERVICES[@]}"
+    docker_compose_cmd build "${SERVICES[@]}"
     echo ""
 fi
 
@@ -141,20 +147,20 @@ if [ "$RESET_DB" = true ]; then
         echo -e "${YELLOW}🗑️  Resetting database...${NC}"
 
         # Stop services to ensure clean reset
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" down -v
+        docker_compose_cmd down -v
 
         # Start postgres to run reset
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d postgres
+        docker_compose_cmd up -d postgres
         echo "Waiting for postgres to be ready..."
         sleep 5
 
         # Start backend to run reset (entrypoint will recreate tables)
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d backend
+        docker_compose_cmd up -d backend
         echo "Waiting for database reset to complete..."
         sleep 10
 
         # Stop backend after reset
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" stop backend
+        docker_compose_cmd stop backend
 
         echo -e "${GREEN}✅ Database reset complete${NC}"
         echo ""
@@ -184,26 +190,28 @@ if [ "$USE_WATCH" = true ]; then
     echo ""
 
     if [ "$DETACHED" = true ]; then
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" watch -d "${SERVICES[@]}"
+        # For detached mode, use regular up command instead of watch
+        docker_compose_cmd up -d "${SERVICES[@]}"
         echo ""
         echo -e "${GREEN}✅ Services started in background${NC}"
-        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
-        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
+        echo -e "${YELLOW}   Note: Using regular up command instead of watch for detached mode${NC}"
+        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml logs -f${NC}"
+        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml down${NC}"
     else
-        # Run in foreground with interactive logs
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" watch "${SERVICES[@]}"
+        # Run in foreground with interactive logs using watch
+        docker_compose_cmd watch "${SERVICES[@]}"
     fi
 else
     echo -e "${GREEN}🚀 Starting development environment...${NC}"
     echo ""
 
     if [ "$DETACHED" = true ]; then
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up -d "${SERVICES[@]}"
+        docker_compose_cmd up -d "${SERVICES[@]}"
         echo ""
         echo -e "${GREEN}✅ Services started in background${NC}"
-        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml logs -f${NC}"
-        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml down${NC}"
+        echo -e "${YELLOW}   View logs: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml logs -f${NC}"
+        echo -e "${YELLOW}   Stop services: docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml down${NC}"
     else
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" up "${SERVICES[@]}"
+        docker_compose_cmd up "${SERVICES[@]}"
     fi
 fi

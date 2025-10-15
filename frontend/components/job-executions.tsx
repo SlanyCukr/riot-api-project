@@ -607,49 +607,81 @@ export function JobExecutions({
                         </Badge>
                       </div>
                       <div className="max-h-[300px] overflow-auto rounded-md border bg-background p-3">
-                        <div className="space-y-0.5 font-mono text-[11px]">
+                        <div className="space-y-2 font-mono text-[11px]">
                           {selectedExecution.detailed_logs.logs.map(
-                            (
-                              log: {
-                                level: string;
-                                timestamp: string;
-                                message: string;
-                              },
-                              idx: number,
-                            ) => (
-                              <div
-                                key={idx}
-                                className={`flex gap-2 rounded px-2 py-1.5 ${
-                                  log.level === "ERROR"
-                                    ? "bg-destructive/5 text-destructive"
-                                    : log.level === "WARNING"
-                                      ? "bg-yellow-500/5 text-yellow-700 dark:text-yellow-600"
-                                      : log.level === "INFO"
-                                        ? "bg-blue-500/5 text-blue-700 dark:text-blue-500"
-                                        : "text-muted-foreground"
-                                }`}
-                              >
-                                <span
-                                  className={`shrink-0 font-bold ${
-                                    log.level === "ERROR"
-                                      ? "text-destructive"
-                                      : log.level === "WARNING"
-                                        ? "text-yellow-600"
-                                        : log.level === "INFO"
-                                          ? "text-blue-600"
-                                          : "text-muted-foreground"
+                            (log: Record<string, any>, idx: number) => {
+                              const logLevel = log.log_level?.toUpperCase() || "INFO";
+                              
+                              // Extract extra fields (everything except the standard fields)
+                              const standardFields = new Set([
+                                "log_level",
+                                "timestamp",
+                                "event",
+                              ]);
+                              const extraFields = Object.entries(log).filter(
+                                ([key]) => !standardFields.has(key)
+                              );
+                              
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded border-l-4 border-y border-r bg-muted/20 p-2 space-y-1.5 ${
+                                    logLevel === "ERROR"
+                                      ? "border-l-destructive"
+                                      : logLevel === "WARNING"
+                                        ? "border-l-yellow-500"
+                                        : logLevel === "INFO"
+                                          ? "border-l-blue-500"
+                                          : logLevel === "DEBUG"
+                                            ? "border-l-orange-500"
+                                            : "border-l-muted"
                                   }`}
                                 >
-                                  {log.level.padEnd(7, " ")}
-                                </span>
-                                <span className="shrink-0 text-muted-foreground">
-                                  {new Date(log.timestamp).toLocaleTimeString()}
-                                </span>
-                                <span className="flex-1 break-all">
-                                  {log.message}
-                                </span>
-                              </div>
-                            ),
+                                  {/* Main log line */}
+                                  <div className="flex gap-2">
+                                    <span
+                                      className={`shrink-0 font-bold ${
+                                        logLevel === "ERROR"
+                                          ? "text-destructive"
+                                          : logLevel === "WARNING"
+                                            ? "text-yellow-600"
+                                            : logLevel === "INFO"
+                                              ? "text-blue-600"
+                                              : logLevel === "DEBUG"
+                                                ? "text-orange-600"
+                                                : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      {logLevel.padEnd(7, " ")}
+                                    </span>
+                                    <span className="shrink-0 text-muted-foreground">
+                                      {log.timestamp}
+                                    </span>
+                                    <span className="flex-1 break-all">
+                                      {log.event}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Extra fields */}
+                                  {extraFields.length > 0 && (
+                                    <div className="space-y-0.5 text-[10px] text-muted-foreground/80 bg-background/50 rounded p-2 border border-muted">
+                                      {extraFields.map(([key, value]) => (
+                                        <div key={key} className="flex gap-2">
+                                          <span className="font-mono font-semibold shrink-0">
+                                            {key}:
+                                          </span>
+                                          <span className="break-all">
+                                            {typeof value === "object"
+                                              ? JSON.stringify(value)
+                                              : String(value)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            },
                           )}
                         </div>
                       </div>

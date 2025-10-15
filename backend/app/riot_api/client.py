@@ -1,7 +1,7 @@
 """Riot API HTTP client with proper rate limiting, error handling, and authentication."""
 
 import asyncio
-from typing import Optional, Dict, Any, List, Union, cast
+from typing import Optional, Dict, Any, List, Union, cast, Callable
 import aiohttp
 import structlog
 
@@ -37,6 +37,7 @@ class RiotAPIClient:
         region: Optional[Region] = None,
         platform: Optional[Platform] = None,
         enable_logging: bool = True,
+        request_callback: Optional[Callable[[str, int], None]] = None,
     ):
         """
         Initialize Riot API client.
@@ -52,6 +53,7 @@ class RiotAPIClient:
         self.region = region or Region(settings.riot_region.lower())
         self.platform = platform or Platform(settings.riot_platform.lower())
         self.enable_logging = enable_logging
+        self.request_callback = request_callback
 
         # Initialize components
         self.rate_limiter = RateLimiter()
@@ -172,6 +174,11 @@ class RiotAPIClient:
         for attempt in range(max_retries + 1):
             try:
                 self.stats["requests_made"] += 1
+                if self.request_callback:
+                    try:
+                        self.request_callback("requests_made", 1)
+                    except Exception:
+                        logger.warning("Request callback failed", exc_info=True)
 
                 if self.enable_logging:
                     logger.info(

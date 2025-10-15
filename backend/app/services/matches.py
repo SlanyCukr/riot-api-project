@@ -217,6 +217,121 @@ class MatchService:
             logger.error("Failed to get player encounters", puuid=puuid, error=str(e))
             raise
 
+    async def fetch_and_store_matches_for_player(
+        self,
+        puuid: str,
+        count: int = 1,
+        queue: int = 420,
+        platform: str = "EUN1",
+    ) -> int:
+        """
+        Fetch match history from Riot API and store new matches for a player.
+        
+        This method checks the database before fetching to avoid duplicate API calls.
+        
+        Args:
+            puuid: Player PUUID
+            count: Maximum number of NEW matches to fetch (not total matches)
+            queue: Queue ID filter (default: 420 = Ranked Solo/Duo)
+            platform: Platform ID for the player
+            
+        Returns:
+            Number of new matches fetched and stored
+            
+        Raises:
+            RateLimitError: If Riot API rate limit is hit
+            ValueError: If invalid platform provided
+        """
+        from ..riot_api.endpoints import Platform
+        from ..riot_api.errors import RateLimitError, NotFoundError
+        
+        try:
+            # Validate platform
+            try:
+                Platform(platform.lower())
+            except ValueError:
+                logger.warning("Invalid platform", puuid=puuid, platform=platform)
+                return 0
+
+            # Get match list from Riot API (just IDs - cheap operation)
+            try:
+                match_list = await self.data_manager.api_client.get_match_list_by_puuid(
+                    puuid=puuid,
+                    queue=queue,
+                    start=0,
+                    count=100,  # Get more IDs to filter through
+                )
+            except (RateLimitError, NotFoundError) as e:
+                logger.warning(
+                    "Failed to fetch match list",
+                    puuid=puuid,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                raise
+
+            if not match_list or not match_list.match_ids:
+                logger.debug("No matches found for player", puuid=puuid)
+                return 0
+
+            # Check which matches already exist in database
+            existing_stmt = select(Match.match_id).where(
+                Match.match_id.in_(list(match_list.match_ids))
+            )
+            existing_result = await self.db.execute(existing_stmt)
+            existing_match_ids = set(existing_result.scalars().all())
+
+            # Filter to only new matches
+            new_match_ids = [
+                mid for mid in match_list.match_ids if mid not in existing_match_ids
+            ]
+
+            if not new_match_ids:
+                logger.debug("All matches already in database", puuid=puuid)
+                return 0
+
+            # Fetch only the requested count of new matches
+            matches_to_fetch = new_match_ids[:count]
+            fetched_count = 0
+
+            for match_id in matches_to_fetch:
+                try:
+                    # Fetch match details from Riot API
+                    match_dto = await self.data_manager.api_client.get_match(match_id)
+
+                    if match_dto:
+                        # Store using existing method
+                        match_data = match_dto.model_dump(by_alias=True, mode="json")
+                        await self._store_match_detail(match_data)
+                        fetched_count += 1
+
+                except RateLimitError:
+                    logger.warning("Rate limit hit fetching match", match_id=match_id)
+                    raise  # Propagate to stop processing
+                except Exception as e:
+                    logger.warning(
+                        "Failed to fetch match", match_id=match_id, error=str(e)
+                    )
+                    continue
+
+            logger.info(
+                "Fetched matches for player",
+                puuid=puuid,
+                count=fetched_count,
+                new_matches=len(new_match_ids),
+            )
+            return fetched_count
+
+        except RateLimitError:
+            raise  # Propagate rate limit errors
+        except Exception as e:
+            logger.error(
+                "Failed to fetch and store matches",
+                puuid=puuid,
+                error=str(e),
+            )
+            return 0
+
     async def _get_matches_from_db(
         self,
         puuid: str,

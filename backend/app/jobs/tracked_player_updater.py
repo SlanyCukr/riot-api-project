@@ -1,7 +1,8 @@
 """Tracked Player Updater Job - Updates match history and rank for tracked players."""
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import List, Any, Optional
+from typing import Any, Dict, List, Optional
 import structlog
 
 from sqlalchemy import select, func
@@ -46,12 +47,34 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
         # Extract configuration
         config = job_config.config_json or {}
-        self.max_new_matches_per_player = config.get("max_new_matches_per_player", 20)
-        self.max_tracked_players = config.get("max_tracked_players", 10)
+        self.max_new_matches_per_player = config.get("max_new_matches_per_player", 50)
+        self.max_tracked_players = config.get("max_tracked_players", 20)
 
         # Initialize Riot API client (will be created in execute)
         self.api_client: Optional[RiotAPIClient] = None
         self.data_manager: Optional[RiotDataManager] = None
+
+    @asynccontextmanager
+    async def _riot_resources(self, db: AsyncSession):
+        self.api_client = RiotAPIClient(
+            api_key=self.settings.riot_api_key,
+            region=self.settings.riot_region,
+            platform=self.settings.riot_platform,
+            request_callback=self._record_api_request,
+        )
+        self.data_manager = RiotDataManager(db, self.api_client)
+        try:
+            yield
+        finally:
+            if self.api_client:
+                await self.api_client.close()
+            self.api_client = None
+            self.data_manager = None
+
+    def _record_api_request(self, metric: str, count: int) -> None:
+        """Record API request metrics from Riot API client callbacks."""
+        if metric == "requests_made":
+            self.increment_metric("api_requests_made", count)
 
     async def execute(self, db: AsyncSession) -> None:
         """Execute the tracked player updater job.
@@ -65,74 +88,73 @@ class TrackedPlayerUpdaterJob(BaseJob):
             max_new_matches=self.max_new_matches_per_player,
         )
 
-        # Initialize API client and data manager
-        self.api_client = RiotAPIClient(
-            api_key=self.settings.riot_api_key,
-            region=self.settings.riot_region,
-            platform=self.settings.riot_platform,
-        )
-        self.data_manager = RiotDataManager(db, self.api_client)
+        summary = {
+            "total": 0,
+            "processed": 0,
+            "matches": 0,
+            "discovered": 0,
+            "skipped": [],
+            "tracked_ids": [],
+        }
 
-        try:
-            # Get all tracked players
+        async with self._riot_resources(db):
             tracked_players = await self._get_tracked_players(db)
+            summary["total"] = len(tracked_players)
+            summary["tracked_ids"] = [p.puuid for p in tracked_players]
 
             if not tracked_players:
                 logger.info("No tracked players found, job complete")
-                self.add_log_entry("tracked_players_count", 0)
-                return
+            else:
+                logger.debug(
+                    "Found tracked players to update",
+                    count=len(tracked_players),
+                    player_ids=summary["tracked_ids"],
+                )
 
-            logger.info(
-                "Found tracked players to update",
-                count=len(tracked_players),
-                player_ids=[p.puuid for p in tracked_players],
-            )
-
-            self.add_log_entry("tracked_players_count", len(tracked_players))
-            self.add_log_entry("tracked_players", [p.puuid for p in tracked_players])
-
-            # Process each tracked player
             for player in tracked_players:
+                if self._should_skip_player(player):
+                    summary["skipped"].append(player.puuid)
+                    continue
+
                 try:
-                    # Check if player's platform matches our configured region
-                    # Riot API requires correct regional routing for match queries
-                    player_platform = Platform(player.platform.lower())
-                    player_region = self.api_client.endpoints.get_region_for_platform(
-                        player_platform
+                    player_result = await self._sync_tracked_player(db, player)
+                except RateLimitError as rate_error:
+                    logger.warning(
+                        "Rate limit hit while updating player",
+                        puuid=player.puuid,
+                        retry_after=getattr(rate_error, "retry_after", None),
                     )
-
-                    if player_region != self.api_client.region:
-                        logger.warning(
-                            "Skipping player from different region",
-                            puuid=player.puuid,
-                            player_platform=player.platform,
-                            player_region=player_region.value,
-                            configured_region=self.api_client.region.value,
-                        )
-                        continue
-
-                    await self._update_player(db, player)
-                except Exception as e:
+                    raise
+                except Exception as error:
                     logger.error(
                         "Failed to update tracked player",
                         puuid=player.puuid,
-                        error=str(e),
-                        error_type=type(e).__name__,
+                        error=str(error),
+                        error_type=type(error).__name__,
                     )
-                    # Continue with next player
                     continue
 
-            logger.info(
-                "Tracked player updater job completed successfully",
-                api_requests=self.metrics["api_requests_made"],
-                records_created=self.metrics["records_created"],
-                records_updated=self.metrics["records_updated"],
-            )
+                summary["processed"] += 1
+                summary["matches"] += player_result["matches"]
+                summary["discovered"] += player_result["discovered"]
 
-        finally:
-            # Clean up API client
-            if self.api_client:
-                await self.api_client.close()
+        self.add_log_entry("tracked_players_count", summary["total"])
+        self.add_log_entry("tracked_players", summary["tracked_ids"])
+        self.add_log_entry("players_processed", summary["processed"])
+        if summary["skipped"]:
+            self.add_log_entry("players_skipped", summary["skipped"])
+        self.add_log_entry("matches_processed", summary["matches"])
+        self.add_log_entry("players_discovered", summary["discovered"])
+
+        logger.debug(
+            "Tracked player updater job completed successfully",
+            api_requests=self.metrics["api_requests_made"],
+            records_created=self.metrics["records_created"],
+            records_updated=self.metrics["records_updated"],
+            players_processed=summary["processed"],
+            matches_ingested=summary["matches"],
+            players_discovered=summary["discovered"],
+        )
 
     async def _get_tracked_players(self, db: AsyncSession) -> List[Player]:
         """Get all players marked as tracked.
@@ -153,77 +175,96 @@ class TrackedPlayerUpdaterJob(BaseJob):
         players = result.scalars().all()
         return list(players)
 
-    async def _update_player(self, db: AsyncSession, player: Player) -> None:
-        """Update a single tracked player's match history and rank.
+    def _should_skip_player(self, player: Player) -> bool:
+        if not self.api_client:
+            return True
 
-        Args:
-            db: Database session.
-            player: Player to update.
-        """
+        try:
+            player_platform = Platform(player.platform.lower())
+        except ValueError:
+            logger.warning(
+                "Skipping player with invalid platform",
+                puuid=player.puuid,
+                player_platform=player.platform,
+            )
+            return True
+
+        player_region = self.api_client.endpoints.get_region_for_platform(
+            player_platform
+        )
+
+        if player_region != self.api_client.region:
+            logger.warning(
+                "Skipping player from different region",
+                puuid=player.puuid,
+                player_platform=player.platform,
+                player_region=player_region.value,
+                configured_region=self.api_client.region.value,
+            )
+            return True
+
+        return False
+
+    async def _sync_tracked_player(
+        self, db: AsyncSession, player: Player
+    ) -> Dict[str, int]:
+        """Synchronize tracked player's matches and rank."""
         logger.info(
             "Updating tracked player",
             puuid=player.puuid,
             riot_id=f"{player.riot_id}#{player.tag_line}",
         )
 
-        try:
-            # Step 1: Fetch new matches since last check
-            new_matches = await self._fetch_new_matches(db, player)
+        new_matches = await self._fetch_new_matches(db, player)
 
-            if not new_matches:
-                logger.info("No new matches found for player", puuid=player.puuid)
-            else:
-                logger.info(
-                    "Found new matches for player",
-                    puuid=player.puuid,
-                    match_count=len(new_matches),
-                )
-
-            # Step 2: Process each new match
-            for match_id in new_matches:
-                try:
-                    await self._process_match(db, match_id, player)
-                except Exception as e:
-                    logger.error(
-                        "Failed to process match",
-                        match_id=match_id,
-                        puuid=player.puuid,
-                        error=str(e),
-                    )
-                    # Continue with next match
-                    continue
-
-            # Step 3: Update player rank
-            await self._update_player_rank(db, player)
-
-            # Step 4: Update player's last updated timestamp
-            player.updated_at = datetime.now()
-            await db.commit()
-            self.increment_metric("records_updated")
-
+        if not new_matches:
+            logger.info("No new matches found for player", puuid=player.puuid)
+        else:
             logger.info(
-                "Successfully updated tracked player",
+                "Found new matches for player",
                 puuid=player.puuid,
-                new_matches=len(new_matches),
+                match_count=len(new_matches),
             )
 
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limit hit while updating player",
-                puuid=player.puuid,
-                retry_after=e.retry_after,
-            )
-            # Stop processing to respect rate limits
-            raise
+        matches_processed = 0
+        players_discovered = 0
 
-        except Exception as e:
-            logger.error(
-                "Error updating tracked player",
-                puuid=player.puuid,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise
+        for match_id in new_matches:
+            try:
+                discovered = await self._process_match(db, match_id, player)
+                players_discovered += discovered
+                matches_processed += 1
+            except RateLimitError:
+                logger.warning(
+                    "Rate limit hit processing match",
+                    match_id=match_id,
+                    puuid=player.puuid,
+                )
+                raise
+            except Exception as error:
+                logger.error(
+                    "Failed to process match",
+                    match_id=match_id,
+                    puuid=player.puuid,
+                    error=str(error),
+                    error_type=type(error).__name__,
+                )
+                continue
+
+        await self._update_player_rank(db, player)
+
+        player.updated_at = datetime.now()
+        await db.commit()
+        self.increment_metric("records_updated")
+
+        logger.info(
+            "Successfully updated tracked player",
+            puuid=player.puuid,
+            new_matches=matches_processed,
+            new_players=players_discovered,
+        )
+
+        return {"matches": matches_processed, "discovered": players_discovered}
 
     async def _fetch_new_matches(self, db: AsyncSession, player: Player) -> List[str]:
         """Fetch new match IDs for a player since last check.
@@ -333,7 +374,6 @@ class TrackedPlayerUpdaterJob(BaseJob):
                     batch_match_ids = list(match_list_dto.match_ids)
                 else:
                     batch_match_ids = list(match_list_dto or [])
-                self.increment_metric("api_requests_made")
 
                 if not batch_match_ids:
                     # No more matches available
@@ -406,7 +446,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
     async def _process_match(
         self, db: AsyncSession, match_id: str, player: Player
-    ) -> None:
+    ) -> int:
         """Process a single match - fetch details and store participants.
 
         Args:
@@ -419,15 +459,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
             # Fetch match details from Riot API using data manager
             match_dto = await self.api_client.get_match(match_id)
-            self.increment_metric("api_requests_made")
 
             if not match_dto:
                 logger.warning("Match not found", match_id=match_id)
-                return
+                return 0
 
             # Extract and mark discovered players FIRST (before creating match participants)
             # This ensures players exist before we create foreign key references
-            await self._mark_discovered_players(db, match_dto)
+            discovered_players = await self._mark_discovered_players(db, match_dto)
 
             # Store match in database (this creates match and participants)
             await self._store_match(db, match_dto)
@@ -437,6 +476,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
             self.increment_metric("records_created")
 
             logger.debug("Successfully processed match", match_id=match_id)
+            return discovered_players
 
         except RateLimitError:
             logger.warning("Rate limit hit processing match", match_id=match_id)
@@ -510,15 +550,12 @@ class TrackedPlayerUpdaterJob(BaseJob):
             "Prepared match for database", match_id=match_dto.metadata.match_id
         )
 
-    async def _mark_discovered_players(self, db: AsyncSession, match_dto: Any) -> None:
+    async def _mark_discovered_players(self, db: AsyncSession, match_dto: Any) -> int:
         """Mark new players discovered in match as needing analysis.
 
-        Args:
-            db: Database session.
-            match_dto: Match DTO from Riot API.
-
-        Note: Does not commit - caller must commit the transaction.
+        Returns number of newly discovered players.
         """
+        discovered_count = 0
         for participant in match_dto.info.participants:
             # Check if player exists in database
             stmt = select(Player).where(Player.puuid == participant.puuid)
@@ -542,12 +579,15 @@ class TrackedPlayerUpdaterJob(BaseJob):
                 )
                 db.add(new_player)
                 self.increment_metric("records_created")
+                discovered_count += 1
 
                 logger.debug(
                     "Marked new discovered player",
                     puuid=participant.puuid,
                     riot_id=f"{participant.riot_id_game_name}#{participant.riot_id_tagline}",
                 )
+
+        return discovered_count
 
     async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
         """Update player's current rank from Riot API.
@@ -575,7 +615,6 @@ class TrackedPlayerUpdaterJob(BaseJob):
             league_entries = await self.api_client.get_league_entries_by_puuid(
                 player.puuid, platform_enum
             )
-            self.increment_metric("api_requests_made")
 
             if not league_entries:
                 logger.debug("No ranked data found for player", puuid=player.puuid)

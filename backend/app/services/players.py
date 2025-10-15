@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_
+from sqlalchemy import select, update, func, and_, or_
 
 from ..riot_api.data_manager import RiotDataManager
 from ..riot_api.errors import RateLimitError, NotFoundError
@@ -205,19 +205,22 @@ class PlayerService:
             )
             raise Exception(f"Failed to fetch player data: {str(e)}")
 
-    async def get_recent_opponents(self, puuid: str, limit: int) -> List[str]:
+    async def get_recent_opponents_with_details(
+        self, puuid: str, limit: int
+    ) -> List[PlayerResponse]:
         """
-        Get recent opponents for a player by querying match participants.
+        Get recent opponents for a player with their details from database only.
+        Only returns players that exist in our database with summoner_name populated.
+        Does NOT make any Riot API calls.
 
         Args:
             puuid: Player PUUID
             limit: Maximum number of unique opponents to return
 
         Returns:
-            List of opponent PUUIDs
+            List of PlayerResponse objects for opponents found in database
         """
         try:
-            # Query for recent matches where this player participated
             from ..models.participants import MatchParticipant
 
             # Subquery to get recent match IDs for this player
@@ -225,9 +228,7 @@ class PlayerService:
                 select(MatchParticipant.match_id)
                 .where(MatchParticipant.puuid == puuid)
                 .order_by(MatchParticipant.id.desc())
-                .limit(
-                    limit * 5
-                )  # Get more matches to ensure we find enough unique opponents
+                .limit(limit * 5)  # Get more matches to find enough opponents
             )
             player_match_ids = (
                 (await self.db.execute(player_matches_stmt)).scalars().all()
@@ -237,8 +238,8 @@ class PlayerService:
                 logger.debug("No matches found for player", puuid=puuid)
                 return []
 
-            # Query for all participants in those matches, excluding the player themselves
-            opponents_stmt = (
+            # Query for opponent PUUIDs from those matches
+            opponents_puuids_stmt = (
                 select(MatchParticipant.puuid)
                 .where(
                     and_(
@@ -247,23 +248,48 @@ class PlayerService:
                     )
                 )
                 .distinct()
+            )
+            opponent_puuids = (
+                (await self.db.execute(opponents_puuids_stmt)).scalars().all()
+            )
+
+            if not opponent_puuids:
+                logger.debug("No opponents found for player", puuid=puuid)
+                return []
+
+            # Fetch full player details from database only
+            # Filter to only players with summoner_name populated (not null and not empty)
+            players_stmt = (
+                select(Player)
+                .where(
+                    and_(
+                        Player.puuid.in_(opponent_puuids),
+                        Player.is_active,
+                        Player.summoner_name.isnot(None),
+                        Player.summoner_name != "",
+                    )
+                )
                 .limit(limit)
             )
 
-            result = await self.db.execute(opponents_stmt)
-            opponent_puuids = result.scalars().all()
+            result = await self.db.execute(players_stmt)
+            players = result.scalars().all()
 
             logger.debug(
-                "Found recent opponents",
+                "Found recent opponents with details",
                 puuid=puuid,
-                opponent_count=len(opponent_puuids),
+                opponent_count=len(players),
                 limit=limit,
             )
 
-            return list(opponent_puuids)
+            return [PlayerResponse.model_validate(player) for player in players]
 
         except Exception as e:
-            logger.error("Failed to get recent opponents", puuid=puuid, error=str(e))
+            logger.error(
+                "Failed to get recent opponents with details",
+                puuid=puuid,
+                error=str(e),
+            )
             # Return empty list instead of raising to not break the UI
             return []
 
@@ -451,3 +477,185 @@ class PlayerService:
 
         result = await self.db.execute(query)
         return result.scalar() or 0
+
+    # === Methods for Player Analyzer Job ===
+
+    async def get_players_needing_matches(
+        self, limit: int, target_matches: int
+    ) -> List[Player]:
+        """
+        Get discovered players with insufficient match history.
+
+        This is used by the player analyzer job to find players that need
+        more matches fetched before they can be analyzed.
+
+        Args:
+            limit: Maximum number of players to return
+            target_matches: Target number of matches per player
+
+        Returns:
+            List of Player objects needing match data
+        """
+        from ..models.participants import MatchParticipant
+
+        stmt = (
+            select(Player)
+            .join(
+                MatchParticipant, Player.puuid == MatchParticipant.puuid, isouter=True
+            )
+            .where(Player.is_tracked.is_(False))
+            .where(Player.is_active.is_(True))
+            .group_by(Player.puuid)
+            .having(func.count(MatchParticipant.match_id) < target_matches)
+            .limit(limit)
+        )
+
+        result = await self.db.execute(stmt)
+        players = list(result.scalars().all())
+
+        logger.debug(
+            "Found players needing matches",
+            count=len(players),
+            target_matches=target_matches,
+        )
+
+        return players
+
+    async def get_players_ready_for_analysis(
+        self, limit: int, min_matches: int = 20
+    ) -> List[Player]:
+        """
+        Get unanalyzed players with sufficient match history for smurf detection.
+
+        This is used by the player analyzer job to find players ready for
+        smurf detection analysis.
+
+        Args:
+            limit: Maximum number of players to return
+            min_matches: Minimum number of matches required for analysis
+
+        Returns:
+            List of Player objects ready for analysis
+        """
+        from ..models.participants import MatchParticipant
+
+        stmt = (
+            select(Player)
+            .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
+            .where(Player.is_tracked.is_(False))
+            .where(Player.is_analyzed.is_(False))
+            .where(Player.is_active.is_(True))
+            .group_by(Player.puuid)
+            .having(func.count(MatchParticipant.match_id) >= min_matches)
+            .limit(limit)
+        )
+
+        result = await self.db.execute(stmt)
+        players = list(result.scalars().all())
+
+        logger.debug(
+            "Found players ready for analysis",
+            count=len(players),
+            min_matches=min_matches,
+        )
+
+        return players
+
+    async def get_players_for_ban_check(
+        self, days: int, limit: int = 10
+    ) -> List[Player]:
+        """
+        Get detected smurfs that need ban status checking.
+
+        This is used by the player analyzer job to find players that were
+        previously detected as smurfs and haven't had their ban status checked
+        recently.
+
+        Args:
+            days: Number of days since last ban check
+            limit: Maximum number of players to return
+
+        Returns:
+            List of Player objects needing ban check
+        """
+        from ..models.smurf_detection import SmurfDetection
+        from datetime import datetime, timedelta
+
+        cutoff = datetime.now() - timedelta(days=days)
+
+        stmt = (
+            select(Player)
+            .join(SmurfDetection, Player.puuid == SmurfDetection.puuid)
+            .where(SmurfDetection.is_smurf.is_(True))
+            .where(
+                or_(
+                    Player.last_ban_check.is_(None), Player.last_ban_check < cutoff
+                )
+            )
+            .limit(limit)
+        )
+
+        result = await self.db.execute(stmt)
+        players = list(result.scalars().all())
+
+        logger.debug(
+            "Found players needing ban check",
+            count=len(players),
+            days_since_last_check=days,
+        )
+
+        return players
+
+    async def check_ban_status(self, player: Player) -> bool:
+        """
+        Check if a player is banned by attempting to fetch their summoner data.
+
+        A 404 response from the Riot API typically indicates the player is banned
+        or has changed their name.
+
+        Args:
+            player: Player object to check
+
+        Returns:
+            True if player is likely banned, False if player is active
+        """
+        from ..riot_api.endpoints import Platform
+        from ..riot_api.errors import NotFoundError
+        from datetime import datetime
+
+        try:
+            platform = Platform(player.platform.lower())
+
+            # Attempt to fetch summoner data
+            await self.data_manager.api_client.get_summoner_by_puuid(
+                player.puuid, platform
+            )
+
+            # Player found = not banned
+            player.last_ban_check = datetime.now()
+            await self.db.commit()
+
+            logger.debug("Player is active (not banned)", puuid=player.puuid)
+            return False
+
+        except NotFoundError:
+            # 404 = player not found, likely banned or name changed
+            player.last_ban_check = datetime.now()
+            await self.db.commit()
+
+            logger.info("Player likely banned (404 from API)", puuid=player.puuid)
+            return True
+
+        except ValueError:
+            # Invalid platform
+            logger.warning("Invalid platform for ban check", puuid=player.puuid)
+            return False
+
+        except Exception as e:
+            # Other errors - log and return False to avoid false positives
+            logger.warning(
+                "Ban check failed with error",
+                puuid=player.puuid,
+                error=str(e),
+            )
+            return False

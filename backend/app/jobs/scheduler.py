@@ -1,6 +1,6 @@
 """Scheduler module for managing automated background jobs."""
 
-from typing import Optional
+from typing import Dict, Optional, Type
 from datetime import datetime
 
 import structlog
@@ -10,13 +10,29 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_global_settings
-from app.database import get_db
+from app.database import db_manager
 from app.models import JobExecution, JobStatus, JobConfiguration, JobType
+from .base import BaseJob
 
 logger = structlog.get_logger(__name__)
 
 # Global scheduler instance
 _scheduler: Optional[AsyncIOScheduler] = None
+_JOB_REGISTRY: Optional[Dict[JobType, Type[BaseJob]]] = None
+
+
+def _get_job_registry() -> Dict[JobType, Type[BaseJob]]:
+    global _JOB_REGISTRY
+    if _JOB_REGISTRY is None:
+        from .player_analyzer import PlayerAnalyzerJob
+        from .tracked_player_updater import TrackedPlayerUpdaterJob
+
+        _JOB_REGISTRY = {
+            JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,
+            JobType.PLAYER_ANALYZER: PlayerAnalyzerJob,
+        }
+
+    return _JOB_REGISTRY
 
 
 def get_scheduler() -> Optional[AsyncIOScheduler]:
@@ -26,6 +42,34 @@ def get_scheduler() -> Optional[AsyncIOScheduler]:
         The scheduler instance if initialized, None otherwise.
     """
     return _scheduler
+
+
+def _resolve_interval_seconds(
+    job_config: JobConfiguration, default_interval: int
+) -> int:
+    """Determine interval seconds for a job configuration."""
+    config = job_config.config_json or {}
+    custom_value = config.get("interval_seconds")
+
+    if isinstance(custom_value, str) and custom_value.isdigit():
+        custom_value = int(custom_value)
+
+    if isinstance(custom_value, int) and custom_value > 0:
+        return custom_value
+
+    schedule = (job_config.schedule or "").strip().lower()
+    if schedule.isdigit():
+        return max(int(schedule), 1)
+
+    if schedule.startswith("interval:"):
+        candidate = schedule.split(":", 1)[1].strip()
+        if candidate.isdigit():
+            return max(int(candidate), 1)
+
+    if schedule.endswith("s") and schedule[:-1].isdigit():
+        return max(int(schedule[:-1]), 1)
+
+    return default_interval
 
 
 async def _mark_stale_jobs_as_failed(db: AsyncSession) -> None:
@@ -145,9 +189,8 @@ async def start_scheduler() -> AsyncIOScheduler:
         )
 
         # Mark stale jobs as failed before starting
-        async for db in get_db():
+        async with db_manager.get_session() as db:
             await _mark_stale_jobs_as_failed(db)
-            break
 
         # Start the scheduler
         _scheduler.start()
@@ -185,75 +228,66 @@ async def _load_and_schedule_jobs() -> None:
 
     try:
         logger.info("Loading job configurations from database")
+        from sqlalchemy import select
 
-        # Get database session
-        async for db in get_db():
-            try:
-                # Query active job configurations
-                from sqlalchemy import select
+        async with db_manager.get_session() as db:
+            stmt = select(JobConfiguration).where(JobConfiguration.is_active)
+            result = await db.execute(stmt)
+            job_configs = result.scalars().all()
 
-                stmt = select(JobConfiguration).where(JobConfiguration.is_active)
-                result = await db.execute(stmt)
-                job_configs = result.scalars().all()
+        if not job_configs:
+            logger.info("No active job configurations found")
+            return
 
-                if not job_configs:
-                    logger.info("No active job configurations found")
-                    return
+        registry = _get_job_registry()
+        settings = get_global_settings()
 
-                # Import job classes
-                from .tracked_player_updater import TrackedPlayerUpdaterJob
-                from .player_analyzer import PlayerAnalyzerJob
-
-                # Map job types to job classes
-                job_class_map = {
-                    JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,
-                    JobType.PLAYER_ANALYZER: PlayerAnalyzerJob,
-                }
-
-                # Schedule each job
-                for job_config in job_configs:
-                    job_class = job_class_map.get(job_config.job_type)
-
-                    if not job_class:
-                        logger.warning(
-                            "Unknown job type, skipping",
-                            job_type=job_config.job_type.value,
-                            job_name=job_config.name,
-                        )
-                        continue
-
-                    # Create job instance
-                    job_instance = job_class(job_config)
-
-                    # Parse schedule (simple interval for now)
-                    settings = get_global_settings()
-                    interval_seconds = settings.job_interval_seconds
-
-                    # Schedule job
-                    _scheduler.add_job(
-                        job_instance.run,
-                        trigger="interval",
-                        seconds=interval_seconds,
-                        id=f"job_{job_config.id}",
-                        name=job_config.name,
-                        replace_existing=True,
-                    )
-
-                    logger.info(
-                        "Scheduled job",
-                        job_id=job_config.id,
+        for job_config in job_configs:
+            job_type = job_config.job_type
+            if isinstance(job_type, str):
+                try:
+                    job_type = JobType(job_type)
+                except ValueError:
+                    logger.warning(
+                        "Invalid job type, skipping",
+                        job_type=job_config.job_type,
                         job_name=job_config.name,
-                        job_type=job_config.job_type.value,
-                        interval_seconds=interval_seconds,
                     )
+                    continue
 
-                logger.info(
-                    "Successfully loaded and scheduled jobs", count=len(job_configs)
+            job_class = registry.get(job_type)
+
+            if not job_class:
+                logger.warning(
+                    "Unknown job type, skipping",
+                    job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+                    job_name=job_config.name,
                 )
+                continue
 
-            finally:
-                await db.close()
-                break
+            job_instance = job_class(job_config)
+            interval_seconds = _resolve_interval_seconds(
+                job_config, settings.job_interval_seconds
+            )
+
+            _scheduler.add_job(
+                job_instance.run,
+                trigger="interval",
+                seconds=interval_seconds,
+                id=f"job_{job_config.id}",
+                name=job_config.name,
+                replace_existing=True,
+            )
+
+            logger.info(
+                "Scheduled job",
+                job_id=job_config.id,
+                job_name=job_config.name,
+                job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+                interval_seconds=interval_seconds,
+            )
+
+        logger.info("Successfully loaded and scheduled jobs", count=len(job_configs))
 
     except Exception as e:
         logger.error(

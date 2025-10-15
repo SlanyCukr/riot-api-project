@@ -19,7 +19,7 @@ export function RecentOpponents({
   limit = 10,
   onAnalyzePlayer,
 }: RecentOpponentsProps) {
-  // Fetch recent opponent PUUIDs
+  // Fetch recent opponents with full player details (database only, no Riot API calls)
   const {
     data: opponentsResult,
     isLoading,
@@ -27,37 +27,18 @@ export function RecentOpponents({
   } = useQuery({
     queryKey: ["recent-opponents", puuid, limit],
     queryFn: () =>
-      validatedGet(RecentOpponentsSchema, `/players/${puuid}/recent`, {
-        limit,
-      }),
+      validatedGet(
+        RecentOpponentsSchema,
+        `/players/${puuid}/recent-opponents`,
+        {
+          limit,
+        },
+      ),
     enabled: !!puuid,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch player details for each opponent PUUID
-  const opponentPuuids = opponentsResult?.success ? opponentsResult.data : [];
-
-  const {
-    data: playersData,
-    isLoading: isLoadingPlayers,
-    error: playersError,
-  } = useQuery({
-    queryKey: ["opponent-players", opponentPuuids],
-    queryFn: async () => {
-      // Fetch all player details in parallel
-      const results = await Promise.all(
-        opponentPuuids.map((opponentPuuid) =>
-          validatedGet(PlayerSchema, `/players/${opponentPuuid}`),
-        ),
-      );
-      return results
-        .filter((result) => result.success)
-        .map((result) => (result.success ? result.data : null))
-        .filter((player): player is Player => player !== null);
-    },
-    enabled: opponentPuuids.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
+  const players = opponentsResult?.success ? opponentsResult.data : [];
 
   if (isLoading) {
     return (
@@ -94,7 +75,7 @@ export function RecentOpponents({
     );
   }
 
-  if (!opponentPuuids || opponentPuuids.length === 0) {
+  if (!players || players.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -104,7 +85,11 @@ export function RecentOpponents({
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <UserSearch className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              No recent opponents found
+              No recent opponents found in database
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Opponents will appear here after they&apos;ve been tracked or
+              analyzed
             </p>
           </div>
         </CardContent>
@@ -112,31 +97,17 @@ export function RecentOpponents({
     );
   }
 
-  const players = playersData || [];
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Recent Opponents</span>
-          <Badge variant="secondary">{opponentPuuids.length} found</Badge>
+          <Badge variant="secondary">{players.length} found</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoadingPlayers ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : playersError ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">
-              Failed to load player details
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {players.map((player) => (
+        <div className="grid gap-4 md:grid-cols-2">
+          {players.map((player) => (
               <Card
                 key={player.puuid}
                 className="transition-shadow hover:shadow-md"
@@ -176,8 +147,7 @@ export function RecentOpponents({
                 </CardContent>
               </Card>
             ))}
-          </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

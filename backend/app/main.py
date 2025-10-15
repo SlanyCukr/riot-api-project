@@ -13,7 +13,9 @@ from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
 from app.api.jobs import router as jobs_router
 from app.jobs import start_scheduler, shutdown_scheduler
+from app.jobs.log_capture import job_log_capture
 import structlog
+from structlog import contextvars as structlog_contextvars
 
 
 # Configure logging
@@ -28,6 +30,7 @@ logger = structlog.get_logger(__name__)
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
+        structlog_contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         structlog.stdlib.PositionalArgumentsFormatter(),
@@ -35,6 +38,7 @@ structlog.configure(
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
+        job_log_capture,  # Capture logs after all context is added
         structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,

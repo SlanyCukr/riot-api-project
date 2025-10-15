@@ -1,16 +1,19 @@
 """Base job class for automated background jobs."""
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-import logging
+from typing import Any, Dict, List, Optional
+import json
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.database import db_manager
 from app.models import JobConfiguration, JobExecution, JobStatus
-from .log_handler import JobLogHandler, StructlogJobProcessor
+from structlog import contextvars as structlog_contextvars
+from .log_capture import job_log_capture
 
 logger = structlog.get_logger(__name__)
 
@@ -36,13 +39,15 @@ class BaseJob(ABC):
         """
         self.job_config = job_config
         self.job_execution: Optional[JobExecution] = None
-        self.metrics = {
-            "api_requests_made": 0,
-            "records_created": 0,
-            "records_updated": 0,
-        }
+        self.metrics = defaultdict(int)
+        self.metrics.update(
+            {
+                "api_requests_made": 0,
+                "records_created": 0,
+                "records_updated": 0,
+            }
+        )
         self.execution_log: Dict[str, Any] = {}
-        self.log_handler: Optional[JobLogHandler] = None
 
     @abstractmethod
     async def execute(self, db: AsyncSession) -> None:
@@ -60,47 +65,6 @@ class BaseJob(ABC):
         """
         pass
 
-    def _setup_log_capture(self) -> None:
-        """Set up log capture for this job execution."""
-        # Create log handler
-        self.log_handler = JobLogHandler(level=logging.DEBUG)
-
-        # Add handler to root logger to capture all logs
-        root_logger = logging.getLogger()
-        root_logger.addHandler(self.log_handler)
-
-        # Also add to structlog processor chain
-        # Note: This is a best-effort approach; structlog config is typically
-        # set up globally, so we're just capturing what we can
-        try:
-            import structlog
-
-            # Get current processors
-            current_processors = structlog.get_config().get("processors", [])
-
-            # Add our processor at the beginning to capture everything
-            processor = StructlogJobProcessor(self.log_handler)
-
-            # Configure structlog with our processor
-            structlog.configure(
-                processors=[processor] + current_processors,
-            )
-        except Exception as e:
-            # If structlog config fails, just log it and continue
-            # We'll still capture standard logging
-            logger.warning(
-                "Failed to add structlog processor",
-                error=str(e),
-                job_name=self.job_config.name,
-            )
-
-    def _teardown_log_capture(self) -> None:
-        """Cleanup log capture."""
-        if self.log_handler:
-            # Remove handler from root logger
-            root_logger = logging.getLogger()
-            root_logger.removeHandler(self.log_handler)
-
     async def log_start(self, db: AsyncSession) -> None:
         """Log job execution start and create JobExecution record.
 
@@ -108,9 +72,6 @@ class BaseJob(ABC):
             db: Database session for creating execution record.
         """
         try:
-            # Setup log capture BEFORE starting job
-            self._setup_log_capture()
-
             self.job_execution = JobExecution(
                 job_config_id=self.job_config.id,
                 started_at=datetime.now(timezone.utc),
@@ -125,7 +86,7 @@ class BaseJob(ABC):
             await db.commit()
             await db.refresh(self.job_execution)
 
-            logger.info(
+            logger.debug(
                 "Job execution started",
                 job_type=self.job_config.job_type.value,
                 job_name=self.job_config.name,
@@ -139,8 +100,6 @@ class BaseJob(ABC):
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            # Cleanup log capture on error
-            self._teardown_log_capture()
             await db.rollback()
             raise
 
@@ -149,6 +108,7 @@ class BaseJob(ABC):
         db: AsyncSession,
         success: bool = True,
         error_message: Optional[str] = None,
+        logs: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         """Log job execution completion and update JobExecution record.
 
@@ -162,19 +122,9 @@ class BaseJob(ABC):
                 "Cannot log completion, job execution not started",
                 job_name=self.job_config.name,
             )
-            # Still cleanup log capture
-            self._teardown_log_capture()
             return
 
         try:
-            # Get captured logs before tearing down
-            detailed_logs = None
-            if self.log_handler:
-                detailed_logs = {
-                    "logs": self.log_handler.get_logs(),
-                    "summary": self.log_handler.get_log_summary(),
-                }
-
             # Get a fresh copy of the job execution from the database
             # This ensures we're working with an attached object in the current session
             from sqlalchemy import update
@@ -182,6 +132,26 @@ class BaseJob(ABC):
 
             completed_at = datetime.now(timezone.utc)
             duration = (completed_at - self.job_execution.started_at).total_seconds()
+
+            logger.debug(
+                "Job execution completed",
+                job_type=self.job_config.job_type.value,
+                job_name=self.job_config.name,
+                execution_id=self.job_execution.id,
+                status=JobStatus.SUCCESS.value if success else JobStatus.FAILED.value,
+                duration_seconds=duration,
+                api_requests=self.metrics["api_requests_made"],
+                records_created=self.metrics["records_created"],
+                records_updated=self.metrics["records_updated"],
+                success=success,
+            )
+
+            # Strip redundant fields before DB storage (keep in stdout for debugging)
+            detailed_logs = (
+                {"logs": self._strip_redundant_fields(logs)}
+                if logs
+                else None
+            )
 
             # Use an UPDATE statement instead of ORM to avoid session state issues
             stmt = (
@@ -236,20 +206,6 @@ class BaseJob(ABC):
                 JobStatus.SUCCESS if success else JobStatus.FAILED
             )
 
-            logger.info(
-                "Job execution completed",
-                job_type=self.job_config.job_type.value,
-                job_name=self.job_config.name,
-                execution_id=self.job_execution.id,
-                status=self.job_execution.status.value,
-                duration_seconds=duration,
-                api_requests=self.metrics["api_requests_made"],
-                records_created=self.metrics["records_created"],
-                records_updated=self.metrics["records_updated"],
-                success=success,
-                total_logs_captured=len(detailed_logs["logs"]) if detailed_logs else 0,
-            )
-
         except Exception as e:
             logger.error(
                 "Failed to log job completion",
@@ -266,9 +222,6 @@ class BaseJob(ABC):
                     "Failed to rollback after log_completion error",
                     error=str(rollback_error),
                 )
-        finally:
-            # Always cleanup log capture
-            self._teardown_log_capture()
 
     async def is_already_running(self, db: AsyncSession) -> bool:
         """Check if this job is already running.
@@ -306,7 +259,7 @@ class BaseJob(ABC):
 
         return False
 
-    async def handle_error(self, db: AsyncSession, error: Exception) -> None:
+    async def handle_error(self, db: AsyncSession, error: Exception) -> str:
         """Handle job execution error.
 
         Args:
@@ -323,105 +276,95 @@ class BaseJob(ABC):
             error=error_message,
             error_type=type(error).__name__,
         )
+        return error_message
 
-        await self.log_completion(db, success=False, error_message=error_message)
+    @asynccontextmanager
+    async def _db_session(self):
+        async with db_manager.get_session() as session:
+            yield session
 
     async def run(self) -> None:
-        """Execute the job with proper error handling and logging.
+        """Execute the job with proper error handling and logging."""
+        async with self._db_session() as db:
+            if await self.is_already_running(db):
+                logger.info(
+                    "Skipping job execution - already running",
+                    job_type=self.job_config.job_type.value,
+                    job_name=self.job_config.name,
+                )
+                return
 
-        This method:
-        1. Creates database session
-        2. Checks if job is already running (skip if so)
-        3. Logs job start
-        4. Executes job logic
-        5. Logs completion (success or failure)
-        6. Handles errors gracefully
+            try:
+                await self.log_start(db)
+            except Exception as error:
+                logger.error(
+                    "Failed to initialize job execution",
+                    job_name=self.job_config.name,
+                    error=str(error),
+                    error_type=type(error).__name__,
+                )
+                return
 
-        This method ensures that job execution is ALWAYS marked as complete
-        (either success or failed) to prevent jobs from being stuck in RUNNING state.
-        """
-        db = None
-        try:
-            # Get database session
-            async for db in get_db():
-                try:
-                    # Check if job is already running
-                    if await self.is_already_running(db):
-                        logger.info(
-                            "Skipping job execution - already running",
-                            job_type=self.job_config.job_type.value,
-                            job_name=self.job_config.name,
-                        )
-                        return
-
-                    # Log job start
-                    await self.log_start(db)
-
-                    # Execute job logic
-                    await self.execute(db)
-
-                    # Log successful completion
-                    await self.log_completion(db, success=True)
-
-                except Exception as e:
-                    # Handle and log error - this ensures log_completion is called
-                    await self.handle_error(db, e)
-                    # Don't re-raise here - we want to log the error but not crash the scheduler
-                    logger.error(
-                        "Job execution failed but was handled gracefully",
+            try:
+                if self.job_execution:
+                    structlog_contextvars.bind_contextvars(
+                        job_execution_id=self.job_execution.id,
                         job_name=self.job_config.name,
-                        error=str(e),
-                        error_type=type(e).__name__,
+                        job_type=self.job_config.job_type.value,
                     )
 
-                finally:
-                    # Ensure database session is closed
-                    if db:
-                        await db.close()
-                    break
-
-        except Exception as e:
-            logger.error(
-                "Critical error in job execution wrapper",
-                job_name=self.job_config.name,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            # If we have a job_execution record but it's still RUNNING, mark it as failed
-            if self.job_execution and self.job_execution.status == JobStatus.RUNNING:
-                logger.warning(
-                    "Job execution record exists but status is RUNNING after critical error, attempting to mark as failed",
-                    job_name=self.job_config.name,
-                    execution_id=self.job_execution.id,
+                await self.execute(db)
+                
+            except Exception as job_error:
+                error_message = await self.handle_error(db, job_error)
+                job_logs = self._get_job_logs()
+                await self.log_completion(
+                    db,
+                    success=False,
+                    error_message=error_message,
+                    logs=job_logs,
                 )
-                # Try one more time to log completion if we have a db session
-                if db:
-                    try:
-                        await self.log_completion(
-                            db, success=False, error_message=f"Critical error: {str(e)}"
-                        )
-                    except Exception as cleanup_error:
-                        logger.error(
-                            "Failed to mark job as failed during cleanup",
-                            job_name=self.job_config.name,
-                            error=str(cleanup_error),
-                        )
+            else:
+                job_logs = self._get_job_logs()
+                await self.log_completion(
+                    db,
+                    success=True,
+                    logs=job_logs,
+                )
+            finally:
+                structlog_contextvars.clear_contextvars()
+                self._cleanup_log_buffer()
+
+    def _get_job_logs(self) -> List[Dict[str, Any]]:
+        """Extract logs for this job execution."""
+        if self.job_execution is None:
+            return []
+        
+        return [
+            entry for entry in job_log_capture.entries
+            if entry.get("job_execution_id") == self.job_execution.id
+        ]
+
+    def _cleanup_log_buffer(self) -> None:
+        """Prevent memory buildup."""
+        if len(job_log_capture.entries) > 10000:
+            job_log_capture.entries.clear()
+
+    def _strip_redundant_fields(self, logs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove fields that are redundant in DB (already in job_execution table).
+        
+        Keep them in stdout for debugging, strip only before DB storage.
+        """
+        redundant_fields = {"job_execution_id", "job_name", "job_type", "logger", "level"}
+        
+        return [
+            {k: v for k, v in entry.items() if k not in redundant_fields}
+            for entry in logs
+        ]
 
     def increment_metric(self, metric_name: str, count: int = 1) -> None:
-        """Increment a metric counter.
-
-        Args:
-            metric_name: Name of the metric to increment.
-            count: Amount to increment by (default: 1).
-        """
-        if metric_name in self.metrics:
-            self.metrics[metric_name] += count
-        else:
-            logger.warning(
-                "Unknown metric name",
-                metric_name=metric_name,
-                job_name=self.job_config.name,
-            )
+        """Increment a metric counter."""
+        self.metrics[metric_name] += count
 
     def add_log_entry(self, key: str, value: Any) -> None:
         """Add an entry to the execution log.

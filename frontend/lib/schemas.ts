@@ -279,8 +279,8 @@ export type DetectionExistsResponse = z.infer<
 >;
 
 // ===== RECENT OPPONENTS SCHEMA =====
-// The backend returns a list of PUUIDs as strings
-export const RecentOpponentsSchema = z.array(z.string());
+// The backend returns a list of Player objects with full details
+export const RecentOpponentsSchema = z.array(PlayerSchema);
 export type RecentOpponents = z.infer<typeof RecentOpponentsSchema>;
 
 // ===== PLAYER RANK SCHEMA =====

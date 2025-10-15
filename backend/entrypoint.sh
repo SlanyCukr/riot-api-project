@@ -63,7 +63,7 @@ VALUES (
     'Tracked Player Updater',
     'interval(seconds=120)',
     true,
-    '{"max_new_matches_per_player": 20, "max_tracked_players": 10}'::jsonb,
+    '{"max_new_matches_per_player": 50, "max_tracked_players": 20}'::jsonb,
     NOW(),
     NOW()
 )
@@ -88,7 +88,7 @@ VALUES (
     'Player Analyzer',
     'interval(seconds=120)',
     true,
-    '{"unanalyzed_players_per_run": 5, "min_smurf_confidence": 0.5, "ban_check_days": 7}'::jsonb,
+    '{"discovered_players_per_run": 8, "matches_per_player_per_run": 10, "unanalyzed_players_per_run": 20, "ban_check_days": 7, "target_matches_per_player": 50}'::jsonb,
     NOW(),
     NOW()
 )

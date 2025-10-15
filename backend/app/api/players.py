@@ -97,14 +97,14 @@ async def get_player_by_puuid(puuid: str, player_service: PlayerServiceDep):
     return player
 
 
-@router.get("/{puuid}/recent", response_model=list[str])
+@router.get("/{puuid}/recent-opponents", response_model=list[PlayerResponse])
 async def get_player_recent_opponents(
     puuid: str,
     player_service: PlayerServiceDep,
     limit: int = Query(10, ge=1, le=50, description="Number of recent opponents"),
 ):
-    """Get recent opponents for a player."""
-    opponents = await player_service.get_recent_opponents(puuid, limit)
+    """Get recent opponents for a player with their details (database only, no Riot API calls)."""
+    opponents = await player_service.get_recent_opponents_with_details(puuid, limit)
     return opponents
 
 
