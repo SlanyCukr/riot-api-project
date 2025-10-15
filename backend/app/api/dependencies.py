@@ -16,14 +16,17 @@ from ..services.detection import SmurfDetectionService
 from ..config import get_global_settings
 
 
-async def get_riot_client() -> AsyncGenerator[RiotAPIClient, None]:
+async def get_riot_client(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AsyncGenerator[RiotAPIClient, None]:
     """Get Riot API client instance."""
     from ..config import get_riot_api_key
 
     settings = get_global_settings()
 
     # Get API key from database first, fallback to environment
-    api_key = await get_riot_api_key()
+    # Now passing the database session to ensure we check the database
+    api_key = await get_riot_api_key(db)
 
     if not api_key:
         raise HTTPException(status_code=500, detail="Riot API key not configured")
