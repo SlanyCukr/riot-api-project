@@ -136,7 +136,7 @@ if [ "$FORCE_BUILD" = true ]; then
 
     # Build with Bake using prod group
     if [ ${#SERVICES[@]} -eq 0 ]; then
-        if ! docker buildx bake -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
+        if ! docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
             echo -e "${RED}❌ Bake build failed!${NC}"
             echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
             echo -e "   1. Check Bake config: docker buildx bake -f docker/docker-bake.hcl --print"
@@ -148,7 +148,7 @@ if [ "$FORCE_BUILD" = true ]; then
     else
         # Build specific services
         for service in "${SERVICES[@]}"; do
-            if ! docker buildx bake -f docker/docker-bake.hcl "${service}-prod" --load "${BAKE_ARGS[@]}"; then
+            if ! docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl "${service}-prod" --load "${BAKE_ARGS[@]}"; then
                 echo -e "${RED}❌ Bake build failed for ${service}!${NC}"
                 exit 1
             fi

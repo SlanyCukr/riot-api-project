@@ -133,11 +133,11 @@ if [ "$FORCE_BUILD" = true ]; then
 
     # Build with Bake using dev group
     if [ ${#SERVICES[@]} -eq 0 ]; then
-        docker buildx bake -f docker/docker-bake.hcl dev --load
+        docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl dev --load
     else
         # Build specific services
         for service in "${SERVICES[@]}"; do
-            docker buildx bake -f docker/docker-bake.hcl "${service}-dev" --load
+            docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl "${service}-dev" --load
         done
     fi
     echo ""
