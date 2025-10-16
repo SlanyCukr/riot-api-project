@@ -24,9 +24,9 @@ group "dev" {
 
 # Common configuration for all targets
 target "_common" {
-  # Local cache for faster rebuilds
-  cache-from = ["type=local,src=/tmp/.buildx-cache"]
-  cache-to = ["type=local,dest=/tmp/.buildx-cache,mode=max"]
+  # Local cache for faster rebuilds (skipped on docker driver)
+  # The docker driver doesn't support cache export, so we omit cache settings
+  # when using docker driver. buildx automatically detects this.
 }
 
 # Common configuration for production builds (single platform - local deployment)

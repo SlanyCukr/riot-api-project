@@ -124,6 +124,7 @@ if [ "$FORCE_BUILD" = true ]; then
     # Export environment variables for Bake
     export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
     export TAG="latest"
+    export BUILDX_BAKE_ENTITLEMENTS_FS=0
 
     BAKE_ARGS=()
     if [ "$NO_CACHE" = true ]; then
@@ -136,7 +137,7 @@ if [ "$FORCE_BUILD" = true ]; then
 
     # Build with Bake using prod group
     if [ ${#SERVICES[@]} -eq 0 ]; then
-        if ! docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
+        if ! docker buildx bake -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
             echo -e "${RED}❌ Bake build failed!${NC}"
             echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
             echo -e "   1. Check Bake config: docker buildx bake -f docker/docker-bake.hcl --print"
