@@ -1,11 +1,23 @@
+# Modern Docker Compose configuration (no version field needed in Compose v2)
+# Base configuration for all environments
+
 services:
   frontend:
+    image: riot-api-frontend:latest
     build:
       context: ../frontend
       dockerfile: ../docker/frontend/Dockerfile
       target: runner
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      # Use Bake-compatible build configuration
+      x-bake:
+        tags:
+          - riot-api-frontend:latest
+        cache-from:
+          - type=local,src=/tmp/.buildx-cache
+        cache-to:
+          - type=local,dest=/tmp/.buildx-cache,mode=max
     restart: unless-stopped
     networks:
       - app-network
@@ -13,8 +25,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
@@ -23,10 +35,19 @@ services:
       start_period: 40s
 
   backend:
+    image: riot-api-backend:latest
     build:
       context: ../backend
       dockerfile: ../docker/backend/Dockerfile
       target: production
+      # Use Bake-compatible build configuration
+      x-bake:
+        tags:
+          - riot-api-backend:latest
+        cache-from:
+          - type=local,src=/tmp/.buildx-cache
+        cache-to:
+          - type=local,dest=/tmp/.buildx-cache,mode=max
     restart: unless-stopped
     networks:
       - app-network
@@ -34,17 +55,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - RIOT_API_KEY=${RIOT_API_KEY}
-      - DEBUG=${DEBUG}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - JOB_SCHEDULER_ENABLED=${JOB_SCHEDULER_ENABLED}
-      - JOB_INTERVAL_SECONDS=${JOB_INTERVAL_SECONDS}
-      - JOB_TIMEOUT_SECONDS=${JOB_TIMEOUT_SECONDS}
-      - MAX_TRACKED_PLAYERS=${MAX_TRACKED_PLAYERS}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RIOT_API_KEY: ${RIOT_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JOB_SCHEDULER_ENABLED: ${JOB_SCHEDULER_ENABLED}
+      JOB_INTERVAL_SECONDS: ${JOB_INTERVAL_SECONDS}
+      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS}
+      MAX_TRACKED_PLAYERS: ${MAX_TRACKED_PLAYERS}
     ports:
       - "${BACKEND_PORT}:8000"
     volumes:
@@ -57,7 +77,7 @@ services:
       start_period: 60s
 
   postgres:
-    image: postgres:18
+    image: postgres:18-alpine
     restart: unless-stopped
     networks:
       - app-network
@@ -65,9 +85,11 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "${POSTGRES_PORT}:5432"
     healthcheck:
@@ -76,7 +98,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
+    # Security: run as non-root
+    user: postgres
 
 networks:
   app-network:

@@ -48,13 +48,6 @@ class MatchParticipant(Base):
     )
 
     # Participant information
-    riot_id_name: Mapped[Optional[str]] = mapped_column(
-        String(128), nullable=True, comment="Riot ID game name at the time of the match"
-    )
-
-    riot_id_tagline: Mapped[Optional[str]] = mapped_column(
-        String(32), nullable=True, comment="Riot ID tagline at the time of the match"
-    )
 
     summoner_name: Mapped[Optional[str]] = mapped_column(
         String(32),
@@ -219,23 +212,15 @@ class MatchParticipant(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-    def calculate_kda(self) -> Decimal:
-        """Calculate KDA ratio (kills + assists) / deaths, with deaths=0 treated as 1."""
-        if self.deaths == 0:
-            return Decimal(self.kills + self.assists)
-        return Decimal(self.kills + self.assists) / Decimal(self.deaths)
+    # Database-only fields - used by SQLAlchemy ORM but not directly referenced in Python code
+    # These fields store historical data for database queries and analysis
+    riot_id_name: Mapped[Optional[str]] = mapped_column(  # noqa: F841 - Used by SQLAlchemy ORM
+        String(128), nullable=True, comment="Riot ID game name at the time of the match"
+    )
 
-    @property
-    def kdr(self) -> Optional[float]:
-        """Kill-death ratio."""
-        if self.deaths == 0:
-            return float(self.kills)
-        return self.kills / self.deaths
-
-    @property
-    def total_kills_participation(self) -> int:
-        """Total kills participated in (kills + assists)."""
-        return self.kills + self.assists
+    riot_id_tagline: Mapped[Optional[str]] = mapped_column(  # noqa: F841 - Used by SQLAlchemy ORM
+        String(32), nullable=True, comment="Riot ID tagline at the time of the match"
+    )
 
 
 # Create composite indexes for common queries

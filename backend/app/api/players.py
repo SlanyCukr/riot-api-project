@@ -1,5 +1,6 @@
 """Player API endpoints for the Riot API application."""
 
+import re
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +10,39 @@ from ..schemas.players import (
 )
 from ..schemas.ranks import PlayerRankResponse
 from ..models.ranks import PlayerRank
-from ..api.dependencies import PlayerServiceDep, get_player_service, get_db
+from ..api.dependencies import (
+    PlayerServiceDep,
+    RiotDataManagerDep,
+    get_player_service,
+    get_db,
+)
 
 router = APIRouter(prefix="/players", tags=["players"])
 router.get_player_service = get_player_service  # type: ignore[attr-defined]
+
+
+def validate_riot_id(riot_id: str) -> tuple[str, str]:
+    """Validate Riot ID format and return game_name and tag_line."""
+    if "#" not in riot_id:
+        raise HTTPException(status_code=400, detail="Invalid Riot ID format")
+
+    game_name, tag_line = riot_id.split("#", 1)
+    game_name, tag_line = game_name.strip(), tag_line.strip()
+
+    if not game_name or not tag_line:
+        raise HTTPException(status_code=400, detail="Invalid Riot ID format")
+
+    if len(game_name) > 16 or len(tag_line) > 8:
+        raise HTTPException(status_code=400, detail="Riot ID too long")
+
+    # Basic character validation
+    if not re.match(r"^[a-zA-Z0-9\s\.\-_]+$", game_name):
+        raise HTTPException(status_code=400, detail="Invalid characters in name")
+
+    if not re.match(r"^[a-zA-Z0-9]+$", tag_line):
+        raise HTTPException(status_code=400, detail="Invalid characters in tag")
+
+    return game_name, tag_line
 
 
 @router.get("/search", response_model=PlayerResponse)
@@ -37,12 +67,12 @@ async def search_player(
 
     try:
         if riot_id:
-            # Parse Riot ID (name#tag)
+            # Parse and validate Riot ID (name#tag)
             tag_line_fragment = None
             fragment = request.url.fragment or ""
 
             if "#" in riot_id:
-                game_name, tag_line = riot_id.split("#", 1)
+                game_name, tag_line = validate_riot_id(riot_id)
             else:
                 # Extract details from URL fragment for compatibility with tests/clients
                 fragment_parts = [part for part in fragment.split("&") if part]
@@ -56,8 +86,9 @@ async def search_player(
                     raise HTTPException(
                         status_code=400, detail="Riot ID must be in format name#tag"
                     )
-                game_name = riot_id
-                tag_line = tag_line_fragment
+                # Validate the reconstructed Riot ID
+                reconstructed_riot_id = f"{riot_id}#{tag_line_fragment}"
+                game_name, tag_line = validate_riot_id(reconstructed_riot_id)
 
             player = await player_service.get_player_by_riot_id(
                 game_name,
@@ -106,17 +137,6 @@ async def get_player_recent_opponents(
     """Get recent opponents for a player with their details (database only, no Riot API calls)."""
     opponents = await player_service.get_recent_opponents_with_details(puuid, limit)
     return opponents
-
-
-@router.get("/", response_model=list[PlayerResponse])
-async def get_players(
-    player_service: PlayerServiceDep,
-    platform: str | None = Query(None, description="Filter by platform"),
-    limit: int = Query(20, ge=1, le=100, description="Number of players to return"),
-):
-    """Get players with optional filtering."""
-    players = await player_service.search_players(platform=platform, limit=limit)
-    return players
 
 
 # === Player Tracking Endpoints ===
@@ -223,6 +243,7 @@ async def get_tracked_players(player_service: PlayerServiceDep):
 @router.post("/add-tracked", response_model=PlayerResponse)
 async def add_tracked_player(
     player_service: PlayerServiceDep,
+    riot_data_manager: RiotDataManagerDep,
     riot_id: str | None = Query(None, description="Riot ID in format name#tag"),
     summoner_name: str | None = Query(None, description="Summoner name"),
     platform: str = Query("eun1", description="Platform region"),
@@ -254,16 +275,12 @@ async def add_tracked_player(
 
     try:
         if riot_id:
-            # Parse Riot ID (name#tag)
-            if "#" in riot_id:
-                game_name, tag_line = riot_id.split("#", 1)
-            else:
-                raise HTTPException(
-                    status_code=400, detail="Riot ID must be in format name#tag"
-                )
+            # Parse and validate Riot ID (name#tag)
+            game_name, tag_line = validate_riot_id(riot_id)
 
-            # Fetch and track player
+            # Fetch and track player (this calls Riot API once)
             player = await player_service.add_and_track_player(
+                riot_data_manager=riot_data_manager,
                 game_name=game_name,
                 tag_line=tag_line,
                 platform=platform,

@@ -9,7 +9,7 @@ consistency.
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
+from sqlalchemy import select, and_, desc
 import structlog
 
 from ..riot_api.data_manager import RiotDataManager
@@ -18,8 +18,6 @@ from ..models.smurf_detection import SmurfDetection
 from ..models.ranks import PlayerRank
 from ..schemas.detection import (
     DetectionResponse,
-    DetectionStatsResponse,
-    DetectionConfigResponse,
     DetectionFactor,
 )
 from ..algorithms.win_rate import WinRateAnalyzer
@@ -833,92 +831,4 @@ class SmurfDetectionService:
             sample_size=detection.games_analyzed,
             created_at=detection.created_at,
             analysis_time_seconds=0.0,
-        )
-
-    async def get_detection_history(
-        self, puuid: str, limit: int = 10, include_factors: bool = True
-    ) -> List[DetectionResponse]:
-        """Get historical smurf detection results for a player."""
-        result = await self.db.execute(
-            select(SmurfDetection)
-            .where(SmurfDetection.puuid == puuid)
-            .order_by(desc(SmurfDetection.last_analysis))
-            .limit(limit)
-        )
-
-        detections = result.scalars().all()
-        return [self._convert_to_response(detection) for detection in detections]
-
-    async def get_detection_stats(self) -> DetectionStatsResponse:
-        """Get overall smurf detection statistics."""
-        # Get total analyses
-        total_result = await self.db.execute(select(func.count(SmurfDetection.id)))
-        total_analyses = total_result.scalar() or 0
-
-        # Get smurf count
-        smurf_result = await self.db.execute(
-            select(func.count(SmurfDetection.id)).where(SmurfDetection.is_smurf)
-        )
-        smurf_count = smurf_result.scalar() or 0
-
-        # Get average score
-        avg_result = await self.db.execute(select(func.avg(SmurfDetection.smurf_score)))
-        average_score = float(avg_result.scalar() or 0.0)
-
-        # Get confidence distribution
-        confidence_result = await self.db.execute(
-            select(SmurfDetection.confidence, func.count(SmurfDetection.id)).group_by(
-                SmurfDetection.confidence
-            )
-        )
-        confidence_distribution = {
-            str(row[0] or "none"): row[1] for row in confidence_result
-        }
-
-        # Get last analysis time
-        last_result = await self.db.execute(
-            select(func.max(SmurfDetection.last_analysis))
-        )
-        last_analysis = last_result.scalar()
-
-        # Calculate factor trigger rates (simplified)
-        factor_trigger_rates = {
-            "win_rate": 0.15,
-            "kda": 0.10,
-            "account_level": 0.25,
-            "rank_progression": 0.20,
-            "performance_consistency": 0.15,
-        }
-
-        # Get queue type distribution
-        queue_result = await self.db.execute(
-            select(SmurfDetection.queue_type, func.count(SmurfDetection.id)).group_by(
-                SmurfDetection.queue_type
-            )
-        )
-        queue_type_distribution = {
-            str(row[0] or "unknown"): row[1] for row in queue_result
-        }
-
-        return DetectionStatsResponse(
-            total_analyses=total_analyses,
-            smurf_count=smurf_count,
-            smurf_detection_rate=(
-                smurf_count / total_analyses if total_analyses > 0 else 0.0
-            ),
-            average_score=average_score,
-            confidence_distribution=confidence_distribution,
-            factor_trigger_rates=factor_trigger_rates,
-            queue_type_distribution=queue_type_distribution,
-            last_analysis=last_analysis,
-        )
-
-    async def get_config(self) -> DetectionConfigResponse:
-        """Get current detection configuration."""
-        return DetectionConfigResponse(
-            thresholds=self.thresholds,
-            weights=self.weights,
-            min_games_required=int(self.thresholds["min_games"]),
-            analysis_version="1.0",
-            last_updated=datetime.now(timezone.utc),
         )

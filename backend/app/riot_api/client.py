@@ -1,7 +1,7 @@
 """Riot API HTTP client with proper rate limiting, error handling, and authentication."""
 
 import asyncio
-from typing import Optional, Dict, Any, List, Union, cast, Callable
+from typing import Optional, Dict, Any, List, Union, Callable
 import aiohttp
 import structlog
 
@@ -23,7 +23,8 @@ from .models import (
     MatchDTO,
     LeagueEntryDTO,
 )
-from .endpoints import RiotAPIEndpoints, Region, Platform, QueueType
+from .endpoints import RiotAPIEndpoints
+from .constants import Region, Platform, QueueType
 
 logger = structlog.get_logger(__name__)
 
@@ -123,9 +124,7 @@ class RiotAPIClient:
                         "Riot API client session started",
                         region=region_str,
                         platform=platform_str,
-                        api_key_prefix=(
-                            self.api_key[:10] + "..." if self.api_key else "None"
-                        ),
+                        api_key_prefix="[REDACTED]" if self.api_key else "None",
                     )
 
     async def close(self) -> None:
@@ -167,7 +166,7 @@ class RiotAPIClient:
         endpoint_path = self._extract_endpoint_path(url)
         await self.rate_limiter.wait_if_needed(endpoint_path, method)
 
-        # Request with retry logic
+        # Simplified retry logic
         max_retries = 3 if retry_on_failure else 0
         last_error = None
 
@@ -175,109 +174,54 @@ class RiotAPIClient:
             try:
                 self.stats["requests_made"] += 1
                 if self.request_callback:
-                    try:
-                        self.request_callback("requests_made", 1)
-                    except Exception:
-                        logger.warning("Request callback failed", exc_info=True)
-
-                if self.enable_logging:
-                    logger.info(
-                        "Making API request",
-                        url=url,
-                        method=method,
-                        attempt=attempt + 1,
-                        max_retries=max_retries + 1,
-                    )
+                    self.request_callback("requests_made", 1)
 
                 async with self.session.request(
                     method, url, params=params, json=data
                 ) as response:
-                    # Track rate limits from headers
                     self.rate_limiter.update_limits(
                         dict(response.headers), endpoint_path, method
                     )
 
-                    # Handle response
+                    # Handle status codes
                     if response.status == 400:
                         raise BadRequestError("Invalid request parameters")
-
                     elif response.status == 401:
                         raise AuthenticationError("Invalid API key")
-
                     elif response.status == 403:
-                        raise ForbiddenError(
-                            "Access forbidden - may be deprecated endpoint or insufficient API key permissions"
-                        )
-
+                        raise ForbiddenError("Access forbidden")
                     elif response.status == 404:
                         raise NotFoundError("Resource not found")
-
                     elif response.status == 429:
-                        # Extract Retry-After header first, fallback to rate_limiter calculation
-                        retry_after_header = response.headers.get("Retry-After")
-                        if retry_after_header:
-                            retry_after = int(retry_after_header)
-                        else:
-                            retry_after = await self.rate_limiter.handle_429(
-                                dict(response.headers), endpoint_path
-                            )
-
+                        retry_after = int(response.headers.get("Retry-After", 1))
                         if attempt < max_retries:
                             await asyncio.sleep(retry_after)
                             self.stats["retries"] += 1
                             continue
-                        else:
-                            raise RateLimitError(
-                                "Rate limit exceeded and retries exhausted",
-                                retry_after=retry_after,
-                            )
-
+                        raise RateLimitError(
+                            "Rate limit exceeded", retry_after=retry_after
+                        )
                     elif response.status >= 500:
                         if attempt < max_retries:
-                            backoff = await self.rate_limiter.calculate_backoff(attempt)
-                            await asyncio.sleep(backoff)
+                            await asyncio.sleep(2**attempt)
                             self.stats["retries"] += 1
                             continue
-                        else:
-                            raise ServiceUnavailableError(
-                                f"Service unavailable after {max_retries} retries"
-                            )
+                        raise ServiceUnavailableError("Service unavailable")
 
-                    # Success response
+                    # Success
                     response_data = await response.json()
-
-                    # Record success
                     await self.rate_limiter.record_success(endpoint_path, method)
-
-                    if self.enable_logging:
-                        logger.debug(
-                            "API request successful",
-                            url=url,
-                            status=response.status,
-                            response_size=len(str(response_data)),
-                        )
-
                     return response_data
 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 last_error = e
-                await self.rate_limiter.record_failure(
-                    endpoint_path, method, error_type="timeout"
-                )
-
                 if attempt < max_retries:
-                    backoff = await self.rate_limiter.calculate_backoff(attempt)
-                    await asyncio.sleep(backoff)
+                    await asyncio.sleep(2**attempt)
                     self.stats["retries"] += 1
                     continue
-                else:
-                    break
 
-        # All retries failed
         self.stats["errors"] += 1
-        raise RiotAPIError(
-            f"Request failed after {max_retries} retries: {str(last_error)}"
-        )
+        raise RiotAPIError(f"Request failed: {str(last_error)}")
 
     def _extract_endpoint_path(self, url: str) -> str:
         """Extract endpoint path from URL for rate limiting."""
@@ -294,20 +238,9 @@ class RiotAPIClient:
         """Get account by Riot ID (gameName#tagLine)."""
         url = self.endpoints.account_by_riot_id(game_name, tag_line, region)
         response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for account"
-        data = cast(dict[str, Any], response)
-        return AccountDTO(**data)
+        return AccountDTO(**response)
 
     # Summoner endpoints
-    async def get_summoner_by_name(
-        self, summoner_name: str, platform: Optional[Platform] = None
-    ) -> SummonerDTO:
-        """Get summoner by name."""
-        url = self.endpoints.summoner_by_name(summoner_name, platform)
-        response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for summoner"
-        data = cast(dict[str, Any], response)
-        return SummonerDTO(**data)
 
     async def get_summoner_by_puuid(
         self, puuid: str, platform: Optional[Platform] = None
@@ -315,9 +248,7 @@ class RiotAPIClient:
         """Get summoner by PUUID."""
         url = self.endpoints.summoner_by_puuid(puuid, platform)
         response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for summoner"
-        data = cast(dict[str, Any], response)
-        return SummonerDTO(**data)
+        return SummonerDTO(**response)
 
     # Match endpoints
     async def get_match_list_by_puuid(
@@ -341,12 +272,10 @@ class RiotAPIClient:
         response_data = await self._make_request(url)
 
         # Extract match IDs from response
-        match_ids: list[str]
         if isinstance(response_data, list):
-            match_ids = cast(list[str], response_data)
+            match_ids = response_data
         else:
-            response_dict = cast(dict[str, Any], response_data)
-            match_ids = cast(list[str], response_dict.get("matchIds", []))
+            match_ids = response_data.get("matchIds", [])
 
         return MatchListDTO(match_ids=match_ids, start=start, count=count, puuid=puuid)
 
@@ -356,9 +285,7 @@ class RiotAPIClient:
         """Get match details by match ID."""
         url = self.endpoints.match_by_id(match_id, region)
         response = await self._make_request(url)
-        assert isinstance(response, dict), "Expected dict response for match"
-        data = cast(dict[str, Any], response)
-        return MatchDTO(**data)
+        return MatchDTO(**response)
 
     # League endpoints
     async def get_league_entries_by_puuid(
@@ -374,23 +301,9 @@ class RiotAPIClient:
                 f"Expected list response for league entries, got {type(response)}"
             )
 
-        data = cast(list[dict[str, Any]], response)
-        return [LeagueEntryDTO(**entry) for entry in data]
+        return [LeagueEntryDTO(**entry) for entry in response]
 
     # Utility methods
-    async def get_puuid_by_riot_id(
-        self, game_name: str, tag_line: str, region: Optional[Region] = None
-    ) -> str:
-        """Get PUUID from Riot ID."""
-        account = await self.get_account_by_riot_id(game_name, tag_line, region)
-        return account.puuid
-
-    async def get_puuid_by_summoner_name(
-        self, summoner_name: str, platform: Optional[Platform] = None
-    ) -> str:
-        """Get PUUID from summoner name."""
-        summoner = await self.get_summoner_by_name(summoner_name, platform)
-        return summoner.puuid
 
     @staticmethod
     def _normalize_queue_type(
@@ -416,101 +329,22 @@ class RiotAPIClient:
         if isinstance(queue, QueueType):
             return queue
 
-        # Convert to string for comparison
-        queue_str = str(queue)
+        # Convert queue to int for comparison
+        try:
+            queue_int = int(queue) if isinstance(queue, str) else queue
+        except (ValueError, TypeError):
+            logger.warning("Invalid queue type", queue=queue)
+            return None
 
         # Try to find matching QueueType by value
         for queue_type in QueueType:
-            if queue_type.value == queue_str:
+            if queue_type.value == queue_int:
                 return queue_type
 
         # If no exact match, return None
         # Alternative: Could pass raw int and let Riot API validate
         logger.warning("Unknown queue type", queue=queue)
         return None
-
-    async def get_match_history_stats(
-        self,
-        puuid: str,
-        queue: Union[int, QueueType] = QueueType.RANKED_SOLO,
-        start_time: Optional[int] = None,
-        end_time: Optional[int] = None,
-        max_matches: int = 100,
-    ) -> Dict[str, Any]:
-        """
-        Get match history statistics for a player.
-
-        Args:
-            puuid: Player PUUID
-            queue: Queue type to filter (int or QueueType)
-            start_time: Start time in epoch seconds
-            end_time: End time in epoch seconds
-            max_matches: Maximum number of matches to analyze
-
-        Returns:
-            Dictionary with statistics
-        """
-        # Normalize queue parameter
-        queue_type = self._normalize_queue_type(queue)
-        if queue_type is None:
-            queue_type = QueueType.RANKED_SOLO
-
-        # Get match list
-        match_list = await self.get_match_list_by_puuid(
-            puuid,
-            start=0,
-            count=max_matches,
-            queue=queue_type,
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        # Get match details for each match
-        matches: list[MatchDTO] = []
-        wins = 0
-        kills = 0
-        deaths = 0
-        assists = 0
-
-        for match_id in match_list.match_ids[:max_matches]:
-            try:
-                match = await self.get_match(match_id)
-                participant = match.get_participant_by_puuid(puuid)
-
-                if participant:
-                    matches.append(match)
-                    if participant.win:
-                        wins += 1
-                    kills += participant.kills
-                    deaths += participant.deaths
-                    assists += participant.assists
-            except Exception as e:
-                logger.warning(
-                    "Failed to get match for stats", match_id=match_id, error=str(e)
-                )
-                continue
-
-        # Calculate statistics
-        total_matches = len(matches)
-        win_rate = (wins / total_matches * 100) if total_matches > 0 else 0
-        avg_kills = kills / total_matches if total_matches > 0 else 0
-        avg_deaths = deaths / total_matches if total_matches > 0 else 0
-        avg_assists = assists / total_matches if total_matches > 0 else 0
-
-        return {
-            "puuid": puuid,
-            "queue": queue_type.value,
-            "total_matches": total_matches,
-            "wins": wins,
-            "losses": total_matches - wins,
-            "win_rate": win_rate,
-            "avg_kills": avg_kills,
-            "avg_deaths": avg_deaths,
-            "avg_assists": avg_assists,
-            "kda": (kills + assists) / deaths if deaths > 0 else kills + assists,
-            "start_time": start_time,
-            "end_time": end_time,
-        }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get client statistics."""
@@ -522,8 +356,3 @@ class RiotAPIClient:
             "region": self.region.value,
             "platform": self.platform.value,
         }
-
-    async def reset_rate_limiter(self) -> None:
-        """Reset rate limiter state."""
-        await self.rate_limiter.reset()
-        logger.info("Rate limiter reset")

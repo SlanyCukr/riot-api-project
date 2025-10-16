@@ -124,10 +124,6 @@ class MatchParticipantResponse(MatchParticipantBase):
     updated_at: datetime = Field(
         ..., description="When this participant record was last updated"
     )
-    kdr: Optional[float] = Field(None, description="Kill-death ratio")
-    total_kills_participation: int = Field(
-        ..., description="Total kills participated in"
-    )
 
     model_config = ConfigDict(from_attributes=True)
 

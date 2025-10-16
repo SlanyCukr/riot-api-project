@@ -232,26 +232,6 @@ class SmurfDetection(Base):
             "notes": self.notes,
         }
 
-    @property
-    def display_confidence(self) -> str:
-        """Get display-friendly confidence level."""
-        if self.confidence:
-            return self.confidence.replace("_", " ").title()
-        return "Unknown"
-
-    @property
-    def risk_level(self) -> str:
-        """Get risk level based on smurf score."""
-        if self.smurf_score >= 0.8:
-            return "Very High"
-        elif self.smurf_score >= 0.6:
-            return "High"
-        elif self.smurf_score >= 0.4:
-            return "Medium"
-        elif self.smurf_score >= 0.2:
-            return "Low"
-        return "Very Low"
-
 
 # Create composite indexes for common queries
 Index(

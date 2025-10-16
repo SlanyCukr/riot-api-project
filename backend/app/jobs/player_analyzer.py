@@ -51,24 +51,26 @@ class PlayerAnalyzerJob(BaseJob):
     async def _service_resources(self, db: AsyncSession):
         self.db = db
 
-        # Get API key from database first, fallback to environment
-        # Pass the db session so it can query settings without creating a new engine
-        api_key = await get_riot_api_key(db)
-
-        self.api_client = RiotAPIClient(
-            api_key=api_key,
-            region=self.settings.riot_region,
-            platform=self.settings.riot_platform,
-            request_callback=self._record_api_request,
-        )
-        self.data_manager = RiotDataManager(db, self.api_client)
-        self.player_service = PlayerService(db, self.data_manager)
-        self.match_service = MatchService(db, self.data_manager)
-        self.detection_service = SmurfDetectionService(db, self.data_manager)
-
         try:
+            # Get API key from database first, fallback to environment
+            # Pass the db session so it can query settings without creating a new engine
+            api_key = await get_riot_api_key(db)
+
+            self.api_client = RiotAPIClient(
+                api_key=api_key,
+                region=self.settings.riot_region,
+                platform=self.settings.riot_platform,
+                request_callback=self._record_api_request,
+            )
+            self.data_manager = RiotDataManager(db, self.api_client)
+            self.player_service = PlayerService(db)
+            self.match_service = MatchService(db)
+            self.detection_service = SmurfDetectionService(db, self.data_manager)
+
             yield
+
         finally:
+            # Clean up resources
             if self.api_client:
                 await self.api_client.close()
             self.api_client = None
@@ -163,6 +165,7 @@ class PlayerAnalyzerJob(BaseJob):
         :returns: Number of matches fetched, or None if error occurred.
         """
         matches_fetched = await self.match_service.fetch_and_store_matches_for_player(
+            riot_api_client=self.api_client,
             puuid=player.puuid,
             count=self.matches_per_player_per_run,
             queue=420,
@@ -286,7 +289,7 @@ class PlayerAnalyzerJob(BaseJob):
         :param execution_summary: Execution summary dict for tracking metrics.
         :returns: True if banned, False if not banned, None if error occurred.
         """
-        return await self.player_service.check_ban_status(player)
+        return await self.player_service.check_ban_status(player, self.api_client)
 
     # Private helper methods
 

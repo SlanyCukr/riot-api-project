@@ -1,17 +1,17 @@
 """Player service for handling player data operations."""
 
-from typing import Optional, List, Any
+from typing import List, Any, TYPE_CHECKING
 from datetime import datetime, timezone
-from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_, or_
 
-from ..riot_api.data_manager import RiotDataManager
-from ..riot_api.errors import RateLimitError, NotFoundError
 from ..models.players import Player
-from ..schemas.players import PlayerResponse, PlayerUpdate
+from ..schemas.players import PlayerResponse
 from ..config import get_global_settings
 import structlog
+
+if TYPE_CHECKING:
+    from ..riot_api.client import RiotAPIClient
 
 logger = structlog.get_logger(__name__)
 
@@ -19,15 +19,14 @@ logger = structlog.get_logger(__name__)
 class PlayerService:
     """Service for handling player data operations."""
 
-    def __init__(self, db: AsyncSession, riot_data_manager: RiotDataManager):
-        """Initialize player service with database and data manager."""
+    def __init__(self, db: AsyncSession):
+        """Initialize player service with database session only."""
         self.db = db
-        self.data_manager = riot_data_manager
 
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
     ) -> PlayerResponse:
-        """Get player by Riot ID (name#tag) using intelligent data management."""
+        """Get player by Riot ID from database only. Never calls Riot API."""
         try:
             # Validate platform
             valid_platforms = [
@@ -53,56 +52,36 @@ class PlayerService:
                     f"Invalid platform: {platform}. Must be one of: {', '.join(valid_platforms)}"
                 )
 
-            # Use RiotDataManager for intelligent data fetching
-            player_response = await self.data_manager.get_player_by_riot_id(
-                game_name, tag_line, platform
+            # Query database only
+            result = await self.db.execute(
+                select(Player).where(
+                    Player.riot_id == game_name,
+                    Player.tag_line == tag_line,
+                    Player.platform == platform,
+                    Player.is_active,
+                )
             )
+            player = result.scalar_one_or_none()
 
-            if not player_response:
-                raise ValueError(f"Player not found: {game_name}#{tag_line}")
+            if not player:
+                raise ValueError(
+                    f"Player not found in database: {game_name}#{tag_line}. "
+                    f"Please track this player first."
+                )
 
             logger.info(
-                "Player data retrieved successfully",
-                extra={
-                    "game_name": game_name,
-                    "tag_line": tag_line,
-                    "platform": platform,
-                },
+                "Player data retrieved from database",
+                game_name=game_name,
+                tag_line=tag_line,
+                platform=platform,
+                puuid=player.puuid,
             )
 
-            return player_response
+            return PlayerResponse.model_validate(player)
 
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limit hit while fetching player",
-                extra={
-                    "game_name": game_name,
-                    "tag_line": tag_line,
-                    "retry_after": e.retry_after,
-                },
-            )
+        except Exception:
+            # Re-raise original exception to preserve type and context
             raise
-
-        except NotFoundError:
-            # Player not found in Riot API - convert to ValueError for API layer
-            raise ValueError(f"Player not found: {game_name}#{tag_line}")
-
-        except ValueError:
-            # Re-raise validation errors
-            raise
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch player data",
-                extra={
-                    "game_name": game_name,
-                    "tag_line": tag_line,
-                    "platform": platform,
-                    "error": str(e),
-                },
-                exc_info=True,
-            )
-            raise Exception(f"Failed to fetch player data: {str(e)}")
 
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
@@ -171,39 +150,31 @@ class PlayerService:
     async def get_player_by_puuid(
         self, puuid: str, platform: str = "eun1"
     ) -> PlayerResponse:
-        """Get player by PUUID using intelligent data management."""
+        """Get player by PUUID from database only. Never calls Riot API."""
         try:
-            player_response = await self.data_manager.get_player_by_puuid(
-                puuid, platform
+            # Query database only
+            result = await self.db.execute(
+                select(Player).where(Player.puuid == puuid, Player.is_active)
             )
+            player = result.scalar_one_or_none()
 
-            if not player_response:
-                raise ValueError(f"Player not found: {puuid}")
+            if not player:
+                raise ValueError(
+                    f"Player not found in database: {puuid}. "
+                    f"Please track this player first."
+                )
 
             logger.info(
-                "Player data retrieved by PUUID successfully",
+                "Player data retrieved by PUUID from database",
                 puuid=puuid,
                 platform=platform,
             )
 
-            return player_response
+            return PlayerResponse.model_validate(player)
 
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limit hit while fetching player by PUUID",
-                puuid=puuid,
-                retry_after=e.retry_after,
-            )
+        except Exception:
+            # Re-raise original exception to preserve type and context
             raise
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch player data by PUUID",
-                puuid=puuid,
-                platform=platform,
-                error=str(e),
-            )
-            raise Exception(f"Failed to fetch player data: {str(e)}")
 
     async def get_recent_opponents_with_details(
         self, puuid: str, limit: int
@@ -223,52 +194,29 @@ class PlayerService:
         try:
             from ..models.participants import MatchParticipant
 
-            # Subquery to get recent match IDs for this player
-            player_matches_stmt = (
+            # Use a single JOIN query to get opponent player data efficiently (fixes N+1 query problem)
+            # This joins MatchParticipant twice: once to find recent matches, once to find opponents
+            recent_matches_subq = (
                 select(MatchParticipant.match_id)
                 .where(MatchParticipant.puuid == puuid)
                 .order_by(MatchParticipant.id.desc())
                 .limit(limit * 5)  # Get more matches to find enough opponents
-            )
-            player_match_ids = (
-                (await self.db.execute(player_matches_stmt)).scalars().all()
+                .subquery()
             )
 
-            if not player_match_ids:
-                logger.debug("No matches found for player", puuid=puuid)
-                return []
-
-            # Query for opponent PUUIDs from those matches
-            opponents_puuids_stmt = (
-                select(MatchParticipant.puuid)
-                .where(
-                    and_(
-                        MatchParticipant.match_id.in_(player_match_ids),
-                        MatchParticipant.puuid != puuid,
-                    )
-                )
-                .distinct()
-            )
-            opponent_puuids = (
-                (await self.db.execute(opponents_puuids_stmt)).scalars().all()
-            )
-
-            if not opponent_puuids:
-                logger.debug("No opponents found for player", puuid=puuid)
-                return []
-
-            # Fetch full player details from database only
-            # Filter to only players with summoner_name populated (not null and not empty)
             players_stmt = (
                 select(Player)
+                .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
                 .where(
                     and_(
-                        Player.puuid.in_(opponent_puuids),
+                        MatchParticipant.match_id.in_(recent_matches_subq),
+                        MatchParticipant.puuid != puuid,
                         Player.is_active,
                         Player.summoner_name.isnot(None),
                         Player.summoner_name != "",
                     )
                 )
+                .distinct()
                 .limit(limit)
             )
 
@@ -293,76 +241,11 @@ class PlayerService:
             # Return empty list instead of raising to not break the UI
             return []
 
-    async def _update_player(
-        self, puuid: UUID, update_data: PlayerUpdate
-    ) -> Optional[Player]:
-        """Update existing player record."""
-        update_dict = update_data.model_dump(exclude_unset=True)
-        if not update_dict:
-            return None
-
-        update_dict["updated_at"] = datetime.now(timezone.utc)
-        if "last_seen" not in update_dict:
-            update_dict["last_seen"] = datetime.now(timezone.utc)
-
-        stmt = (
-            update(Player)
-            .where(Player.puuid == puuid)
-            .values(**update_dict)
-            .returning(Player)
-        )
-
-        result = await self.db.execute(stmt)
-        await self.db.commit()
-        return result.scalar_one_or_none()
-
-    async def bulk_get_players(self, puuids: List[str]) -> List[PlayerResponse]:
-        """Get multiple players by PUUIDs."""
-        if not puuids:
-            return []
-
-        result = await self.db.execute(
-            select(Player).where(Player.puuid.in_(puuids), Player.is_active)
-        )
-        players = result.scalars().all()
-        return [PlayerResponse.model_validate(player) for player in players]
-
-    async def search_players(
-        self,
-        summoner_name: Optional[str] = None,
-        riot_id: Optional[str] = None,
-        platform: Optional[str] = None,
-        limit: int = 20,
-    ) -> List[PlayerResponse]:
-        """Search players by various criteria."""
-        query = select(Player).where(Player.is_active)
-
-        if summoner_name:
-            query = query.where(Player.summoner_name.ilike(f"%{summoner_name}%"))
-
-        if riot_id:
-            if "#" in riot_id:
-                game_name, tag_line = riot_id.split("#", 1)
-                query = query.where(
-                    Player.riot_id.ilike(f"%{game_name}%"),
-                    Player.tag_line.ilike(f"%{tag_line}%"),
-                )
-            else:
-                query = query.where(Player.riot_id.ilike(f"%{riot_id}%"))
-
-        if platform:
-            query = query.where(Player.platform == platform)
-
-        query = query.limit(limit)
-
-        result = await self.db.execute(query)
-        players = result.scalars().all()
-        return [PlayerResponse.model_validate(player) for player in players]
-
     # === Player Tracking Methods for Automated Jobs ===
 
     async def add_and_track_player(
         self,
+        riot_data_manager,
         game_name: str | None = None,
         tag_line: str | None = None,
         summoner_name: str | None = None,
@@ -373,6 +256,7 @@ class PlayerService:
         Combines get_player + track_player in one transaction.
 
         Args:
+            riot_data_manager: RiotDataManager instance for Riot API calls
             game_name: Riot game name (for Riot ID search)
             tag_line: Riot tag line (for Riot ID search)
             summoner_name: Summoner name (legacy, database-only search)
@@ -394,12 +278,18 @@ class PlayerService:
                 f"Please untrack a player before adding a new one."
             )
 
-        # Fetch player data (this will add to DB if not exists)
+        # Fetch player data from Riot API (this will add to DB if not exists)
         if game_name and tag_line:
-            player_response = await self.get_player_by_riot_id(
+            # Use RiotDataManager to fetch from API
+            player_response = await riot_data_manager.get_player_by_riot_id(
                 game_name, tag_line, platform
             )
+
+            if not player_response:
+                raise ValueError(f"Player not found: {game_name}#{tag_line}")
+
         elif summoner_name:
+            # For summoner name, try database first
             player_response = await self.get_player_by_summoner_name(
                 summoner_name, platform
             )
@@ -668,7 +558,9 @@ class PlayerService:
 
         return players
 
-    async def check_ban_status(self, player: Player) -> bool:
+    async def check_ban_status(
+        self, player: Player, riot_api_client: "RiotAPIClient"
+    ) -> bool:
         """
         Check if a player is banned by attempting to fetch their summoner data.
 
@@ -677,11 +569,12 @@ class PlayerService:
 
         Args:
             player: Player object to check
+            riot_api_client: RiotAPIClient instance (from jobs)
 
         Returns:
             True if player is likely banned, False if player is active
         """
-        from ..riot_api.endpoints import Platform
+        from ..riot_api.constants import Platform
         from ..riot_api.errors import NotFoundError
         from datetime import datetime
 
@@ -689,9 +582,7 @@ class PlayerService:
             platform = Platform(player.platform.lower())
 
             # Attempt to fetch summoner data
-            await self.data_manager.api_client.get_summoner_by_puuid(
-                player.puuid, platform
-            )
+            await riot_api_client.get_summoner_by_puuid(player.puuid, platform)
 
             # Player found = not banned
             player.last_ban_check = datetime.now()
@@ -709,9 +600,13 @@ class PlayerService:
             return True
 
         except ValueError:
-            # Invalid platform
-            logger.warning("Invalid platform for ban check", puuid=player.puuid)
-            return False
+            # Invalid platform - re-raise for proper error handling
+            logger.warning(
+                "Invalid platform for ban check",
+                puuid=player.puuid,
+                platform=player.platform,
+            )
+            raise
 
         except Exception as e:
             # Other errors - log and return False to avoid false positives
@@ -794,7 +689,9 @@ class PlayerService:
 
         return discovered_count
 
-    async def update_player_rank(self, player: Player) -> bool:
+    async def update_player_rank(
+        self, player: Player, riot_api_client: "RiotAPIClient"
+    ) -> bool:
         """Update player's current rank from Riot API.
 
         Fetches the player's ranked league entries and stores their
@@ -802,6 +699,7 @@ class PlayerService:
 
         Args:
             player: Player to update rank for
+            riot_api_client: RiotAPIClient instance (from jobs)
 
         Returns:
             True if rank was updated, False if no rank data found or error occurred
@@ -809,7 +707,7 @@ class PlayerService:
         Raises:
             ValueError: If player has invalid platform
         """
-        from ..riot_api.endpoints import Platform
+        from ..riot_api.constants import Platform
         from ..riot_api.errors import NotFoundError
         from ..models.ranks import PlayerRank
 
@@ -828,10 +726,8 @@ class PlayerService:
 
         try:
             # Fetch rank data from Riot API using PUUID-based endpoint
-            league_entries = (
-                await self.data_manager.api_client.get_league_entries_by_puuid(
-                    player.puuid, platform_enum
-                )
+            league_entries = await riot_api_client.get_league_entries_by_puuid(
+                player.puuid, platform_enum
             )
         except NotFoundError:
             logger.warning("Summoner not found when fetching rank", puuid=player.puuid)

@@ -9,8 +9,9 @@ from sqlalchemy import select, update, func, desc
 
 from ..models.job_tracking import JobConfiguration, JobExecution, JobStatus
 from ..schemas.jobs import (
-    JobConfigurationCreate,
     JobConfigurationUpdate,
+)
+from ..schemas.response_jobs_schema import (
     JobConfigurationResponse,
     JobExecutionResponse,
     JobExecutionListResponse,
@@ -29,51 +30,6 @@ class JobService:
 
     # === Job Configuration CRUD ===
 
-    async def create_job_configuration(
-        self, job_config: JobConfigurationCreate
-    ) -> JobConfigurationResponse:
-        """Create a new job configuration.
-
-        Args:
-            job_config: Job configuration data.
-
-        Returns:
-            Created job configuration.
-
-        Raises:
-            ValueError: If a job with the same name already exists.
-        """
-        # Check if name already exists
-        existing = await self.get_job_configuration_by_name(job_config.name)
-        if existing:
-            raise ValueError(
-                f"Job configuration with name '{job_config.name}' already exists"
-            )
-
-        # Create new job configuration
-        new_job = JobConfiguration(
-            job_type=job_config.job_type,
-            name=job_config.name,
-            schedule=job_config.schedule,
-            is_active=job_config.is_active,
-            config_json=job_config.config_json,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-        )
-
-        self.db.add(new_job)
-        await self.db.commit()
-        await self.db.refresh(new_job)
-
-        logger.info(
-            "Job configuration created",
-            job_id=new_job.id,
-            job_name=new_job.name,
-            job_type=new_job.job_type.value,
-        )
-
-        return JobConfigurationResponse.model_validate(new_job)
-
     async def get_job_configuration(
         self, job_id: int
     ) -> Optional[JobConfigurationResponse]:
@@ -86,25 +42,6 @@ class JobService:
             Job configuration if found, None otherwise.
         """
         query = select(JobConfiguration).where(JobConfiguration.id == job_id)
-        result = await self.db.execute(query)
-        job = result.scalar_one_or_none()
-
-        if job:
-            return JobConfigurationResponse.model_validate(job)
-        return None
-
-    async def get_job_configuration_by_name(
-        self, name: str
-    ) -> Optional[JobConfigurationResponse]:
-        """Get a job configuration by name.
-
-        Args:
-            name: Job configuration name.
-
-        Returns:
-            Job configuration if found, None otherwise.
-        """
-        query = select(JobConfiguration).where(JobConfiguration.name == name)
         result = await self.db.execute(query)
         job = result.scalar_one_or_none()
 
@@ -173,56 +110,7 @@ class JobService:
 
         return None
 
-    async def delete_job_configuration(self, job_id: int) -> bool:
-        """Delete a job configuration (soft delete by setting is_active=False).
-
-        Args:
-            job_id: Job configuration ID.
-
-        Returns:
-            True if deleted, False if not found.
-        """
-        stmt = (
-            update(JobConfiguration)
-            .where(JobConfiguration.id == job_id)
-            .values(is_active=False, updated_at=datetime.now(timezone.utc))
-            .returning(JobConfiguration)
-        )
-
-        result = await self.db.execute(stmt)
-        job = result.scalar_one_or_none()
-
-        if job:
-            await self.db.commit()
-            logger.info(
-                "Job configuration soft deleted",
-                job_id=job_id,
-                job_name=job.name,
-            )
-            return True
-
-        return False
-
     # === Job Execution Operations ===
-
-    async def get_job_execution(
-        self, execution_id: int
-    ) -> Optional[JobExecutionResponse]:
-        """Get a job execution by ID.
-
-        Args:
-            execution_id: Job execution ID.
-
-        Returns:
-            Job execution if found, None otherwise.
-        """
-        query = select(JobExecution).where(JobExecution.id == execution_id)
-        result = await self.db.execute(query)
-        execution = result.scalar_one_or_none()
-
-        if execution:
-            return JobExecutionResponse.model_validate(execution)
-        return None
 
     async def list_job_executions(
         self,

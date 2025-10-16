@@ -15,7 +15,6 @@ from ..models.job_tracking import JobConfiguration
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.data_manager import RiotDataManager
 from ..riot_api.errors import NotFoundError
-from ..riot_api.endpoints import Platform
 from ..config import get_global_settings, get_riot_api_key
 
 logger = structlog.get_logger(__name__)
@@ -269,8 +268,8 @@ class TrackedPlayerUpdaterJob(BaseJob):
             from ..services.players import PlayerService
             from ..services.matches import MatchService
 
-            player_service = PlayerService(db, self.data_manager)
-            match_service = MatchService(db, self.data_manager)
+            player_service = PlayerService(db)
+            match_service = MatchService(db)
 
             # Extract and mark discovered players FIRST (before creating match participants)
             # This ensures players exist before we create foreign key references
@@ -314,10 +313,12 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """
         from ..services.players import PlayerService
 
-        player_service = PlayerService(db, self.data_manager)
+        player_service = PlayerService(db)
 
         try:
-            rank_updated = await player_service.update_player_rank(player)
+            rank_updated = await player_service.update_player_rank(
+                player, self.api_client
+            )
             if rank_updated:
                 await db.commit()
                 self.increment_metric("records_created")
@@ -341,23 +342,6 @@ class TrackedPlayerUpdaterJob(BaseJob):
         self.add_log_entry("matches_processed", summary["matches"])
         self.add_log_entry("players_discovered", summary["discovered"])
 
-    def _convert_platform_string_to_enum(self, player: Player) -> Optional[Platform]:
-        """Convert player's platform string to Platform enum.
-
-        :param player: Player with platform string.
-        :returns: Platform enum, or None if invalid.
-        """
-        from ..schemas.transformers import PlatformConverter
-
-        platform_enum = PlatformConverter.to_enum(player.platform)
-        if platform_enum is None:
-            logger.warning(
-                "Skipping player with invalid platform",
-                puuid=player.puuid,
-                player_platform=player.platform,
-            )
-        return platform_enum
-
     async def _get_existing_match_count(self, db: AsyncSession, player: Player) -> int:
         """Get count of existing matches for a player.
 
@@ -367,7 +351,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """
         from ..services.matches import MatchService
 
-        match_service = MatchService(db, self.data_manager)
+        match_service = MatchService(db)
         return await match_service.count_player_matches(player.puuid)
 
     async def _get_last_match_time(
@@ -381,7 +365,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """
         from ..services.matches import MatchService
 
-        match_service = MatchService(db, self.data_manager)
+        match_service = MatchService(db)
         return await match_service.get_player_last_match_time(player.puuid)
 
     def _calculate_fetch_start_time(
@@ -520,5 +504,5 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """
         from ..services.matches import MatchService
 
-        match_service = MatchService(db, self.data_manager)
+        match_service = MatchService(db)
         return await match_service.filter_existing_matches(match_ids)

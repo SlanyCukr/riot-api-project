@@ -6,13 +6,11 @@ including player analysis, detection history, statistics, and configuration.
 """
 
 from fastapi import APIRouter, HTTPException, Query
-from typing import List
 import structlog
 
 from ..schemas.detection import (
     DetectionResponse,
     DetectionRequest,
-    DetectionStatsResponse,
 )
 from ..api.dependencies import DetectionServiceDep
 
@@ -125,84 +123,3 @@ async def get_latest_detection(
     except Exception as e:
         logger.error("Failed to get latest detection", puuid=puuid, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get detection result")
-
-
-@router.get("/player/{puuid}/history", response_model=List[DetectionResponse])
-async def get_detection_history(
-    puuid: str,
-    detection_service: DetectionServiceDep,
-    limit: int = Query(
-        default=10, ge=1, le=50, description="Number of historical results"
-    ),
-    include_factors: bool = Query(
-        default=True, description="Include detailed factor analysis"
-    ),
-):
-    """
-    Get historical smurf detection results for a player.
-
-    This endpoint returns a history of smurf detection analyses for a player,
-    allowing tracking of detection scores and confidence levels over time.
-
-    Args:
-        puuid: Player PUUID
-        limit: Maximum number of historical results to return
-        include_factors: Whether to include detailed factor analysis
-
-    Returns:
-        list of DetectionResponse objects with historical analysis results
-
-    Raises:
-        HTTPException: If history retrieval fails
-    """
-    try:
-        logger.info("Retrieving detection history", puuid=puuid, limit=limit)
-
-        history = await detection_service.get_detection_history(
-            puuid=puuid, limit=limit, include_factors=include_factors
-        )
-
-        logger.info(
-            "Detection history retrieved", puuid=puuid, results_count=len(history)
-        )
-
-        return history
-
-    except Exception as e:
-        logger.error("Failed to get detection history", puuid=puuid, error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to get detection history")
-
-
-@router.get("/stats", response_model=DetectionStatsResponse)
-async def get_detection_stats(detection_service: DetectionServiceDep):
-    """
-    Get overall smurf detection statistics.
-
-    This endpoint provides statistics about the smurf detection system,
-    including total analyses, detection rates, and confidence distributions.
-
-    Returns:
-        DetectionStatsResponse with system-wide statistics
-
-    Raises:
-        HTTPException: If statistics retrieval fails
-    """
-    try:
-        logger.info("Retrieving detection statistics")
-
-        stats = await detection_service.get_detection_stats()
-
-        logger.info(
-            "Detection statistics retrieved",
-            total_analyses=stats.total_analyses,
-            smurf_count=stats.smurf_count,
-            detection_rate=stats.smurf_detection_rate,
-        )
-
-        return stats
-
-    except Exception as e:
-        logger.error("Failed to get detection stats", error=str(e))
-        raise HTTPException(
-            status_code=500, detail="Failed to get detection statistics"
-        )

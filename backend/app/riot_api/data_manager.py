@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import insert
 from .client import RiotAPIClient
 from .errors import RateLimitError, NotFoundError
 from .models import MatchDTO
-from .endpoints import Platform, Region
+from .constants import Platform, Region
 from ..models.players import Player
 from ..models.matches import Match
 from ..schemas.players import PlayerResponse, PlayerCreate

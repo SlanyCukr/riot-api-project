@@ -72,7 +72,6 @@ jobs:
           MAX_TRACKED_PLAYERS=10
 
           # Application Configuration
-          DEBUG=false
           LOG_LEVEL=INFO
 
           # Frontend Configuration

@@ -7,50 +7,8 @@ to formats suitable for database storage, validation, and processing.
 from typing import Any, Dict, List, Optional
 import structlog
 
-from ..riot_api.endpoints import Platform
 
 logger = structlog.get_logger(__name__)
-
-
-class PlatformConverter:
-    """Utility for converting platform strings to Platform enum."""
-
-    @staticmethod
-    def to_enum(platform_str: str) -> Optional[Platform]:
-        """Convert platform string to Platform enum.
-
-        Args:
-            platform_str: Platform string (e.g., 'EUN1', 'euw1', 'NA1')
-
-        Returns:
-            Platform enum value, or None if invalid
-
-        Example:
-            >>> PlatformConverter.to_enum('EUN1')
-            <Platform.EUN1: 'eun1'>
-            >>> PlatformConverter.to_enum('invalid')
-            None
-        """
-        try:
-            return Platform(platform_str.lower())
-        except ValueError:
-            logger.warning(
-                "Invalid platform string",
-                platform_str=platform_str,
-            )
-            return None
-
-    @staticmethod
-    def validate(platform_str: str) -> bool:
-        """Check if platform string is valid.
-
-        Args:
-            platform_str: Platform string to validate
-
-        Returns:
-            True if valid platform, False otherwise
-        """
-        return PlatformConverter.to_enum(platform_str) is not None
 
 
 class MatchDTOTransformer:

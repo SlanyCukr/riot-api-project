@@ -65,20 +65,3 @@ class PlayerListResponse(BaseModel):
     pages: int
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class PlayerBulkRequest(BaseModel):
-    """Schema for bulk player operations."""
-
-    puuids: list[str] = Field(
-        ..., min_length=1, max_length=100, description="List of player PUUIDs"
-    )
-
-
-class PlayerBulkResponse(BaseModel):
-    """Schema for bulk player operations response."""
-
-    players: list[PlayerResponse]
-    not_found: list[str]
-
-    model_config = ConfigDict(from_attributes=True)

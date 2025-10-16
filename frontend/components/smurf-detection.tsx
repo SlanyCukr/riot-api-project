@@ -1,18 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  DetectionResponseSchema,
-  DetectionExistsResponseSchema,
-  type DetectionResponse,
-  type DetectionRequest,
-} from "@/lib/schemas";
-import { validatedPost, validatedGet } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Activity,
   AlertTriangle,
@@ -21,13 +10,25 @@ import {
   Clock,
   RefreshCw,
 } from "lucide-react";
+
+import {
+  DetectionResponseSchema,
+  DetectionExistsResponseSchema,
+  type DetectionResponse,
+  type DetectionRequest,
+} from "@/lib/schemas";
+import { validatedPost, validatedGet } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SmurfDetectionProps {
   puuid: string;
 }
 
-// Helper function to format timestamp
 function formatTimeAgo(dateString: string): {
   text: string;
   isOld: boolean;
@@ -50,7 +51,6 @@ function formatTimeAgo(dateString: string): {
     text = `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
   }
 
-  // Consider data old if > 24 hours
   const isOld = diffHours > 24;
 
   return { text, isOld };
@@ -60,7 +60,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
   const [detection, setDetection] = useState<DetectionResponse | null>(null);
   const [showingCached, setShowingCached] = useState(false);
 
-  // Fetch latest detection result (cached)
   const { data: latestDetection, isLoading: isLoadingLatest } = useQuery({
     queryKey: ["latest-detection", puuid],
     queryFn: async () => {
@@ -69,7 +68,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
         `/detection/player/${puuid}/latest`,
       );
       if (!result.success) {
-        // 404 is expected if no analysis exists
         if (result.error.status === 404) {
           return null;
         }
@@ -80,7 +78,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     retry: false,
   });
 
-  // Check if analysis exists
   const { data: existsCheck } = useQuery({
     queryKey: ["detection-exists", puuid],
     queryFn: async () => {
@@ -96,14 +93,12 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     retry: false,
   });
 
-  // Set detection from cache when loaded - using derivation instead of effect
-  if (latestDetection && !detection) {
-    // Set the detection outside of render - this is safe because it only happens once
-    setTimeout(() => {
+  useEffect(() => {
+    if (latestDetection && !detection) {
       setDetection(latestDetection);
       setShowingCached(true);
-    }, 0);
-  }
+    }
+  }, [latestDetection, detection]);
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
@@ -122,19 +117,17 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     onSuccess: (result) => {
       if (result.success) {
         setDetection(result.data);
-        setShowingCached(false); // Now showing fresh data
+        setShowingCached(false);
       }
     },
   });
 
-  // Determine button text and state
-  const getButtonText = () => {
+  const buttonText = () => {
     if (isPending) return "Analyzing...";
     if (existsCheck?.exists) return "Update Analysis";
     return "Run Analysis";
   };
 
-  // Get timestamp info if available
   const timestampInfo =
     existsCheck?.exists && existsCheck.last_analysis
       ? formatTimeAgo(existsCheck.last_analysis)
@@ -162,7 +155,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     return "text-muted-foreground";
   };
 
-  // Show loading state only if we're fetching and have no cached data
   const isInitialLoading = isLoadingLatest && !detection;
 
   return (
@@ -180,7 +172,19 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
           </div>
         ) : !detection ? (
           <div className="space-y-4">
-            <div className="text-center py-8">
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-2">
+                  Smurf detection requires at least 30 ranked matches
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  If this player was recently tracked, matches are still being
+                  fetched in the background. Please check back in a few minutes.
+                </p>
+              </AlertDescription>
+            </Alert>
+            <div className="text-center py-4">
               <Button
                 onClick={() => mutate()}
                 disabled={isPending}
@@ -192,7 +196,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
                     Analyzing...
                   </>
                 ) : (
-                  getButtonText()
+                  buttonText()
                 )}
               </Button>
             </div>
@@ -209,7 +213,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Timestamp and Cache Indicator */}
             {showingCached && timestampInfo && (
               <Alert
                 className={cn(
@@ -233,7 +236,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               </Alert>
             )}
 
-            {/* Detection Result Header */}
             <div
               className={cn(
                 "flex items-center justify-between rounded-lg border-2 p-4",
@@ -276,7 +278,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               </div>
             </div>
 
-            {/* Detection Factors */}
             <div>
               <h4 className="mb-3 font-medium">Detection Factors:</h4>
               <div className="space-y-2">
@@ -316,7 +317,6 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               </div>
             </div>
 
-            {/* Sample Info */}
             <Alert>
               <AlertDescription className="text-sm">
                 Based on {detection.sample_size} recent matches
@@ -342,7 +342,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               ) : (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  {getButtonText()}
+                  {buttonText()}
                 </>
               )}
             </Button>

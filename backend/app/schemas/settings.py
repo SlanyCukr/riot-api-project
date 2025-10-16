@@ -6,21 +6,6 @@ from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 
-class SettingBase(BaseModel):
-    """Base setting schema."""
-
-    key: str = Field(..., description="Setting key")
-    value: str = Field(..., description="Setting value")
-    category: str = Field(..., description="Setting category")
-    is_sensitive: bool = Field(False, description="Whether value should be masked")
-
-
-class SettingCreate(SettingBase):
-    """Schema for creating a new setting."""
-
-    pass
-
-
 class SettingUpdate(BaseModel):
     """Schema for updating a setting value."""
 

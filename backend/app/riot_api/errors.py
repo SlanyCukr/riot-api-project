@@ -164,22 +164,3 @@ class BadRequestError(RiotAPIError):
         base_dict = super().to_dict()
         base_dict["error"] = "BadRequestError"
         return base_dict
-
-
-class CircuitBreakerOpenError(RiotAPIError):
-    """Exception raised when circuit breaker is open."""
-
-    def __init__(self, message: str = "Circuit breaker is open") -> None:
-        """Initialize CircuitBreakerOpenError."""
-        super().__init__(message=message)
-        self.status_code = None  # This is a client-side error
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"CircuitBreakerOpenError: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "CircuitBreakerOpenError"
-        return base_dict

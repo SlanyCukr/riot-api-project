@@ -12,7 +12,7 @@
 #   ./scripts/dev.sh [OPTIONS] [SERVICE...]
 #
 # Options:
-#   --build        Force rebuild of containers
+#   --build        Force rebuild of containers (uses Docker Bake)
 #   --down         Stop all services first
 #   --clean        Run docker-cleanup.sh before starting
 #   --reset-db     Wipe database and recreate from SQLAlchemy models (WARNING: deletes all data)
@@ -42,6 +42,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.yml"
 COMPOSE_OVERRIDE="$PROJECT_ROOT/docker/docker-compose.override.yml"
+
 
 # Docker compose command helper with both base and override files
 docker_compose_cmd() {
@@ -122,9 +123,23 @@ fi
 
 # Build if requested
 if [ "$FORCE_BUILD" = true ]; then
-    echo -e "${YELLOW}🔨 Building containers...${NC}"
     cd "$PROJECT_ROOT"
-    docker_compose_cmd build "${SERVICES[@]}"
+
+    echo -e "${YELLOW}🔨 Building containers with Docker Bake (parallel build)...${NC}"
+
+    # Export environment variables for Bake
+    export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
+    export TAG="dev"
+
+    # Build with Bake using dev group
+    if [ ${#SERVICES[@]} -eq 0 ]; then
+        docker buildx bake -f docker/docker-bake.hcl dev --load
+    else
+        # Build specific services
+        for service in "${SERVICES[@]}"; do
+            docker buildx bake -f docker/docker-bake.hcl "${service}-dev" --load
+        done
+    fi
     echo ""
 fi
 

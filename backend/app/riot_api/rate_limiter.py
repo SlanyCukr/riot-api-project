@@ -2,14 +2,19 @@
 
 import asyncio
 import time
-import random
 from collections import deque
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 import structlog
 
 from .endpoints import parse_rate_limit_header, parse_rate_count_header, RateLimitInfo
 
 logger = structlog.get_logger(__name__)
+
+
+class RateLimitExceededError(Exception):
+    """Raised when rate limit is exceeded and circuit breaker is open."""
+
+    pass
 
 
 class RateLimitTracker:
@@ -23,17 +28,24 @@ class RateLimitTracker:
             requests: Maximum requests allowed
             window: Time window in seconds
         """
+        if requests <= 0 or window <= 0:
+            raise ValueError(
+                f"Invalid rate limit: requests={requests}, window={window}"
+            )
+
         self.requests = requests
         self.window = window
         self.timestamps: deque[float] = deque()
 
-    def can_make_request(self, now: float) -> bool:
-        """Check if a request can be made."""
-        # Remove expired timestamps
+    def _cleanup_expired_timestamps(self, now: float) -> None:
+        """Clean up expired timestamps."""
         cutoff = now - self.window
         while self.timestamps and self.timestamps[0] < cutoff:
             self.timestamps.popleft()
 
+    def can_make_request(self, now: float) -> bool:
+        """Check if a request can be made."""
+        self._cleanup_expired_timestamps(now)
         return len(self.timestamps) < self.requests
 
     def record_request(self, now: float) -> None:
@@ -139,9 +151,6 @@ class RateLimiter:
 
         # Retry configuration
         self.max_retries = 3
-        self.base_backoff = 1.0
-        self.max_backoff = 60.0
-        self.jitter_factor = 0.1
 
         # Lock for thread safety
         self.lock = asyncio.Lock()
@@ -164,6 +173,9 @@ class RateLimiter:
         Args:
             endpoint: API endpoint being called
             method: HTTP method being used
+
+        Raises:
+            RateLimitExceededError: If a circuit breaker is open
         """
         async with self.lock:
             now = time.time()
@@ -171,18 +183,14 @@ class RateLimiter:
             # Check circuit breakers
             for circuit_name, breaker in self.circuit_breakers.items():
                 if not await breaker.before_request():
-                    raise Exception(f"Circuit breaker '{circuit_name}' is open")
+                    raise RateLimitExceededError(
+                        f"Circuit breaker '{circuit_name}' is open"
+                    )
 
             # Check app-level limits
             for limit_name, limiter in self.app_limiters.items():
                 if not limiter.can_make_request(now):
                     wait_time = limiter.get_wait_time(now)
-                    logger.warning(
-                        "App rate limit exceeded, waiting",
-                        limit_name=limit_name,
-                        wait_time=wait_time,
-                        current_usage=limiter.get_current_usage(now),
-                    )
                     await asyncio.sleep(wait_time)
                     now = time.time()  # Update time after sleep
 
@@ -192,12 +200,6 @@ class RateLimiter:
                 method_limiter = self.method_limiters[endpoint_key]
                 if not method_limiter.can_make_request(now):
                     wait_time = method_limiter.get_wait_time(now)
-                    logger.warning(
-                        "Method rate limit exceeded, waiting",
-                        endpoint_key=endpoint_key,
-                        wait_time=wait_time,
-                        current_usage=method_limiter.get_current_usage(now),
-                    )
                     await asyncio.sleep(wait_time)
                     now = time.time()  # Update time after sleep
 
@@ -294,129 +296,15 @@ class RateLimiter:
 
             # Update counts if available
             if i < len(counts):
-                count = counts[i]["requests"]
                 # This is a simplified approach - in production you'd want
                 # to track actual usage more precisely
-                logger.debug(
-                    "Rate limit usage",
-                    key=key,
-                    count=count,
-                    limit=requests,
-                    window=window,
-                )
-
-    async def handle_429(self, headers: Dict[str, str], endpoint: str) -> float:
-        """
-        Handle 429 rate limit response.
-
-        Args:
-            headers: Response headers
-            endpoint: API endpoint that was rate limited
-
-        Returns:
-            Time to wait before retrying
-        """
-        # Use Retry-After header if available
-        retry_after = headers.get("Retry-After", "1")
-        try:
-            wait_time = float(retry_after)
-        except ValueError:
-            wait_time = 1.0
-
-        # Trigger circuit breaker
-        await self.circuit_breakers["429"].on_failure()
-
-        logger.warning(
-            "Rate limit hit, waiting",
-            endpoint=endpoint,
-            wait_time=wait_time,
-            retry_after=retry_after,
-        )
-
-        return wait_time
-
-    async def calculate_backoff(
-        self, attempt: int, base_delay: Optional[float] = None
-    ) -> float:
-        """
-        Calculate exponential backoff with jitter.
-
-        Args:
-            attempt: Retry attempt number (0-based)
-            base_delay: Base delay time (uses configured default if None)
-
-        Returns:
-            Time to wait in seconds
-        """
-        if base_delay is None:
-            base_delay = self.base_backoff
-
-        # Exponential backoff: base_delay * (2 ^ attempt)
-        backoff = min(base_delay * (2**attempt), self.max_backoff)
-
-        # Add jitter to prevent thundering herd
-        jitter = backoff * self.jitter_factor * (random.random() * 2 - 1)
-        total_backoff = max(0, backoff + jitter)
-        total_backoff = min(total_backoff, self.max_backoff)
-
-        logger.debug(
-            "Calculated backoff",
-            attempt=attempt,
-            base_delay=base_delay,
-            backoff=backoff,
-            jitter=jitter,
-            total_backoff=total_backoff,
-        )
-
-        return total_backoff
+                pass
 
     async def record_success(self, endpoint: str, method: str = "GET") -> None:
         """Record a successful request."""
-        endpoint_key = self._get_endpoint_key(endpoint, method)
-
         # Reset circuit breakers on success
         for breaker in self.circuit_breakers.values():
             await breaker.on_success()
-
-        logger.debug("Request successful", endpoint=endpoint_key)
-
-    async def record_failure(
-        self,
-        endpoint: str,
-        method: str = "GET",
-        status_code: Optional[int] = None,
-        error_type: Optional[str] = None,
-    ) -> None:
-        """
-        Record a failed request.
-
-        Args:
-            endpoint: API endpoint that failed
-            method: HTTP method used
-            status_code: HTTP status code if available
-            error_type: Type of error if available
-        """
-        endpoint_key = self._get_endpoint_key(endpoint, method)
-
-        # Determine circuit breaker to trigger
-        circuit_key = "general"
-        if status_code == 429:
-            circuit_key = "429"
-        elif status_code and status_code >= 500:
-            circuit_key = "5xx"
-        elif error_type == "timeout":
-            circuit_key = "timeout"
-
-        if circuit_key in self.circuit_breakers:
-            await self.circuit_breakers[circuit_key].on_failure()
-
-        logger.warning(
-            "Request failed",
-            endpoint=endpoint_key,
-            status_code=status_code,
-            error_type=error_type,
-            circuit_key=circuit_key,
-        )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get rate limiter statistics."""
@@ -469,21 +357,3 @@ class RateLimiter:
             }
 
         return stats
-
-    async def reset(self) -> None:
-        """Reset all rate limiter state."""
-        async with self.lock:
-            self.app_limiters.clear()
-            self.method_limiters.clear()
-            self.last_request_time.clear()
-
-            # Reset circuit breakers
-            for breaker in self.circuit_breakers.values():
-                breaker.failure_count = 0
-                breaker.last_failure_time = 0
-                breaker.state = "closed"
-
-            # Reinitialize default limits
-            self._initialize_default_limits()
-
-        logger.info("Rate limiter reset")

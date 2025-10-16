@@ -1,6 +1,5 @@
 """Pydantic schemas for PlayerRank model."""
 
-import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -21,23 +20,6 @@ class Tier(str, Enum):
     MASTER = "MASTER"
     GRANDMASTER = "GRANDMASTER"
     CHALLENGER = "CHALLENGER"
-
-
-class Division(str, Enum):
-    """League of Legends rank divisions."""
-
-    I = "I"  # noqa: E741
-    II = "II"
-    III = "III"
-    IV = "IV"
-
-
-class QueueType(str, Enum):
-    """League of Legends queue types."""
-
-    RANKED_SOLO_5x5 = "RANKED_SOLO_5x5"
-    RANKED_FLEX_5x5 = "RANKED_FLEX_SR"
-    RANKED_FLEX_3x3 = "RANKED_FLEX_TT"
 
 
 class PlayerRankBase(BaseModel):
@@ -109,62 +91,5 @@ class PlayerRankResponse(PlayerRankBase):
     win_rate: float = Field(..., description="Win rate as a percentage")
     total_games: int = Field(..., description="Total number of games played")
     display_rank: str = Field(..., description="Display rank (e.g., 'Gold II')")
-    display_lp: str = Field(..., description="Display LP (e.g., '75 LP')")
-    is_high_tier: bool = Field(..., description="Whether this is a high tier rank")
-    is_diamond_plus: bool = Field(..., description="Whether this is diamond or above")
-    is_platinum_plus: bool = Field(..., description="Whether this is platinum or above")
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PlayerRankListResponse(BaseModel):
-    """Schema for paginated PlayerRank list response."""
-
-    ranks: list[PlayerRankResponse]
-    total: int
-    page: int
-    size: int
-    pages: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PlayerRankSearchRequest(BaseModel):
-    """Schema for player rank search requests."""
-
-    puuid: Optional[uuid.UUID] = Field(None, description="Filter by player PUUID")
-    queue_type: Optional[str] = Field(
-        None, max_length=32, description="Filter by queue type"
-    )
-    tier: Optional[str] = Field(None, max_length=16, description="Filter by tier")
-    rank: Optional[str] = Field(None, max_length=4, description="Filter by rank")
-    is_current: Optional[bool] = Field(None, description="Filter by current ranks")
-    min_league_points: Optional[int] = Field(
-        None, ge=0, le=100, description="Minimum league points"
-    )
-    page: int = Field(1, ge=1, description="Page number")
-    size: int = Field(20, ge=1, le=100, description="Page size")
-
-
-class RankDistributionResponse(BaseModel):
-    """Schema for rank distribution response."""
-
-    tier: str
-    rank: Optional[str]
-    count: int
-    percentage: float
-    average_league_points: float
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class PlayerRankHistoryResponse(BaseModel):
-    """Schema for player rank history response."""
-
-    puuid: uuid.UUID
-    queue_type: str
-    history: list[PlayerRankResponse]
-    current_rank: Optional[PlayerRankResponse]
-    peak_rank: Optional[PlayerRankResponse]
 
     model_config = ConfigDict(from_attributes=True)

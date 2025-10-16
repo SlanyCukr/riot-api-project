@@ -128,17 +128,6 @@ class Player(Base):
         comment="Encrypted summoner ID (used for some Riot API endpoints)",
     )
 
-    # Relationships
-    match_participations = relationship(
-        "MatchParticipant", back_populates="player", cascade="all, delete-orphan"
-    )
-    ranks = relationship(
-        "PlayerRank", back_populates="player", cascade="all, delete-orphan"
-    )
-    smurf_detections = relationship(
-        "SmurfDetection", back_populates="player", cascade="all, delete-orphan"
-    )
-
     def __repr__(self) -> str:
         """Return string representation of the player."""
         return f"<Player(puuid='{self.puuid}', summoner_name='{self.summoner_name}', platform='{self.platform}')>"
@@ -165,12 +154,17 @@ class Player(Base):
             "summoner_id": self.summoner_id,
         }
 
-    @property
-    def full_riot_id(self) -> Optional[str]:
-        """Get the full Riot ID (gameName#tagLine)."""
-        if self.riot_id and self.tag_line:
-            return f"{self.riot_id}#{self.tag_line}"
-        return None
+    # Database-only relationships - used by SQLAlchemy ORM but not directly referenced in Python code
+    # These relationships enable database queries and cascade operations
+    match_participations = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
+        "MatchParticipant", back_populates="player", cascade="all, delete-orphan"
+    )
+    smurf_detections = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
+        "SmurfDetection", back_populates="player", cascade="all, delete-orphan"
+    )
+    ranks = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
+        "PlayerRank", back_populates="player", cascade="all, delete-orphan"
+    )
 
 
 # Create composite indexes for common queries

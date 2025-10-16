@@ -23,8 +23,6 @@ class Settings(BaseSettings):
     riot_platform: str = Field(default="eun1")
 
     # Database Configuration
-    postgres_db: str = Field(default="riot_api_db")
-    postgres_user: str = Field(default="riot_api_user")
     postgres_password: str = Field(default="dev_password")
     database_url: str = Field(
         default="postgresql+asyncpg://riot_api_user:dev_password@localhost/riot_api_db"
@@ -33,9 +31,6 @@ class Settings(BaseSettings):
     # Application Configuration
     debug: bool = Field(default=False)
     log_level: str = Field(default="INFO")
-
-    # Frontend Configuration
-    api_url: str = Field(default="http://localhost:8000")
 
     # CORS Configuration
     cors_origins: str = Field(default="http://localhost:3000,http://127.0.0.1:3000")
@@ -86,54 +81,6 @@ def get_global_settings() -> Settings:
     return settings
 
 
-async def get_setting_from_db(key: str) -> Optional[str]:
-    """
-    Get a setting value from the database.
-
-    This function checks the database for runtime configuration overrides.
-    Falls back to environment variables if not found in database.
-
-    Always queries the database to ensure fresh values (no caching).
-    Database queries are fast enough that caching adds unnecessary complexity.
-
-    Note: This creates a new database engine/session. For use in contexts where
-    no session exists (e.g., API endpoints). For jobs, prefer passing the session
-    directly to get_riot_api_key(db) instead.
-    """
-    from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-
-    engine = None
-
-    try:
-        # Import here to avoid circular dependency
-        from .models.settings import SystemSetting
-
-        # Get database URL from environment
-        settings = get_global_settings()
-        engine = create_async_engine(settings.database_url, echo=False)
-        async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
-
-        async with async_session_maker() as session:
-            stmt = select(SystemSetting).where(SystemSetting.key == key)
-            result = await session.execute(stmt)
-            setting = result.scalar_one_or_none()
-
-            if setting:
-                return setting.value
-
-        return None
-
-    except Exception:
-        # If anything fails (table doesn't exist, etc.), return None
-        # This allows the app to work even if database isn't set up yet
-        return None
-    finally:
-        # Always dispose of the engine to prevent connection leaks
-        if engine is not None:
-            await engine.dispose()
-
-
 async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
     """
     Get the Riot API key from database or environment.
@@ -150,6 +97,7 @@ async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
     if db is not None:
         try:
             from sqlalchemy import select
+            from sqlalchemy.exc import SQLAlchemyError, DatabaseError
             from .models.settings import SystemSetting
 
             stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
@@ -158,9 +106,8 @@ async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
 
             if setting:
                 return setting.value
-        except Exception:  # nosec B110
-            # If database query fails, fall back to environment variable
-            # Intentionally catching all exceptions to ensure graceful degradation
+        except (DatabaseError, SQLAlchemyError):
+            # Database error - fall back to environment variable
             pass
 
     settings = get_global_settings()

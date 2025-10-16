@@ -52,6 +52,5 @@ Key variables consumed by the backend service:
 
 - `RIOT_API_KEY`
 - `DATABASE_URL`
-- `DEBUG`
 - `LOG_LEVEL`
 - `CORS_ORIGINS`

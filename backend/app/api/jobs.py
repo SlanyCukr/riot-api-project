@@ -8,10 +8,10 @@ from ..database import get_db
 from ..services.jobs import JobService
 from ..models.job_tracking import JobStatus
 from ..schemas.jobs import (
-    JobConfigurationCreate,
     JobConfigurationUpdate,
+)
+from ..schemas.response_jobs_schema import (
     JobConfigurationResponse,
-    JobExecutionResponse,
     JobExecutionListResponse,
     JobStatusResponse,
     JobTriggerResponse,
@@ -57,81 +57,6 @@ async def list_job_configurations(
         )
 
 
-@router.get("/{job_id}", response_model=JobConfigurationResponse)
-async def get_job_configuration(
-    job_id: int,
-    job_service: JobService = Depends(get_job_service),
-):
-    """
-    Get a specific job configuration by ID.
-
-    Args:
-        job_id: Job configuration ID.
-
-    Returns:
-        Job configuration details.
-
-    Raises:
-        404: Job configuration not found.
-    """
-    try:
-        job = await job_service.get_job_configuration(job_id)
-        if not job:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job configuration with ID {job_id} not found",
-            )
-        return job
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            "Failed to get job configuration",
-            job_id=job_id,
-            error=str(e),
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve job configuration: {str(e)}",
-        )
-
-
-@router.post("/", response_model=JobConfigurationResponse, status_code=201)
-async def create_job_configuration(
-    job_config: JobConfigurationCreate,
-    job_service: JobService = Depends(get_job_service),
-):
-    """
-    Create a new job configuration.
-
-    Args:
-        job_config: Job configuration data.
-
-    Returns:
-        Created job configuration.
-
-    Raises:
-        400: Job with the same name already exists.
-    """
-    try:
-        job = await job_service.create_job_configuration(job_config)
-        return job
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(
-            "Failed to create job configuration",
-            job_name=job_config.name,
-            error=str(e),
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create job configuration: {str(e)}",
-        )
-
-
 @router.put("/{job_id}", response_model=JobConfigurationResponse)
 async def update_job_configuration(
     job_id: int,
@@ -171,46 +96,6 @@ async def update_job_configuration(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update job configuration: {str(e)}",
-        )
-
-
-@router.delete("/{job_id}", status_code=204)
-async def delete_job_configuration(
-    job_id: int,
-    job_service: JobService = Depends(get_job_service),
-):
-    """
-    Delete (soft delete) a job configuration.
-
-    This sets is_active=False on the job configuration, preventing it
-    from being scheduled but preserving the configuration and execution history.
-
-    Args:
-        job_id: Job configuration ID.
-
-    Raises:
-        404: Job configuration not found.
-    """
-    try:
-        deleted = await job_service.delete_job_configuration(job_id)
-        if not deleted:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job configuration with ID {job_id} not found",
-            )
-        return None
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            "Failed to delete job configuration",
-            job_id=job_id,
-            error=str(e),
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete job configuration: {str(e)}",
         )
 
 
@@ -288,46 +173,6 @@ async def list_all_executions(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve job executions: {str(e)}",
-        )
-
-
-@router.get("/executions/{execution_id}", response_model=JobExecutionResponse)
-async def get_job_execution(
-    execution_id: int,
-    job_service: JobService = Depends(get_job_service),
-):
-    """
-    Get details of a specific job execution.
-
-    Args:
-        execution_id: Job execution ID.
-
-    Returns:
-        Job execution details.
-
-    Raises:
-        404: Job execution not found.
-    """
-    try:
-        execution = await job_service.get_job_execution(execution_id)
-        if not execution:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job execution with ID {execution_id} not found",
-            )
-        return execution
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            "Failed to get job execution",
-            execution_id=execution_id,
-            error=str(e),
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve job execution: {str(e)}",
         )
 
 

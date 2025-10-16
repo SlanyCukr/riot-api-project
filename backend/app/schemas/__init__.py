@@ -10,6 +10,8 @@ from .players import (
 from .matches import (
     MatchCreate,
     MatchUpdate,
+)
+from .response_matches_schema import (
     MatchResponse,
     MatchListResponse,
 )
@@ -25,12 +27,13 @@ from .ranks import (
     PlayerRankCreate,
     PlayerRankUpdate,
     PlayerRankResponse,
-    PlayerRankListResponse,
 )
 
 from .jobs import (
     JobConfigurationCreate,
     JobConfigurationUpdate,
+)
+from .response_jobs_schema import (
     JobConfigurationResponse,
     JobExecutionResponse,
     JobExecutionListResponse,
@@ -58,7 +61,6 @@ __all__ = [
     "PlayerRankCreate",
     "PlayerRankUpdate",
     "PlayerRankResponse",
-    "PlayerRankListResponse",
     # Job schemas
     "JobConfigurationCreate",
     "JobConfigurationUpdate",

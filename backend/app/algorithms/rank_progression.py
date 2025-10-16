@@ -22,7 +22,6 @@ class RankProgressionResult:
 
     current_tier: str
     current_rank: Optional[str]
-    current_lp: int
     peak_tier: str
     peak_rank: Optional[str]
     progression_speed: float
@@ -86,7 +85,6 @@ class RankProgressionAnalyzer:
             return RankProgressionResult(
                 current_tier="UNRANKED",
                 current_rank=None,
-                current_lp=0,
                 peak_tier="UNRANKED",
                 peak_rank=None,
                 progression_speed=0.0,
@@ -128,7 +126,6 @@ class RankProgressionAnalyzer:
         return RankProgressionResult(
             current_tier=current_rank.tier,
             current_rank=current_rank.rank,
-            current_lp=current_rank.league_points,
             peak_tier=peak_rank.tier,
             peak_rank=peak_rank.rank,
             progression_speed=progression_speed,

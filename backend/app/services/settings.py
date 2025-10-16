@@ -13,7 +13,7 @@ from ..schemas.settings import (
     SettingTestResponse,
 )
 from ..riot_api.client import RiotAPIClient
-from ..riot_api.endpoints import Platform, Region
+from ..riot_api.constants import Platform, Region
 from ..riot_api.errors import AuthenticationError, ForbiddenError, NotFoundError
 
 logger = structlog.get_logger(__name__)

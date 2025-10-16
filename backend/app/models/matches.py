@@ -156,34 +156,6 @@ class Match(Base):
             "processing_error": self.processing_error,
         }
 
-    @property
-    def game_start_datetime(self) -> Optional[datetime]:
-        """Get game creation as a datetime object."""
-        if self.game_creation:
-            return datetime.fromtimestamp(self.game_creation / 1000)
-        return None
-
-    @property
-    def game_end_datetime(self) -> Optional[datetime]:
-        """Get game end as a datetime object."""
-        if self.game_end_timestamp:
-            return datetime.fromtimestamp(self.game_end_timestamp / 1000)
-        elif self.game_creation and self.game_duration:
-            return datetime.fromtimestamp(
-                (self.game_creation + self.game_duration * 1000) / 1000
-            )
-        return None
-
-    @property
-    def patch_version(self) -> Optional[str]:
-        """Extract patch version from game version."""
-        if self.game_version:
-            # Game version format: "14.20.555.5555" -> extract "14.20"
-            version_parts = self.game_version.split(".")
-            if len(version_parts) >= 2:
-                return f"{version_parts[0]}.{version_parts[1]}"
-        return None
-
 
 # Create indexes for common queries
 Index("idx_matches_platform_creation", Match.platform_id, Match.game_creation)
@@ -193,3 +165,8 @@ Index("idx_matches_queue_creation", Match.queue_id, Match.game_creation)
 Index("idx_matches_version_creation", Match.game_version, Match.game_creation)
 
 Index("idx_matches_processed_error", Match.is_processed, Match.processing_error)
+
+# Additional performance indexes for common query patterns
+Index("idx_matches_creation_queue", Match.game_creation, Match.queue_id)
+
+Index("idx_matches_processed_creation", Match.is_processed, Match.game_creation)

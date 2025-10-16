@@ -23,6 +23,7 @@ class SystemSetting(Base):
     key: Mapped[str] = mapped_column(
         String(128),
         primary_key=True,
+        index=True,
         comment="Setting key (e.g., 'riot_api_key')",
     )
 
@@ -65,7 +66,8 @@ class SystemSetting(Base):
 
     def __repr__(self) -> str:
         """Return string representation of the setting."""
-        value_display = "***" if self.is_sensitive else self.value
+        # Always mask values in __repr__ to prevent accidental exposure in logs
+        value_display = "***"
         return f"<SystemSetting(key='{self.key}', category='{self.category}', value='{value_display}')>"
 
     def mask_value(self) -> str:

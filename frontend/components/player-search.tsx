@@ -1,13 +1,19 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { Search, User, AlertCircle, UserPlus } from "lucide-react";
+
 import { Player, PlayerSchema } from "@/lib/schemas";
 import { playerSearchSchema, type PlayerSearchForm } from "@/lib/validations";
-import { validatedGet } from "@/lib/api";
+import { validatedGet, addTrackedPlayer } from "@/lib/api";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -15,9 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, User, AlertCircle } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -32,6 +35,10 @@ interface PlayerSearchProps {
 }
 
 export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
+  const [showTrackOption, setShowTrackOption] = useState(false);
+  const [lastSearchParams, setLastSearchParams] =
+    useState<PlayerSearchForm | null>(null);
+
   const form = useForm<PlayerSearchForm>({
     resolver: zodResolver(playerSearchSchema),
     defaultValues: {
@@ -46,6 +53,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async (data: PlayerSearchForm) => {
+      setLastSearchParams(data);
       const params = {
         [data.searchType]: data.searchValue.trim(),
         platform: data.platform,
@@ -57,9 +65,15 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       );
 
       if (!result.success) {
+        // Check if it's a 404 (player not in database)
+        if (result.error.status === 404) {
+          setShowTrackOption(true);
+          throw new Error("PLAYER_NOT_FOUND");
+        }
         throw new Error(result.error.message);
       }
 
+      setShowTrackOption(false);
       return result.data;
     },
     onSuccess: (player) => {
@@ -72,9 +86,49 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
     },
   });
 
-  const onSubmit = (data: PlayerSearchForm) => {
-    mutate(data);
-  };
+  const trackMutation = useMutation({
+    mutationFn: async (): Promise<Player | null> => {
+      if (!lastSearchParams) return null;
+
+      const params: {
+        platform: string;
+        riot_id?: string;
+        summoner_name?: string;
+      } = {
+        platform: lastSearchParams.platform,
+      };
+
+      if (lastSearchParams.searchType === "riot_id") {
+        params.riot_id = lastSearchParams.searchValue.trim();
+      } else {
+        params.summoner_name = lastSearchParams.searchValue.trim();
+      }
+
+      const result = await addTrackedPlayer(params);
+      if (!result.success) {
+        throw new Error(result.error.message);
+      }
+      return result.data as Player;
+    },
+    onSuccess: (player) => {
+      if (player) {
+        setShowTrackOption(false);
+        onPlayerFound(player);
+        form.reset({
+          searchType: form.getValues("searchType"),
+          searchValue: "",
+          platform: form.getValues("platform"),
+        });
+      }
+    },
+  });
+
+  const onSubmit = useCallback(
+    (data: PlayerSearchForm) => {
+      mutate(data);
+    },
+    [mutate],
+  );
 
   return (
     <Card>
@@ -187,14 +241,62 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
             </Button>
 
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {error instanceof Error && error.message
-                    ? error.message
-                    : "Failed to search for player. Please check your input and try again."}
-                </AlertDescription>
-              </Alert>
+              <>
+                {error instanceof Error &&
+                error.message === "PLAYER_NOT_FOUND" &&
+                showTrackOption ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Player Not Found in Database</AlertTitle>
+                    <AlertDescription>
+                      <p className="mb-3">
+                        This player hasn&apos;t been tracked yet. Would you like
+                        to add them?
+                      </p>
+                      <Button
+                        onClick={() => trackMutation.mutate()}
+                        disabled={trackMutation.isPending}
+                        variant="default"
+                        size="sm"
+                      >
+                        {trackMutation.isPending ? (
+                          <>
+                            <div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                            Tracking Player...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="mr-2 h-3 w-3" />
+                            Track Player
+                          </>
+                        )}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {error instanceof Error &&
+                      error.message === "PLAYER_NOT_FOUND"
+                        ? "Player not found in database."
+                        : error instanceof Error && error.message
+                          ? error.message
+                          : "Failed to search for player. Please check your input and try again."}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {trackMutation.error && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {trackMutation.error instanceof Error
+                        ? trackMutation.error.message
+                        : "Failed to track player. Please try again."}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
             )}
           </form>
         </Form>

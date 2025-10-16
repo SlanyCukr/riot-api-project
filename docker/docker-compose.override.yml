@@ -1,15 +1,14 @@
+# Development overrides for Docker Compose
+# Automatically loaded when using docker compose in development
+
 services:
   frontend:
     build:
       target: development
     container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
     environment:
-      - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-    volumes:
-      - ../frontend:/app
-      - /app/node_modules
-      - /app/.next
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     ports:
       - "${FRONTEND_PORT}:3000"
     command: ["npm", "run", "dev"]
@@ -21,12 +20,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    # Docker Compose Watch for automatic syncing
     develop:
       watch:
-        # Automatically rebuild frontend when .env changes
-        - path: ../.env
-          action: rebuild
-        # Hot reload for frontend code changes
+        # Hot reload for code changes
         - path: ../frontend
           action: sync+restart
           target: /app
@@ -39,20 +36,16 @@ services:
       target: development
     container_name: ${COMPOSE_PROJECT_NAME}_backend_dev
     environment:
-      - DEBUG=true
-      - LOG_LEVEL=DEBUG
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - RIOT_API_KEY=${RIOT_API_KEY}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - JOB_SCHEDULER_ENABLED=${JOB_SCHEDULER_ENABLED:-false}
-      - JOB_INTERVAL_SECONDS=${JOB_INTERVAL_SECONDS:-120}
-      - JOB_TIMEOUT_SECONDS=${JOB_TIMEOUT_SECONDS:-90}
-      - MAX_TRACKED_PLAYERS=${MAX_TRACKED_PLAYERS:-10}
-    volumes:
-      - ../backend:/app
-      - /app/.venv
+      LOG_LEVEL: DEBUG
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RIOT_API_KEY: ${RIOT_API_KEY}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JOB_SCHEDULER_ENABLED: ${JOB_SCHEDULER_ENABLED}
+      JOB_INTERVAL_SECONDS: ${JOB_INTERVAL_SECONDS}
+      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS}
+      MAX_TRACKED_PLAYERS: ${MAX_TRACKED_PLAYERS}
     ports:
       - "${BACKEND_PORT}:8000"
     networks:
@@ -63,12 +56,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    # Docker Compose Watch for automatic syncing
     develop:
       watch:
-        # Automatically rebuild backend when .env changes
-        - path: ../.env
-          action: rebuild
-        # Hot reload for backend code changes (FastAPI auto-reload already handles this)
+        # Sync code changes (FastAPI auto-reload handles restart)
         - path: ../backend
           action: sync
           target: /app

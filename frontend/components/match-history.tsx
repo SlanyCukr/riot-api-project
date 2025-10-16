@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { History, AlertCircle, Loader2 } from "lucide-react";
+
 import { MatchListResponseSchema } from "@/lib/schemas";
 import { validatedGet } from "@/lib/api";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -13,11 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { History, AlertCircle, Loader2 } from "lucide-react";
 
 interface MatchHistoryProps {
   puuid: string;
@@ -25,24 +27,17 @@ interface MatchHistoryProps {
 }
 
 export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
-  const [displayCount, setDisplayCount] = useState(50);
   const PAGE_SIZE = 50;
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const previousMatchCount = useRef(0);
 
-  // Reset display count when player or queue changes
-  const resetKey = `${puuid}-${queueFilter}`;
-  useEffect(() => {
-    // This runs when player or queue changes
-    previousMatchCount.current = 0;
-  }, [resetKey]);
+  const [displayCount, setDisplayCount] = useState(50);
 
-  // Derive display count from reset key to avoid setState in effect
-  const [lastResetKey, setLastResetKey] = useState(resetKey);
-  if (lastResetKey !== resetKey) {
+  // Reset when player/queue changes
+  useEffect(() => {
     setDisplayCount(50);
-    setLastResetKey(resetKey);
-  }
+    previousMatchCount.current = 0;
+  }, [puuid, queueFilter]);
 
   const {
     data: response,
@@ -53,9 +48,6 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   } = useQuery({
     queryKey: ["matchHistory", puuid, queueFilter, displayCount],
     queryFn: async () => {
-      console.log(
-        `[MatchHistory] Fetching matches for puuid: ${puuid}, queue: ${queueFilter}, count: ${displayCount}`,
-      );
       const result = await validatedGet(
         MatchListResponseSchema,
         `/matches/player/${puuid}`,
@@ -66,41 +58,20 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
         },
       );
 
-      console.log("[MatchHistory] API Response:", {
-        success: result.success,
-        hasData: result.success && !!result.data,
-        matchCount: result.success ? result.data?.matches?.length : 0,
-        error: !result.success ? result.error : null,
-      });
-
       return result;
     },
-    enabled: !!puuid, // Only enable if puuid is available
-    retry: 2, // Retry failed requests twice
-    refetchOnWindowFocus: false, // Prevent refetch on window focus
-    refetchOnMount: false, // Prevent refetch on mount
-    refetchOnReconnect: false, // Prevent refetch on reconnect
-    placeholderData: (previousData) => previousData, // Keep previous data while loading
-    staleTime: 60000, // Consider data fresh for 1 minute
+    enabled: !!puuid,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    placeholderData: (previousData) => previousData,
+    staleTime: 60000,
   });
 
   const data = response?.success ? response.data : null;
 
-  // Debug logging
-  useEffect(() => {
-    console.log("[MatchHistory] Component State:", {
-      isLoading,
-      isFetching,
-      hasResponse: !!response,
-      responseSuccess: response?.success,
-      hasData: !!data,
-      matchCount: data?.matches?.length || 0,
-      hasError: !!error || (response && !response.success),
-    });
-  }, [isLoading, isFetching, response, data, error]);
-
-  // Memoize matches to prevent unnecessary re-renders
-  const allMatches = useMemo(() => data?.matches || [], [data?.matches]);
+  const allMatches = data?.matches || [];
   const totalMatches = data?.total || 0;
   const hasMore = allMatches.length < totalMatches;
 
@@ -110,21 +81,18 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
       allMatches.length > previousMatchCount.current &&
       previousMatchCount.current > 0
     ) {
-      // New matches were added - scroll position is already preserved by browser
       previousMatchCount.current = allMatches.length;
     } else if (allMatches.length > 0) {
       previousMatchCount.current = allMatches.length;
     }
   }, [allMatches.length]);
 
-  // Load more function
   const loadMore = useCallback(() => {
     if (!isFetching && hasMore) {
       setDisplayCount((prev) => prev + PAGE_SIZE);
     }
   }, [isFetching, hasMore, PAGE_SIZE]);
 
-  // Infinite scroll using Intersection Observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -262,9 +230,16 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-center text-muted-foreground">
-            No matches found for this player
-          </p>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <p className="font-medium">No matches available yet</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Matches will appear here as background jobs fetch them from the
+                Riot API. This may take a few minutes for new players.
+              </p>
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
@@ -278,8 +253,13 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
             <History className="h-5 w-5" />
             Match History
           </CardTitle>
-          <Badge variant="secondary">{totalMatches} matches</Badge>
+          <Badge variant="secondary">{totalMatches} matches in database</Badge>
         </div>
+        {totalMatches > 0 && totalMatches < 50 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            More matches are being fetched in the background
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
@@ -319,7 +299,6 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
             </TableBody>
           </Table>
         </div>
-        {/* Infinite scroll trigger */}
         {hasMore && (
           <div ref={loadMoreRef} className="mt-4 flex justify-center py-4">
             {isFetching ? (

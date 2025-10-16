@@ -7,11 +7,10 @@ from typing import Annotated
 
 from ..database import get_db
 from ..riot_api.client import RiotAPIClient
-from ..riot_api.endpoints import Platform, Region
+from ..riot_api.constants import Platform, Region
 from ..riot_api.data_manager import RiotDataManager
 from ..services.players import PlayerService
 from ..services.matches import MatchService
-from ..services.stats import StatsService
 from ..services.detection import SmurfDetectionService
 from ..config import get_global_settings
 
@@ -53,25 +52,16 @@ async def get_riot_data_manager(
 
 async def get_player_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> PlayerService:
     """Get player service instance."""
-    return PlayerService(db, riot_data_manager)
+    return PlayerService(db)
 
 
 async def get_match_service(
     db: Annotated[AsyncSession, Depends(get_db)],
-    riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> MatchService:
     """Get match service instance."""
-    return MatchService(db, riot_data_manager)
-
-
-async def get_stats_service(
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> StatsService:
-    """Get stats service instance."""
-    return StatsService(db)
+    return MatchService(db)
 
 
 async def get_detection_service(
@@ -83,10 +73,7 @@ async def get_detection_service(
 
 
 # Type aliases for cleaner dependency injection
-DBSession = Annotated[AsyncSession, Depends(get_db)]
-RiotClient = Annotated[RiotAPIClient, Depends(get_riot_client)]
 RiotDataManagerDep = Annotated[RiotDataManager, Depends(get_riot_data_manager)]
 PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
 MatchServiceDep = Annotated[MatchService, Depends(get_match_service)]
-StatsServiceDep = Annotated[StatsService, Depends(get_stats_service)]
 DetectionServiceDep = Annotated[SmurfDetectionService, Depends(get_detection_service)]

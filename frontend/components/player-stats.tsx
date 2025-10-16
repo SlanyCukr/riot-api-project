@@ -1,14 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
-import {
-  MatchStatsResponseSchema,
-  type MatchStatsResponse,
-} from "@/lib/schemas";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Trophy,
   Swords,
@@ -19,6 +11,16 @@ import {
   BarChart3,
   Activity,
 } from "lucide-react";
+
+import {
+  MatchStatsResponseSchema,
+  type MatchStatsResponse,
+} from "@/lib/schemas";
+import { validatedGet } from "@/lib/api";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface PlayerStatsProps {
@@ -73,8 +75,23 @@ export function PlayerStats({
     );
   }
 
-  if (!data) {
-    return null;
+  if (!data || data.total_matches === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Player Statistics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            No statistics available yet. Stats will appear once matches are
+            fetched.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return <PlayerStatsDisplay stats={data} />;
@@ -83,7 +100,6 @@ export function PlayerStats({
 function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
   const winRatePercent = stats.win_rate * 100;
 
-  // Determine KDA color based on performance
   const getKDAColor = (kda: number) => {
     if (kda >= 4.0) return "bg-emerald-500 text-white";
     if (kda >= 3.0) return "bg-green-500 text-white";
@@ -91,7 +107,6 @@ function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
     return "bg-red-500 text-white";
   };
 
-  // Determine win rate color
   const getWinRateColor = (winRate: number) => {
     if (winRate >= 60) return "text-emerald-600 dark:text-emerald-400";
     if (winRate >= 50) return "text-green-600 dark:text-green-400";
@@ -108,9 +123,15 @@ function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
             Player Statistics
           </CardTitle>
           <Badge variant="secondary">
-            {stats.total_matches} {stats.total_matches === 1 ? "Game" : "Games"}
+            Based on {stats.total_matches}{" "}
+            {stats.total_matches === 1 ? "Game" : "Games"}
           </Badge>
         </div>
+        {stats.total_matches < 20 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Statistics will be more accurate with more matches
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <div className="space-y-6">

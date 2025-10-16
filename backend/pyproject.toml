@@ -95,3 +95,35 @@ strict = [
     "app/database.py",
     "app/schemas/**/*.py"
 ]
+
+[tool.vulture]
+# Find dead/unused Python code with 60% confidence threshold
+# This catches more potential dead code but may have false positives
+# Review the findings and add exclusions or whitelist as needed
+exclude = [
+    ".venv/",
+    "__pycache__/",
+    "*.pyc",
+    "app/models/__init__.py",  # Type aliases and SQLAlchemy helpers
+    "app/tests/",  # Test fixtures and mocks often appear unused
+    "app/riot_api/constants.py",  # Enum definitions used as constants
+    "app/schemas/response_jobs_schema.py",  # Response-only schemas for API
+    "app/schemas/response_matches_schema.py",  # Response-only schemas for API
+]
+ignore_decorators = ["@app.route", "@router.*", "@app.*", "@abstractmethod"]
+ignore_names = [
+    "test_*",
+    "setUp",
+    "tearDown",
+    # Context manager protocol parameters
+    "exc_type",
+    "exc_val",
+    "exc_tb",
+    # Pydantic configuration
+    "model_config",
+    # CircuitBreaker method used for failure handling
+    "on_failure",
+]
+min_confidence = 60
+paths = ["app/"]
+# sort_by_size = true  # Uncomment to sort by size

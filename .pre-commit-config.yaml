@@ -32,6 +32,14 @@ repos:
         args: ["-c", "backend/pyproject.toml"]
         exclude: ^(tests/|tools/)
 
+  # Vulture - Find dead/unused Python code
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.14
+    hooks:
+      - id: vulture
+        args: ["--config", "backend/pyproject.toml", "backend/app/"]
+        pass_filenames: false
+
   # pydocstyle - Documentation quality checker (disabled - optional for now)
   # - repo: https://github.com/PyCQA/pydocstyle
   #   rev: 6.3.0

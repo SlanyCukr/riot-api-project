@@ -12,7 +12,7 @@
 #   ./scripts/prod.sh [OPTIONS] [SERVICE...]
 #
 # Options:
-#   --build            Force rebuild of containers
+#   --build            Force rebuild of containers (uses Docker Bake)
 #   --no-cache         Build without using cache (useful for deployments)
 #   --down             Stop all services first
 #   --reset-db         Wipe database and recreate from SQLAlchemy models (WARNING: deletes all data)
@@ -110,17 +110,7 @@ fi
 
 # Build if requested
 if [ "$FORCE_BUILD" = true ]; then
-    echo -e "${YELLOW}🔨 Building production containers...${NC}"
     cd "$PROJECT_ROOT"
-
-    BUILD_ARGS=()
-    if [ "$NO_CACHE" = true ]; then
-        BUILD_ARGS+=("--no-cache")
-        echo -e "${YELLOW}   Building without cache (this may take longer)...${NC}"
-    fi
-
-    # Add progress output for CI/CD environments
-    BUILD_ARGS+=("--progress=plain")
 
     echo -e "${YELLOW}🔍 Build environment info:${NC}"
     echo "   Docker version: $(docker --version)"
@@ -128,14 +118,41 @@ if [ "$FORCE_BUILD" = true ]; then
     echo "   NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-not set}"
     echo ""
 
-    if ! docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" build "${BUILD_ARGS[@]}" "${SERVICES[@]}"; then
-        echo -e "${RED}❌ Build failed!${NC}"
-        echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
-        echo -e "   1. Check Docker logs: docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs"
-        echo -e "   2. Check disk space: df -h"
-        echo -e "   3. Clean Docker cache: docker system prune -a"
-        echo -e "   4. Check .env file has NEXT_PUBLIC_API_URL set"
-        exit 1
+    echo -e "${YELLOW}🔨 Building production containers with Docker Bake...${NC}"
+    echo -e "${YELLOW}   Features: parallel builds, local caching${NC}"
+
+    # Export environment variables for Bake
+    export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
+    export TAG="latest"
+
+    BAKE_ARGS=()
+    if [ "$NO_CACHE" = true ]; then
+        BAKE_ARGS+=("--no-cache")
+        echo -e "${YELLOW}   Building without cache (this may take longer)...${NC}"
+    fi
+
+    # Add progress output
+    BAKE_ARGS+=("--progress=plain")
+
+    # Build with Bake using prod group
+    if [ ${#SERVICES[@]} -eq 0 ]; then
+        if ! docker buildx bake -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
+            echo -e "${RED}❌ Bake build failed!${NC}"
+            echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
+            echo -e "   1. Check Bake config: docker buildx bake -f docker/docker-bake.hcl --print"
+            echo -e "   2. Check disk space: df -h"
+            echo -e "   3. Clean Docker cache: docker buildx prune -a"
+            echo -e "   4. Check .env file has NEXT_PUBLIC_API_URL set"
+            exit 1
+        fi
+    else
+        # Build specific services
+        for service in "${SERVICES[@]}"; do
+            if ! docker buildx bake -f docker/docker-bake.hcl "${service}-prod" --load "${BAKE_ARGS[@]}"; then
+                echo -e "${RED}❌ Bake build failed for ${service}!${NC}"
+                exit 1
+            fi
+        done
     fi
     echo ""
 fi
