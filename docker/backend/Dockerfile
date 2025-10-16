@@ -30,7 +30,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 FROM base AS deps
 
 # Copy dependency files first (better layer caching)
-COPY pyproject.toml uv.lock README.md ./
+# Note: README.md is optional (may not exist in build context)
+COPY pyproject.toml uv.lock* ./
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash --uid 1001 app \
