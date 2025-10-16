@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -22,12 +22,8 @@ const navItems: NavItem[] = [
 
 export function SidebarNav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // Note: Removed mounted state - use suppressHydrationWarning on elements instead
   const pathname = usePathname();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -87,7 +83,7 @@ export function SidebarNav() {
                     href={item.path}
                     onClick={() => setMenuOpen(false)}
                     className={`block border-l-4 px-6 py-3 text-white transition-all duration-300 hover:bg-white/10 ${
-                      mounted && isActive(item.path)
+                      isActive(item.path)
                         ? "border-[#cfa93a] bg-white/5"
                         : "border-transparent hover:border-[#cfa93a]/50"
                     }`}
@@ -95,7 +91,7 @@ export function SidebarNav() {
                     <span
                       suppressHydrationWarning
                       className={`transition-colors duration-300 ${
-                        mounted && isActive(item.path)
+                        isActive(item.path)
                           ? "text-[#cfa93a] font-medium"
                           : "hover:text-[#cfa93a]"
                       }`}

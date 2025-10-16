@@ -70,7 +70,7 @@ export default function JobsPage() {
     const lastUpdate = Math.max(
       jobsUpdatedAt,
       executionsUpdatedAt,
-      statusUpdatedAt
+      statusUpdatedAt,
     );
     if (lastUpdate === 0) return;
 
@@ -78,7 +78,7 @@ export default function JobsPage() {
       const elapsed = Date.now() - lastUpdate;
       const remaining = Math.max(
         0,
-        Math.ceil((REFRESH_INTERVAL - elapsed) / 1000)
+        Math.ceil((REFRESH_INTERVAL - elapsed) / 1000),
       );
       setSecondsUntilRefresh(remaining);
     }, 100);

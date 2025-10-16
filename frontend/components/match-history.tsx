@@ -31,13 +31,9 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const previousMatchCount = useRef(0);
 
+  // Component uses key={`${puuid}-${queueFilter}`} to reset state on prop changes
+  // This avoids calling setState in useEffect which violates React Compiler rules
   const [displayCount, setDisplayCount] = useState(50);
-
-  // Reset when player/queue changes
-  useEffect(() => {
-    setDisplayCount(50);
-    previousMatchCount.current = 0;
-  }, [puuid, queueFilter]);
 
   const {
     data: response,
@@ -91,7 +87,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
     if (!isFetching && hasMore) {
       setDisplayCount((prev) => prev + PAGE_SIZE);
     }
-  }, [isFetching, hasMore, PAGE_SIZE]);
+  }, [isFetching, hasMore]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

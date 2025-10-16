@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
@@ -14,7 +13,6 @@ import {
 import {
   DetectionResponseSchema,
   DetectionExistsResponseSchema,
-  type DetectionResponse,
   type DetectionRequest,
 } from "@/lib/schemas";
 import { validatedPost, validatedGet } from "@/lib/api";
@@ -57,8 +55,7 @@ function formatTimeAgo(dateString: string): {
 }
 
 export function SmurfDetection({ puuid }: SmurfDetectionProps) {
-  const [detection, setDetection] = useState<DetectionResponse | null>(null);
-  const [showingCached, setShowingCached] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: latestDetection, isLoading: isLoadingLatest } = useQuery({
     queryKey: ["latest-detection", puuid],
@@ -93,12 +90,8 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     retry: false,
   });
 
-  useEffect(() => {
-    if (latestDetection && !detection) {
-      setDetection(latestDetection);
-      setShowingCached(true);
-    }
-  }, [latestDetection, detection]);
+  // Simply show cached status when we have latestDetection
+  const showingCached = !!latestDetection;
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: async () => {
@@ -114,11 +107,14 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
         request,
       );
     },
-    onSuccess: (result) => {
-      if (result.success) {
-        setDetection(result.data);
-        setShowingCached(false);
-      }
+    onSuccess: () => {
+      // Invalidate queries to refresh detection data
+      queryClient.invalidateQueries({
+        queryKey: ["latest-detection", puuid],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["detection-exists", puuid],
+      });
     },
   });
 
@@ -155,7 +151,8 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     return "text-muted-foreground";
   };
 
-  const isInitialLoading = isLoadingLatest && !detection;
+  const isInitialLoading = isLoadingLatest && !latestDetection;
+  const detection = latestDetection;
 
   return (
     <Card>

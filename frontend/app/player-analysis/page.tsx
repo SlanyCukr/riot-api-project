@@ -80,6 +80,7 @@ export default function PlayerAnalysisPage() {
                 <TabsContent value="matches" className="mt-6">
                   <Suspense fallback={<MatchHistorySkeleton />}>
                     <MatchHistory
+                      key={`${selectedPlayer.puuid}-420`}
                       puuid={selectedPlayer.puuid}
                       queueFilter={420}
                     />

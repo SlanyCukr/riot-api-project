@@ -1,6 +1,7 @@
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
+import reactCompilerPlugin from "eslint-plugin-react-compiler";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -19,6 +20,14 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
     ],
+  },
+  {
+    plugins: {
+      "react-compiler": reactCompilerPlugin,
+    },
+    rules: {
+      "react-compiler/react-compiler": "error",
+    },
   },
 ];
 
