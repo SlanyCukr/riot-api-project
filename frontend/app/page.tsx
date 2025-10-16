@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="mb-8 flex items-start justify-between">
-        <h1 className="text-4xl font-bold text-[#0a1428] dark:text-[#c8aa6e]">
+        <h1 className="text-4xl font-bold text-[#0a1428] dark:text-[#cfa93a]">
           League Eye Spy
         </h1>
         <ThemeToggle />
@@ -25,14 +25,14 @@ export default function Home() {
           data, League Eye Spy gives you the tools you need.
         </p>
         <p className="leading-relaxed">
-          Our smurf detection system analyzes multiple factors including win
+          Our player analysis system examines multiple factors including win
           rates, KDA ratios, champion mastery progression, and rank climb
           velocity. Combined with match history analysis, we can identify
           patterns that suggest an account is being piloted by a player of
           significantly different skill level.
         </p>
         <p className="leading-relaxed">
-          Get started by navigating to the Smurf Detection page to search for a
+          Get started by navigating to the Player Analysis page to search for a
           player and view their detailed analysis. Our real-time data fetching
           ensures you always have access to the most up-to-date information
           available.

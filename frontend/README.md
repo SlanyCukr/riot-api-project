@@ -1,6 +1,6 @@
 # Frontend - Riot API Web Application
 
-Next.js 15 frontend for the Riot API Match History & Smurf Detection application. Provides an intuitive interface for analyzing League of Legends player data.
+Next.js 15 frontend for the Riot API Match History & Player Analysis application. Provides an intuitive interface for analyzing League of Legends player data.
 
 ## Tech Stack
 
@@ -26,7 +26,7 @@ frontend/
 │   ├── player-search.tsx      # Player search form
 │   ├── player-card.tsx        # Player information display
 │   ├── match-history.tsx      # Match history table
-│   ├── smurf-detection.tsx    # Smurf detection results
+│   ├── smurf-detection.tsx    # Player analysis results
 │   └── providers.tsx          # Client providers (TanStack Query)
 ├── lib/
 │   ├── utils.ts               # Utility functions (cn helper)
@@ -100,7 +100,7 @@ npm run lint     # Run ESLint
 - Champion and role information
 - Win/loss indicators
 
-### Smurf Detection
+### Player Analysis
 
 - Multi-factor smurf analysis
 - Confidence score visualization

@@ -27,12 +27,13 @@ export type ApiResponse<T> =
 // Request interceptor for logging
 api.interceptors.request.use(
   (config) => {
-    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    // Only log in development if needed - comment out to reduce console noise
+    // console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  },
+  }
 );
 
 // Response interceptor for error handling
@@ -45,7 +46,7 @@ api.interceptors.response.use(
       console.error("API Error:", error.response?.data || error.message);
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 // Helper to format errors
@@ -97,7 +98,7 @@ function formatError(error: unknown): ApiError {
 export async function validatedGet<T>(
   schema: z.ZodType<T>,
   url: string,
-  params?: Record<string, unknown>,
+  params?: Record<string, unknown>
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.get(url, { params });
@@ -126,7 +127,7 @@ export async function validatedGet<T>(
 export async function validatedPost<T>(
   schema: z.ZodType<T>,
   url: string,
-  data?: unknown,
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.post(url, data);
@@ -155,7 +156,7 @@ export async function validatedPost<T>(
 export async function validatedPut<T>(
   schema: z.ZodType<T>,
   url: string,
-  data?: unknown,
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.put(url, data);
@@ -183,7 +184,7 @@ export async function validatedPut<T>(
 // Generic validated DELETE request
 export async function validatedDelete<T>(
   schema: z.ZodType<T>,
-  url: string,
+  url: string
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.delete(url);
@@ -210,7 +211,7 @@ export async function validatedDelete<T>(
 
 // Player Tracking API Functions
 export async function trackPlayer(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ message: string }>> {
   try {
     const response = await api.post(`/players/${puuid}/track`);
@@ -227,7 +228,7 @@ export async function trackPlayer(
 }
 
 export async function untrackPlayer(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ message: string }>> {
   try {
     const response = await api.delete(`/players/${puuid}/track`);
@@ -244,7 +245,7 @@ export async function untrackPlayer(
 }
 
 export async function getTrackingStatus(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ is_tracked: boolean }>> {
   try {
     const response = await api.get(`/players/${puuid}/tracking-status`);
@@ -284,7 +285,7 @@ export interface AddTrackedPlayerParams {
 }
 
 export async function addTrackedPlayer(
-  params: AddTrackedPlayerParams,
+  params: AddTrackedPlayerParams
 ): Promise<ApiResponse<unknown>> {
   try {
     const response = await api.post(`/players/add-tracked`, null, { params });

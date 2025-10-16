@@ -1,6 +1,6 @@
 # Riot API Backend
 
-Backend service for Riot API match history and smurf detection.
+Backend service for Riot API match history and player analysis.
 
 ## Features
 

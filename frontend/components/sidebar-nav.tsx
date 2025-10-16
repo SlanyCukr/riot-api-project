@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -13,17 +13,21 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { name: "Home", path: "/" },
-  { name: "Smurf Detection", path: "/smurf-detection" },
+  { name: "Player Analysis", path: "/player-analysis" },
   { name: "Tracked Players", path: "/tracked-players" },
+  { name: "Matchmaking Analysis", path: "/matchmaking-analysis" },
   { name: "Jobs", path: "/jobs" },
   { name: "Settings", path: "/settings" },
-  { name: "Boosted Detection", path: "#" },
-  { name: "Matchmaking Analysis", path: "#" },
 ];
 
 export function SidebarNav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -45,7 +49,8 @@ export function SidebarNav() {
 
       {/* Sidebar Menu */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[260px] transform bg-[#0a1428] shadow-xl transition-transform duration-300 ease-in-out md:static md:w-[220px] lg:w-[260px] ${
+        suppressHydrationWarning
+        className={`fixed inset-y-0 left-0 z-40 w-[240px] transform bg-[#0a1428] shadow-xl transition-transform duration-300 ease-in-out md:static md:w-[220px] lg:w-[240px] ${
           menuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -60,20 +65,21 @@ export function SidebarNav() {
               <div className="relative mx-auto hidden h-[60px] w-full max-w-[200px] md:block md:max-w-[180px]">
                 <Image
                   src="/logo.png"
-                  alt="LeagueYesPy Logo"
+                  alt="LeaguEyeSpy Logo"
                   fill
+                  sizes="(max-width: 768px) 200px, 180px"
                   className="object-contain"
                   priority
                 />
               </div>
               <div className="text-center text-xl font-bold text-white md:hidden">
-                LeagueYesPy
+                LeaguEyeSpy
               </div>
             </Link>
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 py-6">
+          <nav className="flex-1 py-6" suppressHydrationWarning>
             <ul className="space-y-2">
               {navItems.map((item) => (
                 <li key={item.name}>
@@ -81,16 +87,17 @@ export function SidebarNav() {
                     href={item.path}
                     onClick={() => setMenuOpen(false)}
                     className={`block border-l-4 px-6 py-3 text-white transition-all duration-300 hover:bg-white/10 ${
-                      isActive(item.path)
-                        ? "border-[#c8aa6e] bg-white/5"
-                        : "border-transparent hover:border-[#c8aa6e]/50"
+                      mounted && isActive(item.path)
+                        ? "border-[#cfa93a] bg-white/5"
+                        : "border-transparent hover:border-[#cfa93a]/50"
                     }`}
                   >
                     <span
+                      suppressHydrationWarning
                       className={`transition-colors duration-300 ${
-                        isActive(item.path)
-                          ? "text-[#c8aa6e]"
-                          : "hover:text-[#c8aa6e]"
+                        mounted && isActive(item.path)
+                          ? "text-[#cfa93a] font-medium"
+                          : "hover:text-[#cfa93a]"
                       }`}
                     >
                       {item.name}
@@ -108,14 +115,14 @@ export function SidebarNav() {
               <br />
               <Link
                 href="#"
-                className="underline transition-colors duration-300 hover:text-[#c8aa6e]"
+                className="underline transition-colors duration-300 hover:text-[#cfa93a]"
               >
                 License
               </Link>
               {" | "}
               <Link
                 href="#"
-                className="underline transition-colors duration-300 hover:text-[#c8aa6e]"
+                className="underline transition-colors duration-300 hover:text-[#cfa93a]"
               >
                 Privacy Policy
               </Link>
