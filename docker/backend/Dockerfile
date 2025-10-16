@@ -114,6 +114,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv for production (needed for CMD entrypoint)
+ARG UV_VERSION=0.5.11
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install "uv==${UV_VERSION}"
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
