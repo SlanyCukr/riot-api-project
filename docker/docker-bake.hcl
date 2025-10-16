@@ -32,8 +32,8 @@ target "_common" {
 # Common configuration for production builds (single platform - local deployment)
 target "_prod_common" {
   inherits = ["_common"]
-  # Single platform for local deployment (no multi-platform needed)
-  platforms = ["linux/amd64"]
+  # Single platform for local deployment (no platform specified = use build machine native architecture)
+  # When building on linux/arm64 (RPI5), this will automatically use ARM64 images
   # Load into local Docker daemon
   output = ["type=docker"]
 }
