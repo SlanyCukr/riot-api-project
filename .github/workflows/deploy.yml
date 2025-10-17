@@ -28,9 +28,9 @@ jobs:
             echo "Stopping existing containers..."
             cd /home/pi/riot-api
             if [ -f ".env" ]; then
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down 2>/dev/null || true
             else
-              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down -v 2>/dev/null || true
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down 2>/dev/null || true
             fi
           fi
 
