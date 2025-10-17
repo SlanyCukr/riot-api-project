@@ -36,9 +36,26 @@ No restart needed - just save files:
 - **Frontend**: TypeScript, function components with hooks
 - **General**: Explicit imports, no .env edits
 
+# Database Migrations
+
+Use Alembic for all schema changes:
+
+```bash
+# Create migration after changing models
+docker compose exec backend uv run alembic revision --autogenerate -m "description"
+
+# Apply migrations
+docker compose exec backend uv run alembic upgrade head
+
+# Check status
+docker compose exec backend uv run alembic current
+```
+
+See `backend/MIGRATIONS.md` for details.
+
 # Constraints
 
-- ❌ Don't edit `docker/postgres/` manually
+- ❌ Don't use `create_all()` or manual SQL (use Alembic migrations)
 - ❌ Don't commit API keys or secrets
 - ❌ Don't modify Riot API rate limiting
 - ❌ Don't touch legacy code without explicit request
@@ -48,5 +65,6 @@ No restart needed - just save files:
 - `scripts/AGENTS.md`: All build and development commands
 - `docker/AGENTS.md`: Docker, builds, and production deployment
 - `backend/AGENTS.md`: Riot API integration and FastAPI patterns
+- `backend/MIGRATIONS.md`: Database migrations with Alembic
 - `frontend/AGENTS.md`: Next.js patterns and shadcn/ui
 - `docker/postgres/AGENTS.md`: Database schema and tuning

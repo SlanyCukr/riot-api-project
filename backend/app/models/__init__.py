@@ -56,7 +56,8 @@ class Base(DeclarativeBase):
     type_annotation_map = type_annotation_map
 
 
-# Common Annotated types for repeated patterns
+# Common Annotated types for basic field patterns
+AutoIncrementPK = Annotated[int, mapped_column(Integer, primary_key=True)]
 PrimaryKeyStr = Annotated[str, mapped_column(primary_key=True)]
 PrimaryKeyInt = Annotated[int, mapped_column(primary_key=True)]
 
@@ -83,33 +84,6 @@ PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True, index=Tr
 PUUIDForeignKey = Annotated[
     str, mapped_column(String(78), ForeignKey("players.puuid", ondelete="CASCADE"))
 ]
-MatchIDField = Annotated[str, mapped_column(String(64), primary_key=True)]
-MatchIDForeignKey = Annotated[
-    str, mapped_column(String(64), ForeignKey("matches.match_id", ondelete="CASCADE"))
-]
-
-# Simple, safe Annotated types for basic field patterns
-AutoIncrementPK = Annotated[int, mapped_column(Integer, primary_key=True)]
-RequiredString = Annotated[str, mapped_column(nullable=False)]
-OptionalString = Annotated[Optional[str], mapped_column()]
-RequiredInt = Annotated[int, mapped_column(nullable=False)]
-OptionalInt = Annotated[Optional[int], mapped_column()]
-RequiredBool = Annotated[bool, mapped_column(nullable=False)]
-OptionalBool = Annotated[Optional[bool], mapped_column()]
-RequiredDecimal = Annotated[Decimal, mapped_column(nullable=False)]
-OptionalDecimal = Annotated[Optional[Decimal], mapped_column()]
-RequiredBigInt = Annotated[int, mapped_column(BigInteger, nullable=False)]
-OptionalBigInt = Annotated[Optional[int], mapped_column(BigInteger)]
-RequiredDateTime = Annotated[datetime, mapped_column(nullable=False)]
-OptionalDateTime = Annotated[Optional[datetime], mapped_column()]
-
-# Auto-incrementing primary keys are defined above as AutoIncrementPK
-
-# Basic field patterns that work reliably
-PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True, index=True)]
-PUUIDForeignKey = Annotated[
-    str, mapped_column(String(78), ForeignKey("players.puuid", ondelete="CASCADE"))
-]
 MatchIDField = Annotated[str, mapped_column(String(64), primary_key=True, index=True)]
 MatchIDForeignKey = Annotated[
     str, mapped_column(String(64), ForeignKey("matches.match_id", ondelete="CASCADE"))
@@ -124,6 +98,7 @@ from .ranks import PlayerRank  # noqa: E402
 from .smurf_detection import SmurfDetection  # noqa: E402
 from .job_tracking import JobConfiguration, JobExecution, JobStatus, JobType  # noqa: E402
 from .settings import SystemSetting  # noqa: E402
+from .apscheduler import APSchedulerJob  # noqa: E402
 
 # fmt: on
 
@@ -139,4 +114,5 @@ __all__ = [
     "JobStatus",
     "JobType",
     "SystemSetting",
+    "APSchedulerJob",
 ]

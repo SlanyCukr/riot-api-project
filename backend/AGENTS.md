@@ -22,6 +22,8 @@
 - `docker compose exec backend uv run pytest` - Run tests
 - `docker compose exec backend uv run pytest --cov=app` - Run with coverage
 - `docker compose build backend` - Rebuild if dependencies change
+- `docker compose exec backend uv run alembic upgrade head` - Apply DB migrations
+- `docker compose exec backend uv run alembic revision --autogenerate -m "msg"` - Create migration
 
 # Code Style
 
@@ -36,3 +38,4 @@
 - Don't block event loop (no time.sleep(), use asyncio.sleep())
 - Don't catch generic Exception (catch specific exceptions)
 - Don't hardcode configuration (use app/config.py)
+- Don't use `create_all()` or manual SQL (use Alembic - see MIGRATIONS.md)
