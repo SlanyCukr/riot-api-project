@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { Player } from "@/lib/schemas";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Player, PlayerSchema } from "@/lib/schemas";
+import { validatedGet } from "@/lib/api";
 import { PlayerSearch } from "@/components/player-search";
 import { PlayerCard } from "@/components/player-card";
 import { PlayerStats } from "@/components/player-stats";
@@ -16,9 +18,34 @@ import {
   PlayerAnalysisSkeleton,
 } from "@/components/loading-skeleton";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export default function PlayerAnalysisPage() {
+  const searchParams = useSearchParams();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+
+  // Fetch player data if puuid is provided in URL
+  useEffect(() => {
+    const puuid = searchParams.get("puuid");
+    if (puuid && !selectedPlayer) {
+      setIsLoadingFromUrl(true);
+      validatedGet(PlayerSchema, `/players/${puuid}`)
+        .then((result) => {
+          if (result.success) {
+            setSelectedPlayer(result.data);
+          } else {
+            toast.error("Failed to load player data");
+          }
+        })
+        .catch((error) => {
+          toast.error(`Error loading player: ${error.message}`);
+        })
+        .finally(() => {
+          setIsLoadingFromUrl(false);
+        });
+    }
+  }, [searchParams, selectedPlayer]);
 
   const handlePlayerFound = (player: Player) => {
     setSelectedPlayer(player);
@@ -57,7 +84,13 @@ export default function PlayerAnalysisPage() {
 
         {/* Right Column - Results */}
         <div className="space-y-6 lg:col-span-1">
-          {selectedPlayer ? (
+          {isLoadingFromUrl ? (
+            <>
+              <PlayerCardSkeleton />
+              <PlayerCardSkeleton />
+              <MatchHistorySkeleton />
+            </>
+          ) : selectedPlayer ? (
             <>
               <Suspense fallback={<PlayerCardSkeleton />}>
                 <PlayerCard player={selectedPlayer} />
