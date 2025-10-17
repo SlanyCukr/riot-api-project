@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useTransition, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Player, PlayerSchema } from "@/lib/schemas";
 import { validatedGet } from "@/lib/api";
@@ -23,27 +23,31 @@ import { toast } from "sonner";
 export default function PlayerAnalysisPage() {
   const searchParams = useSearchParams();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const loadedPuuidRef = useRef<string | null>(null);
 
   // Fetch player data if puuid is provided in URL
   useEffect(() => {
     const puuid = searchParams.get("puuid");
-    if (puuid && !selectedPlayer) {
-      setIsLoadingFromUrl(true);
-      validatedGet(PlayerSchema, `/players/${puuid}`)
-        .then((result) => {
-          if (result.success) {
-            setSelectedPlayer(result.data);
-          } else {
-            toast.error("Failed to load player data");
-          }
-        })
-        .catch((error) => {
-          toast.error(`Error loading player: ${error.message}`);
-        })
-        .finally(() => {
-          setIsLoadingFromUrl(false);
-        });
+    // Only load if we have a puuid, haven't loaded it yet, and don't have a selected player
+    if (puuid && loadedPuuidRef.current !== puuid && !selectedPlayer) {
+      loadedPuuidRef.current = puuid;
+
+      startTransition(() => {
+        validatedGet(PlayerSchema, `/players/${puuid}`)
+          .then((result) => {
+            if (result.success) {
+              setSelectedPlayer(result.data);
+            } else {
+              toast.error("Failed to load player data");
+              loadedPuuidRef.current = null;
+            }
+          })
+          .catch((error) => {
+            toast.error(`Error loading player: ${error.message}`);
+            loadedPuuidRef.current = null;
+          });
+      });
     }
   }, [searchParams, selectedPlayer]);
 
@@ -84,7 +88,7 @@ export default function PlayerAnalysisPage() {
 
         {/* Right Column - Results */}
         <div className="space-y-6 lg:col-span-1">
-          {isLoadingFromUrl ? (
+          {isPending ? (
             <>
               <PlayerCardSkeleton />
               <PlayerCardSkeleton />

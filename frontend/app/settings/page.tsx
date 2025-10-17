@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Loader2, Check, X, Settings2 } from "lucide-react";
+import { Loader2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
