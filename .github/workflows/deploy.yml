@@ -99,7 +99,8 @@ jobs:
           BUILD_START=$(date +%s)
 
           # Run build with explicit error handling and detailed output
-          if ! ./scripts/prod.sh --build --no-cache --down 2>&1 | tee build.log; then
+          # Cache is enabled for faster rebuilds (2TB SSD, 50GB cache available)
+          if ! ./scripts/prod.sh --build --down 2>&1 | tee build.log; then
             BUILD_END=$(date +%s)
             BUILD_DURATION=$((BUILD_END - BUILD_START))
 
