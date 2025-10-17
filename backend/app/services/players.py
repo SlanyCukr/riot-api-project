@@ -702,10 +702,10 @@ class PlayerService:
         self, limit: int, min_matches: int = 20
     ) -> List[Player]:
         """
-        Get unanalyzed players with sufficient match history for smurf detection.
+        Get unanalyzed players with sufficient match history for player analysis.
 
         This is used by the player analyzer job to find players ready for
-        smurf detection analysis.
+        player analysis.
 
         Args:
             limit: Maximum number of players to return

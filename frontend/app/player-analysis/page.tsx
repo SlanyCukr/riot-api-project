@@ -6,7 +6,7 @@ import { PlayerSearch } from "@/components/player-search";
 import { PlayerCard } from "@/components/player-card";
 import { PlayerStats } from "@/components/player-stats";
 import { MatchHistory } from "@/components/match-history";
-import { SmurfDetection } from "@/components/smurf-detection";
+import { PlayerAnalysis } from "@/components/player-analysis";
 import { RecentOpponents } from "@/components/recent-opponents";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,8 +46,8 @@ export default function PlayerAnalysisPage() {
           {/* Placeholder text above search */}
           {!selectedPlayer && (
             <div className="py-4 text-center text-base text-muted-foreground">
-              Search for a player to view their match history and smurf
-              detection analysis
+              Search for a player to view their match history and profile
+              analysis
             </div>
           )}
 
@@ -88,7 +88,7 @@ export default function PlayerAnalysisPage() {
                 </TabsContent>
                 <TabsContent value="smurf" className="mt-6">
                   <Suspense fallback={<PlayerAnalysisSkeleton />}>
-                    <SmurfDetection puuid={selectedPlayer.puuid} />
+                    <PlayerAnalysis puuid={selectedPlayer.puuid} />
                   </Suspense>
                 </TabsContent>
                 <TabsContent value="opponents" className="mt-6">

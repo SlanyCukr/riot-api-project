@@ -1,5 +1,5 @@
 """
-Detection algorithms package for smurf detection analysis.
+Detection algorithms package for player analysis analysis.
 
 This package contains various algorithms for analyzing player behavior
 to detect potential smurf accounts.

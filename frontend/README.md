@@ -26,7 +26,7 @@ frontend/
 │   ├── player-search.tsx      # Player search form
 │   ├── player-card.tsx        # Player information display
 │   ├── match-history.tsx      # Match history table
-│   ├── smurf-detection.tsx    # Player analysis results
+│   ├── player-analysis.tsx    # Player analysis results
 │   └── providers.tsx          # Client providers (TanStack Query)
 ├── lib/
 │   ├── utils.ts               # Utility functions (cn helper)
@@ -102,7 +102,7 @@ npm run lint     # Run ESLint
 
 ### Player Analysis
 
-- Multi-factor smurf analysis
+- Multi-factor player analysis
 - Confidence score visualization
 - Detection factors breakdown
 - Historical detection results

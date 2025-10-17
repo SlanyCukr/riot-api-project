@@ -1,5 +1,5 @@
 """
-Performance consistency analysis algorithm for smurf detection.
+Performance consistency analysis algorithm for player analysis.
 
 This algorithm analyzes player performance metrics to identify
 unusually consistent high performance that may indicate smurf behavior.
@@ -29,7 +29,7 @@ class PerformanceResult:
 
 
 class PerformanceAnalyzer:
-    """Analyzes performance consistency for smurf detection."""
+    """Analyzes performance consistency for player analysis."""
 
     def __init__(
         self,
@@ -231,7 +231,7 @@ class PerformanceAnalyzer:
             else:
                 return f"Inconsistent performance: {avg_kda:.1f} KDA, {consistency_pct:.0f}% consistency"
 
-    # TODO: Integrate into detection service for enhanced smurf detection
+    # TODO: Integrate into detection service for enhanced player analysis
     #       Tracks: Temporal performance patterns (improvement/decline over time)
     #       Use case: Detect suddenly improving accounts (bought/boosted)
     #       Integration point: services/detection.py - add to factor scoring

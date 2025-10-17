@@ -1,9 +1,10 @@
 [project]
 name = "riot-api-backend"
 version = "0.1.0"
-description = "Riot API backend for match history and smurf detection"
+description = "Riot API backend for player's performance and match history analysis."
 authors = [
     {name = "Marek Hovadík", email = "marek.hovadik@seznam.cz"},
+    {name = "Matěj Kadlec", email = "mat.kadlec@email.cz"},
 ]
 dependencies = [
     "fastapi>=0.118.2",

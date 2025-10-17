@@ -120,7 +120,7 @@ class Match(Base):
         nullable=False,
         default=False,
         index=True,
-        comment="Whether this match has been processed for smurf detection",
+        comment="Whether this match has been processed for player analysis",
     )
 
     processing_error: Mapped[Optional[str]] = mapped_column(

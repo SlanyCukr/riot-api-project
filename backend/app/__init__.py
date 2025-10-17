@@ -2,7 +2,7 @@
 Riot API Backend Application Package.
 
 This package contains the main application logic for the Riot API match history
-and smurf detection service.
+and player analysis service.
 """
 
 from .config import get_global_settings

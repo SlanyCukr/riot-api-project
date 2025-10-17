@@ -27,7 +27,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
     queryFn: async () => {
       const result = await validatedGet(
         TrackedPlayersSchema,
-        "/players/tracked/list",
+        "/players/tracked/list"
       );
 
       if (!result.success) {
@@ -51,7 +51,9 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
       // Find player name for toast
       const player = data?.find((p) => p.puuid === puuid);
       toast.success(
-        `Successfully removed ${player?.summoner_name || "player"} from tracked players`,
+        `Successfully removed ${
+          player?.summoner_name || "player"
+        } from tracked players`
       );
     },
     onError: (error: Error) => {
@@ -62,7 +64,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
   const handleUntrack = (player: Player) => {
     if (
       window.confirm(
-        `Are you sure you want to stop tracking ${player.summoner_name}?`,
+        `Are you sure you want to stop tracking ${player.summoner_name}?`
       )
     ) {
       untrackMutation.mutate(player.puuid);
@@ -73,8 +75,8 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
     if (onViewPlayer) {
       onViewPlayer(player);
     } else {
-      // Navigate to smurf detection page with the player
-      router.push(`/smurf-detection?puuid=${player.puuid}`);
+      // Navigate to player analysis page with the player
+      router.push(`/player-analysis?puuid=${player.puuid}`);
     }
   };
 

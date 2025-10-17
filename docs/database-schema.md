@@ -1,6 +1,6 @@
 # Database Schema Documentation
 
-PostgreSQL database schema for Riot API project tracking League of Legends players, matches, performance statistics, rankings, and smurf detection.
+PostgreSQL database schema for Riot API project tracking League of Legends players, matches, performance statistics and rankings.
 
 **Database**: PostgreSQL 18
 **ORM**: SQLAlchemy with automatic schema creation
@@ -196,6 +196,7 @@ erDiagram
 **Primary Key**: `puuid` (String, 78 characters)
 
 **Key Features**:
+
 - PUUID is immutable (never changes for a player)
 - Riot ID (game_name#tag_line) is the modern identifier
 - Summoner name can change but is indexed for legacy lookups
@@ -203,6 +204,7 @@ erDiagram
 - Last seen tracking for data freshness
 
 **Indexes**:
+
 - `puuid` (primary key, automatic index)
 - `riot_id` (indexed)
 - `summoner_name` (indexed)
@@ -215,6 +217,7 @@ erDiagram
 - Composite: `(last_seen, is_active)`
 
 **Relationships**:
+
 - One-to-many with `match_participants`
 - One-to-many with `player_ranks` (historical)
 - One-to-many with `smurf_detections` (historical)
@@ -228,12 +231,14 @@ erDiagram
 **Primary Key**: `match_id` (String, 64 characters)
 
 **Key Features**:
+
 - Match ID format: `{REGION}_{MATCH_NUMBER}` (e.g., `EUN1_3087654321`)
 - Timestamps in milliseconds since epoch (Riot API format)
 - Queue ID determines match type (420=Ranked Solo, 440=Ranked Flex, etc.)
-- Processing flags for smurf detection pipeline
+- Processing flags for player analysis pipeline
 
 **Indexes**:
+
 - `match_id` (primary key, automatic index)
 - `platform_id` (indexed)
 - `game_creation` (indexed)
@@ -249,6 +254,7 @@ erDiagram
 - Composite: `(is_processed, processing_error)`
 
 **Relationships**:
+
 - One-to-many with `match_participants`
 
 ---
@@ -260,10 +266,12 @@ erDiagram
 **Primary Key**: `id` (BigInt, auto-increment)
 
 **Foreign Keys**:
+
 - `match_id` → `matches.match_id` (CASCADE DELETE)
 - `puuid` → `players.puuid` (CASCADE DELETE)
 
 **Key Features**:
+
 - Bridge table between players and matches
 - Comprehensive performance metrics (KDA, CS, gold, damage, vision)
 - Position and role tracking
@@ -271,6 +279,7 @@ erDiagram
 - Summoner name snapshot at match time
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `match_id` (foreign key, indexed)
 - `puuid` (foreign key, indexed)
@@ -287,6 +296,7 @@ erDiagram
 - Composite: `(team_id, win)` - team performance
 
 **Relationships**:
+
 - Many-to-one with `matches`
 - Many-to-one with `players`
 
@@ -299,9 +309,11 @@ erDiagram
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Foreign Keys**:
+
 - `puuid` → `players.puuid` (CASCADE DELETE)
 
 **Key Features**:
+
 - Tracks rank over time per queue type
 - Supports multiple queue types (Solo, Flex)
 - League Points (LP) tracking
@@ -310,18 +322,22 @@ erDiagram
 - `is_current` flag for latest rank
 
 **Rank Tiers** (Enum):
+
 - IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND
 - MASTER, GRANDMASTER, CHALLENGER
 
 **Divisions** (Enum):
+
 - I, II, III, IV (not applicable for Master+)
 
 **Queue Types** (Enum):
+
 - RANKED_SOLO_5x5
 - RANKED_FLEX_SR
 - RANKED_FLEX_TT (deprecated)
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `puuid` (foreign key, indexed)
 - `queue_type` (indexed)
@@ -337,20 +353,23 @@ erDiagram
 - Composite: `(tier, league_points)` - leaderboard queries
 
 **Relationships**:
+
 - Many-to-one with `players`
 
 ---
 
 ### 5. smurf_detections
 
-**Purpose**: Store smurf detection analysis results and confidence scores.
+**Purpose**: Store player analysis analysis results and confidence scores.
 
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Foreign Keys**:
+
 - `puuid` → `players.puuid` (CASCADE DELETE)
 
 **Key Features**:
+
 - Multi-component scoring system (win rate, KDA, account level, rank discrepancy)
 - Weighted overall smurf score (0.0-1.0)
 - Detection thresholds and parameters
@@ -358,15 +377,18 @@ erDiagram
 - Manual verification and false positive reporting
 
 **Detection Signals** (Enum):
+
 - HIGH_WIN_RATE, HIGH_KDA, LOW_ACCOUNT_LEVEL
 - RANK_DISCREPANCY, RAPID_RANK_PROGRESSION
 - CONSISTENT_HIGH_PERFORMANCE, CHAMPION_POOL_BREADTH
 - ROLE_VERSATILITY, UNUSUAL_TIMING_PATTERNS, LOW_NORMAL_GAMES
 
 **Confidence Levels** (Enum):
+
 - LOW, MEDIUM, HIGH, VERY_HIGH
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `puuid` (foreign key, indexed)
 - `is_smurf` (indexed)
@@ -383,6 +405,7 @@ erDiagram
 - Composite: `(false_positive_reported, is_smurf)` - quality analysis
 
 **Relationships**:
+
 - Many-to-one with `players`
 
 ---
@@ -394,12 +417,14 @@ erDiagram
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Key Features**:
+
 - Tracks when data was last fetched from Riot API
 - Monitors database hit rates vs API fetch rates
 - Identifies stale data for refresh
 - Unique constraint on (data_type, identifier)
 
 **Data Types**:
+
 - `account` - Account/PUUID data
 - `summoner` - Summoner information
 - `match` - Match details
@@ -407,6 +432,7 @@ erDiagram
 - `matchlist` - Match history lists
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `data_type` (indexed)
 - `identifier` (indexed)
@@ -423,18 +449,21 @@ erDiagram
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Key Features**:
+
 - Priority-based request scheduling
 - Retry logic with configurable max retries
 - Status tracking (pending, processing, completed, failed, cancelled)
 - Error logging and context preservation
 
 **Priority Levels**:
+
 - `urgent` - User-facing requests
 - `high` - Important background tasks
 - `normal` - Standard operations
 - `low` - Bulk operations
 
 **Status Values**:
+
 - `pending` - Waiting to be processed
 - `processing` - Currently being processed
 - `completed` - Successfully completed
@@ -442,6 +471,7 @@ erDiagram
 - `cancelled` - Manually cancelled
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `data_type` (indexed)
 - `identifier` (indexed)
@@ -461,17 +491,20 @@ erDiagram
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Key Features**:
+
 - Records when rate limits are hit
 - Tracks which endpoints cause rate limits
 - Stores retry-after durations
 - Helps optimize request strategies
 
 **Limit Types**:
+
 - `app` - Application-wide rate limit
 - `method` - Method-specific rate limit
 - `service` - Service-level rate limit
 
 **Indexes**:
+
 - `id` (primary key, automatic index)
 - `limit_type` (indexed)
 - `endpoint` (indexed)
@@ -487,11 +520,13 @@ Database tables are automatically created on backend startup using SQLAlchemy's 
 ### Database Operations
 
 **Initialize Database** (tables created automatically on startup):
+
 ```bash
 docker compose up backend
 ```
 
 **Manual Operations**:
+
 ```bash
 # Create all tables
 docker compose exec backend uv run python -m app.init_db init
@@ -506,6 +541,7 @@ docker compose exec backend uv run python -m app.init_db drop
 ### Model Definitions
 
 All table definitions are in SQLAlchemy models:
+
 - Location: `backend/app/models/`
 - Models: `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `DataTracking`, `APIRequestQueue`, `RateLimitLog`
 

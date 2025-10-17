@@ -7,7 +7,7 @@ ALTER TABLE app.players ADD COLUMN IF NOT EXISTS is_tracked BOOLEAN NOT NULL DEF
 CREATE INDEX IF NOT EXISTS ix_players_is_tracked ON app.players(is_tracked);
 COMMENT ON COLUMN app.players.is_tracked IS 'Whether this player is being actively tracked for continuous updates';
 
--- Add is_analyzed column for smurf detection tracking
+-- Add is_analyzed column for player analysis tracking
 ALTER TABLE app.players ADD COLUMN IF NOT EXISTS is_analyzed BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS ix_players_is_analyzed ON app.players(is_analyzed);
 COMMENT ON COLUMN app.players.is_analyzed IS 'Whether this player has been analyzed for smurf/boosted detection';

@@ -37,18 +37,22 @@ cd riot-api
 ## Deployment Types
 
 ### 1. Code-Only Deployment
+
 When you only change application code without database schema modifications.
 
 **Examples:**
+
 - Bug fixes
 - Feature additions that don't change models
 - Configuration updates
 - UI changes
 
 ### 2. Schema Deployment
+
 When database schema changes are required.
 
 **Examples:**
+
 - Adding/removing model fields
 - Creating new tables
 - Modifying relationships
@@ -63,6 +67,7 @@ When database schema changes are required.
 The project uses GitHub Actions with a self-hosted runner on the production server.
 
 **Process:**
+
 1. Push code to `main` branch
 2. GitHub Actions automatically:
    - Pulls latest code on production server
@@ -172,6 +177,7 @@ SELECT
 ### Issue 1: Missing Database Column (detailed_logs)
 
 **Symptoms:**
+
 ```
 sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError
 <class 'asyncpg.exceptions.UndefinedColumnError'>: column job_executions.detailed_logs does not exist
@@ -180,6 +186,7 @@ sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError
 **Cause:** Production database schema is outdated after code deployment that added new columns.
 
 **Solution:**
+
 ```bash
 # SSH to production
 ssh -l pi 89.221.212.146 -p 2221
@@ -194,6 +201,7 @@ cd ~/riot-api
 ### Issue 2: Foreign Key Violations After Schema Reset
 
 **Symptoms:**
+
 ```
 ForeignKeyViolationError: insert or update on table "job_executions"
 violates foreign key constraint "fk_job_executions_job_config_id_job_configurations"
@@ -202,16 +210,19 @@ violates foreign key constraint "fk_job_executions_job_config_id_job_configurati
 **Cause:** Job scheduler started before job configurations were seeded.
 
 **Solution:**
+
 1. Seed job configurations: `./scripts/seed-job-configs.sh`
 2. Restart backend: `docker compose -f docker-compose.prod.yml restart backend`
 
 ### Issue 3: Jobs Not Running
 
 **Symptoms:**
+
 - No job executions in logs
 - Job status shows 0 active jobs
 
 **Debugging:**
+
 ```bash
 # Check job configurations in database
 docker compose -f docker-compose.prod.yml exec postgres psql -U riot_api_user -d riot_api_db -c "SELECT * FROM job_configurations;"
@@ -224,6 +235,7 @@ curl http://localhost:8086/api/v1/jobs/status/overview
 ```
 
 **Solution:**
+
 1. Ensure job configurations exist (run `./scripts/seed-job-configs.sh`)
 2. Restart backend to reload scheduler
 3. Check Riot API key is valid (expires every 24h for dev keys)
@@ -231,6 +243,7 @@ curl http://localhost:8086/api/v1/jobs/status/overview
 ### Issue 4: Transaction Errors
 
 **Symptoms:**
+
 ```
 This transaction is closed
 InvalidRequestError: This Session's transaction has been rolled back
@@ -239,6 +252,7 @@ InvalidRequestError: This Session's transaction has been rolled back
 **Cause:** Multiple commits/rollbacks in nested function calls.
 
 **Solution:** Ensure transaction boundaries are correct:
+
 - Only commit at the top level of operation
 - Handle rollback in single exception handler
 - Don't commit/rollback in helper functions
@@ -246,11 +260,13 @@ InvalidRequestError: This Session's transaction has been rolled back
 ### Issue 5: Service Won't Start After Schema Change
 
 **Symptoms:**
+
 ```
 sqlalchemy.exc.ProgrammingError: relation "table_name" does not exist
 ```
 
 **Solution:**
+
 1. Check if database tables exist:
    ```bash
    docker compose -f docker-compose.prod.yml exec postgres psql -U riot_api_user -d riot_api_db -c "\dt"
@@ -263,10 +279,12 @@ sqlalchemy.exc.ProgrammingError: relation "table_name" does not exist
 ### Issue 6: Stale Docker Images
 
 **Symptoms:**
+
 - Code changes not appearing
 - Old behavior persists after deployment
 
 **Solution:**
+
 ```bash
 # Rebuild images without cache
 docker compose -f docker-compose.prod.yml build --no-cache
@@ -282,24 +300,28 @@ docker compose -f docker-compose.prod.yml up -d
 ### Post-Deployment Checklist
 
 - [ ] **Health Check Passes**
+
   ```bash
   curl http://89.221.212.146:8086/health
   # Expected: {"status":"healthy","message":"Application is running"...}
   ```
 
 - [ ] **All Services Running**
+
   ```bash
   docker compose -f docker-compose.prod.yml ps
   # Expected: All services showing "Up" and "healthy"
   ```
 
 - [ ] **Job Scheduler Active**
+
   ```bash
   curl http://89.221.212.146:8086/api/v1/jobs/status/overview | python3 -m json.tool
   # Expected: "scheduler_running": true, "active_jobs": 2
   ```
 
 - [ ] **Database Contains Data**
+
   ```bash
   docker compose -f docker-compose.prod.yml exec postgres psql -U riot_api_user -d riot_api_db -c "
   SELECT COUNT(*) FROM job_configurations;
@@ -309,6 +331,7 @@ docker compose -f docker-compose.prod.yml up -d
   ```
 
 - [ ] **No Errors in Logs**
+
   ```bash
   docker compose -f docker-compose.prod.yml logs backend --tail=100 | grep -i error
   # Expected: No critical errors (some warnings OK)
@@ -372,11 +395,13 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 ### Before Deployment
 
 1. **Test Locally**
+
    - Run all tests: `docker compose exec backend uv run pytest`
    - Test transaction boundaries
    - Verify schema changes work correctly
 
 2. **Review Changes**
+
    - Check for schema modifications
    - Identify dependencies between changes
    - Plan deployment order
@@ -389,11 +414,13 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 ### During Deployment
 
 1. **Monitor Logs**
+
    ```bash
    docker compose -f docker-compose.prod.yml logs -f backend
    ```
 
 2. **Check Job Execution**
+
    - Watch for job start/completion messages
    - Verify no transaction errors
    - Monitor API request counts
@@ -401,11 +428,12 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 3. **Test Critical Paths**
    - Search for player
    - View match history
-   - Check smurf detection results
+   - Check player analysis results
 
 ### After Deployment
 
 1. **Monitor for 10-15 Minutes**
+
    - Watch for errors in logs
    - Verify jobs run successfully
    - Check API response times
@@ -460,8 +488,8 @@ gunzip -c backup.sql.gz | docker compose -f docker-compose.prod.yml exec -T post
 
 Document major deployments here:
 
-| Date | Changes | Issues | Resolution |
-|------|---------|--------|------------|
+| Date       | Changes                                                | Issues                                    | Resolution                                                           |
+| ---------- | ------------------------------------------------------ | ----------------------------------------- | -------------------------------------------------------------------- |
 | 2025-10-13 | Fixed transaction management in tracked_player_updater | Foreign key violations after schema reset | Added setup-production.sh script, documented proper deployment order |
 
 ---

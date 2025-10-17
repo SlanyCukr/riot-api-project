@@ -1,5 +1,5 @@
 """
-Win rate analysis algorithm for smurf detection.
+Win rate analysis algorithm for player analysis.
 
 This algorithm analyzes player win rates over recent matches to identify
 suspiciously high win rates that may indicate smurf behavior.
@@ -25,7 +25,7 @@ class WinRateResult:
 
 
 class WinRateAnalyzer:
-    """Analyzes win rate patterns for smurf detection."""
+    """Analyzes win rate patterns for player analysis."""
 
     def __init__(self, threshold: float = 0.65, min_games: int = 30):
         """

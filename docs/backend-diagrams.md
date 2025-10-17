@@ -18,7 +18,7 @@ graph TB
     subgraph "FastAPI Backend"
         API[API Endpoints<br/>Players, Matches, Detection]
         SVC[Services Layer<br/>Business Logic]
-        ALG[Algorithms<br/>Smurf Detection]
+        ALG[Algorithms<br/>Player Analysis]
         RIOT_CLIENT[Riot API Client<br/>Rate Limiting & Caching]
 
         API --> SVC
@@ -60,7 +60,7 @@ graph LR
     subgraph "Services Layer<br/>(app/services/)"
         PLAYER_SVC[PlayerService<br/>Player operations]
         MATCH_SVC[MatchService<br/>Match operations]
-        DETECT_SVC[DetectionService<br/>Smurf analysis]
+        DETECT_SVC[DetectionService<br/>Player analysis]
         STATS_SVC[StatsService<br/>Statistics]
     end
 
@@ -160,11 +160,11 @@ sequenceDiagram
 
 ---
 
-## 4. Smurf Detection Flow
+## 4. Player Analysis Flow
 
 ```mermaid
 ---
-title: Smurf Detection Analysis Flow
+title: Player Analysis Flow
 ---
 sequenceDiagram
     actor User
@@ -329,11 +329,11 @@ graph LR
     style RIOT_API fill:#DC3545,stroke:#333,color:#fff
 ```
 
-## 8. Smurf Detection Algorithm
+## 8. Player Analysis Algorithm
 
 ```mermaid
 ---
-title: Smurf Detection - Multi-Factor Analysis
+title: Player Analysis - Multi-Factor Analysis
 ---
 flowchart TD
     START([Analyze Player]) --> GET_DATA[Get Player Data<br/>+ Last 30 Matches]
@@ -409,12 +409,12 @@ These diagrams illustrate:
 1. **High-Level Architecture** - Overall system structure
 2. **Component Architecture** - Detailed module organization
 3. **Player Search Flow** - Complete request/response cycle
-4. **Smurf Detection Flow** - Multi-factor analysis process
+4. **Player Analysis Flow** - Multi-factor analysis process
 5. **Rate Limiting & Caching** - Performance optimization strategy
 6. **Data Flow** - End-to-end data pipeline
 7. **Database Schema** - Entity relationships and structure
-8. **Detection Algorithm** - Smurf detection logic
+8. **Detection Algorithm** - Player analysis logic
 9. **API Endpoints** - RESTful API structure
 10. **Deployment** - Docker container architecture
 
-All components work together to provide efficient player search, match tracking, and intelligent smurf detection with robust rate limiting and caching strategies.
+All components work together to provide efficient player search, match tracking, and intelligent player analysis with robust rate limiting and caching strategies.

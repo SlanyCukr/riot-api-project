@@ -31,7 +31,7 @@ class MatchResponse(BaseModel):
         None, max_length=64, description="Tournament ID"
     )
     is_processed: bool = Field(
-        False, description="Whether this match has been processed for smurf detection"
+        False, description="Whether this match has been processed for player analysis"
     )
     processing_error: Optional[str] = Field(
         None, max_length=256, description="Error message if match processing failed"

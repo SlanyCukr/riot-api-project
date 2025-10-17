@@ -1,7 +1,7 @@
 """
-Smurf detection service for multi-factor smurf detection analysis.
+Player analysis service for multi-factor player analysis.
 
-This service provides comprehensive smurf detection by analyzing multiple
+This service provides comprehensive player analysis by analyzing multiple
 factors including win rate, account level, rank progression, and performance
 consistency.
 """
@@ -28,10 +28,10 @@ logger = structlog.get_logger(__name__)
 
 
 class SmurfDetectionService:
-    """Service for comprehensive smurf detection analysis."""
+    """Service for comprehensive player analysis."""
 
     def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
-        """Initialize smurf detection service."""
+        """Initialize player analysis service."""
         self.db = db
         self.data_manager = data_manager
 
@@ -76,7 +76,7 @@ class SmurfDetectionService:
         force_reanalyze: bool = False,
     ) -> DetectionResponse:
         """
-        Comprehensive smurf detection analysis for a player.
+        Comprehensive player analysis for a player.
 
         Args:
             puuid: Player PUUID to analyze
@@ -151,7 +151,7 @@ class SmurfDetectionService:
         analysis_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         logger.info(
-            "Smurf detection analysis completed",
+            "Player analysis completed",
             puuid=puuid,
             is_smurf=is_smurf,
             detection_score=detection_score,

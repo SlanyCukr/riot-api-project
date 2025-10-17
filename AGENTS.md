@@ -16,7 +16,7 @@
 - `backend/app/riot_api/`: Riot API integration
 - `backend/app/models/`: SQLAlchemy ORM models
 - `backend/app/schemas/`: Pydantic validation schemas
-- `backend/app/algorithms/`: Smurf detection algorithms
+- `backend/app/algorithms/`: Player analysis algorithms
 - `backend/app/jobs/`: Background jobs
 - `frontend/app/`: Next.js pages
 - `frontend/components/`: React components
@@ -25,6 +25,7 @@
 # Hot Reload
 
 No restart needed - just save files:
+
 - **Frontend**: Changes auto-refresh in browser
 - **Backend**: Server restarts automatically
 - **Rebuild only for**: Dependencies, Dockerfile changes, or system packages

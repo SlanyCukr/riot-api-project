@@ -1,7 +1,7 @@
 """
-Pydantic schemas for smurf detection API.
+Pydantic schemas for player analysis API.
 
-This module contains the request/response schemas for the smurf detection
+This module contains the request/response schemas for the player analysis
 API endpoints, including detection requests, responses, and statistics.
 """
 
@@ -24,7 +24,7 @@ class DetectionFactor(BaseModel):
 
 
 class DetectionRequest(BaseModel):
-    """Request for smurf detection analysis."""
+    """Request for player analysis."""
 
     puuid: str = Field(..., description="Player PUUID to analyze")
     min_games: int = Field(30, ge=10, le=100, description="Minimum games for analysis")
@@ -38,7 +38,7 @@ class DetectionRequest(BaseModel):
 
 
 class DetectionResponse(BaseModel):
-    """Response from smurf detection analysis."""
+    """Response from player analysis."""
 
     puuid: str = Field(..., description="Player PUUID")
     is_smurf: bool = Field(..., description="Whether player is detected as smurf")

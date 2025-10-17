@@ -1,6 +1,6 @@
 # Riot API Backend
 
-Backend service for Riot API match history and player analysis.
+Backend service for Riot API player's performance and match history analysis.
 
 ## Features
 
@@ -8,7 +8,7 @@ Backend service for Riot API match history and player analysis.
 - PostgreSQL database with async support
 - In-memory Riot API response caching with TTL controls
 - Riot API integration
-- Smurf detection algorithms
+- Player analysis algorithms
 - Match history tracking
 
 ## Development

@@ -68,7 +68,7 @@ async def get_detection_service(
     db: Annotated[AsyncSession, Depends(get_db)],
     riot_data_manager: Annotated[RiotDataManager, Depends(get_riot_data_manager)],
 ) -> SmurfDetectionService:
-    """Get smurf detection service instance."""
+    """Get player analysis service instance."""
     return SmurfDetectionService(db, riot_data_manager)
 
 

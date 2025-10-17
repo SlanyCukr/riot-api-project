@@ -215,7 +215,7 @@ class PlayerAnalyzerJob(BaseJob):
         log_context=lambda self, player, execution_summary: {"puuid": player.puuid},
     )
     async def _analyze_single_player(self, player, execution_summary: dict):
-        """Analyze a single player for smurf detection.
+        """Analyze a single player for player analysis.
 
         :param player: Player to analyze.
         :param execution_summary: Execution summary dict for tracking metrics.

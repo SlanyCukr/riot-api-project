@@ -1,10 +1,10 @@
-# League Eye Spy - Player Analytics & Smurf Detection
+# League Eye Spy - Analyze Player, Detect Smurfs & More
 
 A League of Legends player analysis platform that identifies potential smurf accounts using advanced algorithms and Riot API data.
 
 ## 🎯 What It Does
 
-- **🔍 Smurf Detection**: Analyzes 9 factors to detect likely smurf accounts
+- **🔍 Player Analysis**: Analyzes 9 factors to detect likely smurf accounts
 - **📊 Player Analytics**: Match history, performance stats, and rank tracking
 - **⚡ Real-time Monitoring**: Automated background jobs for continuous updates
 - **🌍 Multi-Region Support**: Works on all major Riot API regions
@@ -12,10 +12,12 @@ A League of Legends player analysis platform that identifies potential smurf acc
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Docker Engine with Compose v2
 - Riot API Key from [Riot Developer Portal](https://developer.riotgames.com/)
 
 ### 1. Setup
+
 ```bash
 git clone <repository-url>
 cd riot-api-project
@@ -24,55 +26,63 @@ cp .env.example .env
 ```
 
 ### 2. Start Development
+
 ```bash
 ./scripts/dev.sh
 ```
 
 ### 3. Access the App
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
 ## 🎯 Key Features
 
-### Smurf Detection Algorithm
+### Player Analysis Algorithm
+
 Analyzes players using 9 weighted factors:
 
-| Factor | Weight | What It Checks |
-|--------|--------|----------------|
-| Rank Discrepancy | 20% | Performance vs rank mismatch |
-| Win Rate Analysis | 18% | High win rates over time |
-| Performance Trends | 15% | KDA consistency patterns |
-| Win Rate Trends | 10% | Improvement patterns |
-| Role Performance | 9% | Multi-role versatility |
-| Rank Progression | 9% | Fast climbing detection |
-| Account Level | 8% | Low account level |
-| Performance Consistency | 8% | Variance analysis |
-| KDA Analysis | 3% | Kill/death ratios |
+| Factor                  | Weight | What It Checks               |
+| ----------------------- | ------ | ---------------------------- |
+| Rank Discrepancy        | 20%    | Performance vs rank mismatch |
+| Win Rate Analysis       | 18%    | High win rates over time     |
+| Performance Trends      | 15%    | KDA consistency patterns     |
+| Win Rate Trends         | 10%    | Improvement patterns         |
+| Role Performance        | 9%     | Multi-role versatility       |
+| Rank Progression        | 9%     | Fast climbing detection      |
+| Account Level           | 8%     | Low account level            |
+| Performance Consistency | 8%     | Variance analysis            |
+| KDA Analysis            | 3%     | Kill/death ratios            |
 
 **Confidence Levels:**
+
 - 🔴 **High (80%+)**: Very likely smurf
 - 🟡 **Medium (60-79%)**: Probable smurf
 - 🟢 **Low (40-59%)**: Possible smurf
 
 ### Web Interface
-- **Smurf Detection**: Search players and run analysis
+
+- **Player Analysis**: Search players and run analysis
 - **Tracked Players**: Monitor players automatically
 - **Background Jobs**: View system status and job history
 
 ## 🏗️ Tech Stack
 
 **Backend**
+
 - Python 3.13 + FastAPI + PostgreSQL
 - SQLAlchemy + Pydantic for type safety
 - APScheduler for background jobs
 
 **Frontend**
+
 - Next.js 15 + React 19 + TypeScript
 - shadcn/ui + Tailwind CSS
 - TanStack Query for data fetching
 
 **Infrastructure**
+
 - Docker + Docker Compose + Docker Bake
 - Modern multi-stage builds with BuildKit
 - Multi-environment support (dev/prod)
@@ -80,6 +90,7 @@ Analyzes players using 9 weighted factors:
 ## 🛠️ Development
 
 Both frontend and backend support hot reload—just save files, no restart needed:
+
 ```bash
 ./scripts/dev.sh                # Start with hot reload
 ./scripts/dev.sh --build        # Rebuild containers
@@ -94,11 +105,12 @@ For detailed build info and production deployment, see **`docker/AGENTS.md`** an
 The system runs two automated jobs:
 
 1. **Tracked Player Updater** (every 2 minutes)
+
    - Fetches new matches for monitored players
    - Updates ranks and statistics
 
 2. **Player Analyzer** (continuous)
-   - Runs smurf detection on players with 20+ matches
+   - Runs player analysis on players with 20+ matches
    - Stores analysis results with confidence scores
 
 Monitor jobs at: http://localhost:3000/jobs
@@ -106,14 +118,16 @@ Monitor jobs at: http://localhost:3000/jobs
 ## 🔧 API Endpoints
 
 ### Players
+
 - `GET /api/v1/players/search` - Search by Riot ID or summoner name
 - `POST /api/v1/players/{puuid}/track` - Add player to tracking
 - `DELETE /api/v1/players/{puuid}/track` - Remove from tracking
 
 ### Matches & Analysis
+
 - `GET /api/v1/matches/player/{puuid}` - Get match history
-- `POST /api/v1/detection/analyze` - Run smurf detection
-- `GET /api/v1/detection/player/{puuid}/latest` - Get latest analysis
+- `POST /api/v1/player-analysis/analyze` - Run player analysis
+- `GET /api/v1/player-analysis/player/{puuid}/latest` - Get latest analysis
 
 **Full API docs**: http://localhost:8000/docs
 
@@ -164,6 +178,7 @@ docker compose exec frontend npm run lint
 ## 🔒 Rate Limiting
 
 The application respects Riot API rate limits:
+
 - 20 requests per second
 - 100 requests per 2 minutes
 

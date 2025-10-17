@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface SmurfDetectionProps {
+interface PlayerAnalysisProps {
   puuid: string;
 }
 
@@ -54,7 +54,7 @@ function formatTimeAgo(dateString: string): {
   return { text, isOld };
 }
 
-export function SmurfDetection({ puuid }: SmurfDetectionProps) {
+export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
   const queryClient = useQueryClient();
 
   const { data: latestDetection, isLoading: isLoadingLatest } = useQuery({
@@ -62,7 +62,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     queryFn: async () => {
       const result = await validatedGet(
         DetectionResponseSchema,
-        `/detection/player/${puuid}/latest`,
+        `/player-analysis/player/${puuid}/latest`,
       );
       if (!result.success) {
         if (result.error.status === 404) {
@@ -80,7 +80,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
     queryFn: async () => {
       const result = await validatedGet(
         DetectionExistsResponseSchema,
-        `/detection/player/${puuid}/exists`,
+        `/player-analysis/player/${puuid}/exists`,
       );
       if (!result.success) {
         return null;
@@ -103,7 +103,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
       };
       return validatedPost(
         DetectionResponseSchema,
-        "/detection/analyze",
+        "/player-analysis/analyze",
         request,
       );
     },
@@ -159,7 +159,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-purple-600" />
-          Smurf Detection
+          Player Analysis
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -173,7 +173,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <p className="font-medium mb-2">
-                  Smurf detection requires at least 30 ranked matches
+                  Player analysis requires at least 30 ranked matches
                 </p>
                 <p className="text-sm text-muted-foreground">
                   If this player was recently tracked, matches are still being
@@ -203,7 +203,7 @@ export function SmurfDetection({ puuid }: SmurfDetectionProps) {
                 <AlertDescription>
                   {error instanceof Error
                     ? error.message
-                    : "Failed to run smurf detection. Please try again."}
+                    : "Failed to run player analysis. Please try again."}
                 </AlertDescription>
               </Alert>
             )}

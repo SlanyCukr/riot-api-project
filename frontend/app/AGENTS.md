@@ -11,7 +11,7 @@
 - `error.tsx` - Error boundary
 - `loading.tsx` - Root loading state
 - `not-found.tsx` - 404 page
-- `smurf-detection/` - Player analysis page
+- `player-analysis/` - Player analysis page
 - `jobs/` - Background jobs monitoring
 
 # Commands

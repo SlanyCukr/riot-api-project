@@ -8,7 +8,7 @@
 - `scheduler.py` - APScheduler setup and lifecycle
 - `base.py` - BaseJob class (extend this)
 - `tracked_player_updater.py` - Fetch matches for tracked players
-- `player_analyzer.py` - Run smurf detection
+- `player_analyzer.py` - Run player analysis
 
 # Commands
 - Job configs managed via API or database

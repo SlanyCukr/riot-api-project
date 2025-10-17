@@ -114,8 +114,8 @@ tags_metadata = [
         "description": "Operations for retrieving and analyzing match history.",
     },
     {
-        "name": "smurf-detection",
-        "description": "Smurf detection algorithms and analysis endpoints.",
+        "name": "player-analysis",
+        "description": "Player analysis algorithms and analysis endpoints.",
     },
     {
         "name": "jobs",
@@ -133,15 +133,15 @@ tags_metadata = [
 
 # Create FastAPI application
 app = FastAPI(
-    title="Riot API - Smurf Detection Service",
+    title="Riot API - Player Analysis Service",
     description="""
-    A comprehensive League of Legends player analysis and smurf detection API.
+    A comprehensive League of Legends player analysis API.
 
     ## Features
 
     * **Player Search**: Search players by Riot ID or summoner name
     * **Match History**: Retrieve and analyze match history
-    * **Smurf Detection**: Identify potential smurf accounts using multiple algorithms
+    * **Player Analysis**: Analyze players using multiple algorithms
     * **Statistics**: Player performance statistics and analysis
 
     ## Authentication
@@ -181,7 +181,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
-app.include_router(detection_router, prefix="/api/v1", tags=["smurf-detection"])
+app.include_router(detection_router, prefix="/api/v1", tags=["player-analysis"])
 app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 

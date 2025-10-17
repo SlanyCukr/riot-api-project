@@ -1,7 +1,7 @@
 """
-Smurf detection API endpoints.
+Player analysis API endpoints.
 
-This module provides REST API endpoints for smurf detection analysis,
+This module provides REST API endpoints for player analysis,
 including player analysis, detection history, statistics, and configuration.
 """
 
@@ -17,7 +17,7 @@ from ..api.dependencies import DetectionServiceDep
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(prefix="/detection", tags=["smurf-detection"])
+router = APIRouter(prefix="/player-analysis", tags=["player-analysis"])
 
 
 @router.post("/analyze", response_model=DetectionResponse)
@@ -25,9 +25,9 @@ async def analyze_player(
     request: DetectionRequest, detection_service: DetectionServiceDep
 ):
     """
-    Analyze a player for smurf behavior.
+    Analyze a player using the player analysis algorithm.
 
-    This endpoint performs comprehensive smurf detection analysis using multiple factors:
+    This endpoint performs comprehensive player analysis using multiple factors:
     - Win rate over recent matches
     - Account level analysis
     - Rank progression speed
@@ -47,7 +47,7 @@ async def analyze_player(
     """
     try:
         logger.info(
-            "Starting smurf detection analysis",
+            "Starting player analysis",
             puuid=request.puuid,
             min_games=request.min_games,
             queue_filter=request.queue_filter,
@@ -62,7 +62,7 @@ async def analyze_player(
         )
 
         logger.info(
-            "Smurf detection analysis completed",
+            "Player analysis completed",
             puuid=request.puuid,
             is_smurf=result.is_smurf,
             detection_score=result.detection_score,
@@ -85,9 +85,9 @@ async def check_detection_exists(
     detection_service: DetectionServiceDep,
 ):
     """
-    Check if smurf detection analysis exists for a player.
+    Check if player analysis exists for a player.
 
-    This endpoint checks if a smurf detection analysis exists for a player
+    This endpoint checks if a player analysis exists for a player
     and returns basic information about the most recent analysis.
 
     Args:
@@ -136,9 +136,9 @@ async def get_latest_detection(
     force_refresh: bool = Query(False, description="Force new analysis"),
 ):
     """
-    Get the latest smurf detection result for a player.
+    Get the latest player analysis result for a player.
 
-    This endpoint returns the most recent smurf detection analysis for a player.
+    This endpoint returns the most recent player analysis for a player.
     If no recent analysis exists, it will perform a new analysis.
 
     Args:

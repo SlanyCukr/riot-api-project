@@ -1,5 +1,5 @@
 """
-Rank progression analysis algorithm for smurf detection.
+Rank progression analysis algorithm for player analysis.
 
 This algorithm analyzes player rank progression to identify unusually
 rapid climbing that may indicate smurf behavior.
@@ -33,7 +33,7 @@ class RankProgressionResult:
 
 
 class RankProgressionAnalyzer:
-    """Analyzes rank progression patterns for smurf detection."""
+    """Analyzes rank progression patterns for player analysis."""
 
     def __init__(
         self,

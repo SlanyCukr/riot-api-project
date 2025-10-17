@@ -1,4 +1,4 @@
-"""Smurf detection model for storing smurf detection results and signals."""
+"""Smurf detection model for storing player analysis results and signals."""
 
 from decimal import Decimal
 from datetime import datetime
@@ -52,7 +52,7 @@ class SmurfDetection(Base):
         String(32),
         nullable=True,
         index=True,
-        comment="Confidence level in the smurf detection",
+        comment="Confidence level in the player analysis",
     )
 
     smurf_score: Mapped[Decimal] = mapped_column(
@@ -138,7 +138,7 @@ class SmurfDetection(Base):
         SQLDateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        comment="When this smurf detection was created",
+        comment="When this player analysis was created",
     )
 
     updated_at: Mapped[datetime] = mapped_column(
@@ -146,7 +146,7 @@ class SmurfDetection(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
-        comment="When this smurf detection was last updated",
+        comment="When this player analysis was last updated",
     )
 
     last_analysis: Mapped[datetime] = mapped_column(
@@ -159,7 +159,7 @@ class SmurfDetection(Base):
 
     # Metadata
     analysis_version: Mapped[Optional[str]] = mapped_column(
-        String(16), nullable=True, comment="Version of the smurf detection algorithm"
+        String(16), nullable=True, comment="Version of the player analysis algorithm"
     )
 
     false_positive_reported: Mapped[bool] = mapped_column(
@@ -186,11 +186,11 @@ class SmurfDetection(Base):
     player = relationship("Player", back_populates="smurf_detections")
 
     def __repr__(self) -> str:
-        """Return string representation of the smurf detection."""
+        """Return string representation of the player analysis."""
         return f"<SmurfDetection(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert smurf detection to dictionary representation."""
+        """Convert player analysis to dictionary representation."""
         return {
             "id": self.id,
             "puuid": str(self.puuid),

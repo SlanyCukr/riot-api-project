@@ -122,153 +122,155 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <Card className="mb-6 bg-[#2c3e6f] p-6 text-white dark:bg-[#151e46]">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2">
-              <Settings2 className="h-6 w-6 text-[#c8aa6e]" />
-              <h1 className="text-2xl font-medium text-[#c8aa6e]">
-                System Settings
-              </h1>
+      <div className="mb-6 space-y-6">
+        {/* Header */}
+        <Card
+          id="header-card"
+          className="bg-[#152b56] p-6 text-white dark:bg-[#0a1428]"
+        >
+          <div className="mb-4 flex items-start justify-between">
+            <h1 className="text-2xl font-semibold">System Settings</h1>
+            <ThemeToggle />
+          </div>
+          <p className="text-sm leading-relaxed">
+            Configure system settings and runtime configuration
+          </p>
+        </Card>
+
+        {/* Settings Form */}
+        <Card className="p-6">
+          <h2 className="mb-4 text-lg font-semibold">Riot API Configuration</h2>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            <p className="text-sm leading-relaxed">
-              Configure system settings and runtime configuration
-            </p>
-          </div>
-          <ThemeToggle />
-        </div>
-      </Card>
-
-      {/* Settings Form */}
-      <Card className="p-6">
-        <h2 className="mb-4 text-lg font-semibold">Riot API Configuration</h2>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Current API Key Display */}
-            {setting && (
-              <div>
-                <Label>Current API Key</Label>
-                <div className="mt-1.5 rounded-md border bg-muted/50 px-3 py-2 text-sm font-mono">
-                  {setting.masked_value}
+          ) : (
+            <div className="space-y-4">
+              {/* Current API Key Display */}
+              {setting && (
+                <div>
+                  <Label>Current API Key</Label>
+                  <div className="mt-1.5 rounded-md border bg-muted/50 px-3 py-2 text-sm font-mono">
+                    {setting.masked_value}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Last updated:{" "}
+                    {new Date(setting.updated_at).toLocaleString()}
+                  </p>
                 </div>
+              )}
+
+              {!setting && !error && (
+                <Alert>
+                  <p className="text-sm">
+                    No API key configured in database. Using environment
+                    variable.
+                  </p>
+                </Alert>
+              )}
+
+              {/* New API Key Input */}
+              <div>
+                <Label htmlFor="api-key">New Riot API Key</Label>
+                <Input
+                  id="api-key"
+                  type="text"
+                  placeholder="RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  value={apiKey}
+                  onChange={(e) => {
+                    setApiKey(e.target.value);
+                    setTestResult(null); // Clear test result on change
+                  }}
+                  className="mt-1.5 font-mono text-sm"
+                />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Last updated: {new Date(setting.updated_at).toLocaleString()}
+                  Get your API key from{" "}
+                  <a
+                    href="https://developer.riotgames.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    developer.riotgames.com
+                  </a>
                 </p>
               </div>
-            )}
 
-            {!setting && !error && (
+              {/* Test Result */}
+              {testResult && (
+                <Alert
+                  className={
+                    testResult.success
+                      ? "border-green-500/50 bg-green-500/10"
+                      : "border-red-500/50 bg-red-500/10"
+                  }
+                >
+                  <div className="flex items-start gap-2">
+                    {testResult.success ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <X className="h-4 w-4 text-red-500" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {testResult.message}
+                      </p>
+                    </div>
+                  </div>
+                </Alert>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleTestKey}
+                  variant="outline"
+                  disabled={
+                    !apiKey.trim() || testingKey || testMutation.isPending
+                  }
+                >
+                  {testingKey || testMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    "Test Key"
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleSaveKey}
+                  disabled={
+                    !apiKey.trim() ||
+                    updateMutation.isPending ||
+                    (testResult !== null && !testResult.success)
+                  }
+                >
+                  {updateMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save & Apply"
+                  )}
+                </Button>
+              </div>
+
+              {/* Info Note */}
               <Alert>
                 <p className="text-sm">
-                  No API key configured in database. Using environment variable.
+                  <strong>Note:</strong> The API key will be validated before
+                  saving. Development keys (starting with RGAPI-) expire every
+                  24 hours and need to be renewed.
                 </p>
               </Alert>
-            )}
-
-            {/* New API Key Input */}
-            <div>
-              <Label htmlFor="api-key">New Riot API Key</Label>
-              <Input
-                id="api-key"
-                type="text"
-                placeholder="RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setTestResult(null); // Clear test result on change
-                }}
-                className="mt-1.5 font-mono text-sm"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Get your API key from{" "}
-                <a
-                  href="https://developer.riotgames.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  developer.riotgames.com
-                </a>
-              </p>
             </div>
-
-            {/* Test Result */}
-            {testResult && (
-              <Alert
-                className={
-                  testResult.success
-                    ? "border-green-500/50 bg-green-500/10"
-                    : "border-red-500/50 bg-red-500/10"
-                }
-              >
-                <div className="flex items-start gap-2">
-                  {testResult.success ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <X className="h-4 w-4 text-red-500" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{testResult.message}</p>
-                  </div>
-                </div>
-              </Alert>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button
-                onClick={handleTestKey}
-                variant="outline"
-                disabled={
-                  !apiKey.trim() || testingKey || testMutation.isPending
-                }
-              >
-                {testingKey || testMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Testing...
-                  </>
-                ) : (
-                  "Test Key"
-                )}
-              </Button>
-
-              <Button
-                onClick={handleSaveKey}
-                disabled={
-                  !apiKey.trim() ||
-                  updateMutation.isPending ||
-                  (testResult !== null && !testResult.success)
-                }
-              >
-                {updateMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save & Apply"
-                )}
-              </Button>
-            </div>
-
-            {/* Info Note */}
-            <Alert>
-              <p className="text-sm">
-                <strong>Note:</strong> The API key will be validated before
-                saving. Development keys (starting with RGAPI-) expire every 24
-                hours and need to be renewed.
-              </p>
-            </Alert>
-          </div>
-        )}
-      </Card>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
