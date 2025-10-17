@@ -13,15 +13,6 @@ services:
     restart: always
     ports:
       - "${FRONTEND_PORT}:3000"
-    # Resource limits for production stability
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
-        reservations:
-          memory: 256M
-          cpus: '0.5'
     # Security: read-only root filesystem where possible
     read_only: true
     tmpfs:
@@ -45,15 +36,6 @@ services:
     restart: always
     ports:
       - "${BACKEND_PORT}:8000"
-    # Resource limits for production stability
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '2.0'
-        reservations:
-          memory: 512M
-          cpus: '1.0'
 
   postgres:
     image: postgres:18-alpine
@@ -73,15 +55,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    # Resource limits for database stability
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '2.0'
-        reservations:
-          memory: 1G
-          cpus: '1.0'
     # Security: run as non-root
     user: postgres
     # Security: read-only root filesystem

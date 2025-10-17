@@ -95,18 +95,36 @@ jobs:
           chmod +x scripts/prod.sh
 
           echo "🚀 Deploying production environment..."
+          echo "⏱️  Build started at: $(date '+%Y-%m-%d %H:%M:%S')"
+          BUILD_START=$(date +%s)
 
           # Run build with explicit error handling and detailed output
           if ! ./scripts/prod.sh --build --no-cache --down 2>&1 | tee build.log; then
-            echo "❌ Deployment failed! Showing build logs..."
+            BUILD_END=$(date +%s)
+            BUILD_DURATION=$((BUILD_END - BUILD_START))
+
+            echo ""
+            echo "❌ Deployment failed after ${BUILD_DURATION}s"
+            echo "=== Build Environment Info ==="
+            echo "Raspberry Pi Model: $(cat /proc/device-tree/model 2>/dev/null || echo 'Unknown')"
+            echo "Memory: $(free -h | grep Mem | awk '{print $2 " total, " $3 " used, " $4 " available"}')"
+            echo "Disk: $(df -h /home/pi | tail -1 | awk '{print $2 " total, " $3 " used, " $4 " available"}')"
+            echo ""
             echo "=== Last 100 lines of build output ==="
             tail -100 build.log
-            echo "=== Checking for frontend build errors ==="
-            docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs frontend 2>&1 || true
-            echo "=== Docker build cache info ==="
-            docker buildx du || docker builder df || true
+            echo ""
+            echo "=== Container Status ==="
+            docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps 2>&1 || true
+            echo ""
+            echo "=== Docker System Info ==="
+            docker system df || true
             exit 1
           fi
+
+          BUILD_END=$(date +%s)
+          BUILD_DURATION=$((BUILD_END - BUILD_START))
+          echo ""
+          echo "✅ Build completed successfully in ${BUILD_DURATION}s ($(($BUILD_DURATION / 60))m $(($BUILD_DURATION % 60))s)"
 
       - name: Wait for services to start
         run: |
@@ -186,15 +204,39 @@ jobs:
 
       - name: Show deployment info
         run: |
-          echo "🌐 Riot API Project is now deployed:"
-          echo "   Production URL: https://leagueyespy.com"
-          echo "   Backend API:    http://localhost:8086"
-          echo "   Frontend:       http://localhost:8088"
-          echo "   Status:         All services running on RPI5 16GB"
+          cd /home/pi/riot-api
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🎉 Riot API Project Successfully Deployed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🌐 Service URLs:"
+          echo "   Production:  https://leagueyespy.com"
+          echo "   Backend API: http://localhost:8086"
+          echo "   Frontend:    http://localhost:8088"
+          echo ""
+          echo "💻 Platform:"
+          echo "   Device:      Raspberry Pi 5"
+          echo "   Memory:      16GB RAM"
+          echo "   Storage:     2TB SSD"
+          echo "   Deployment:  $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+          echo "📊 Container Status:"
+          docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: Clean up old Docker images
         run: |
-          echo "🧹 Cleaning up old Docker images..."
+          echo "🧹 Cleaning up unused Docker images..."
+          echo "Storage before cleanup:"
+          docker system df
+
+          # Only remove dangling images (not used by any container)
           docker image prune -f
-          docker system prune -f
+
+          echo ""
+          echo "Storage after cleanup:"
+          docker system df
           echo "✅ Cleanup completed"

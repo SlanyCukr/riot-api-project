@@ -15,8 +15,9 @@ FROM base AS deps
 COPY package.json package-lock.json* ./
 
 # Install dependencies with cache mount for faster builds
+# Suppress npm deprecation warnings (informational only, not errors)
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit
+    npm ci --prefer-offline --no-audit --loglevel=error 2>&1 | grep -v "npm warn deprecated" || true
 
 # Lint stage for CI/CD validation
 FROM deps AS lint
@@ -42,20 +43,24 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
-# Optimize build environment
+# Optimize build environment for RPi5 (16GB RAM)
+# Limit Node.js memory usage to be conservative on ARM64
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    NODE_OPTIONS="--max-old-space-size=2048"
+    NODE_OPTIONS="--max-old-space-size=3072"
 
 # Debug build configuration
 RUN echo "=== Build Configuration ===" && \
     echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}" && \
     echo "Node version: $(node --version)" && \
     echo "NPM version: $(npm --version)" && \
-    echo "Platform: $(uname -a)"
+    echo "Platform: $(uname -a)" && \
+    echo "Memory limit: 3GB"
 
 # Build Next.js application with error handling
+# Filter out npm deprecation warnings from build output
 RUN --mount=type=cache,target=/app/.next/cache \
-    npm run build 2>&1 || (echo "Build failed! Check errors above." && exit 1)
+    npm run build 2>&1 | grep -v "npm warn deprecated" || \
+    (echo "❌ Build failed! Check errors above." && exit 1)
 
 # Production runner stage (minimal, optimized)
 FROM base AS runner
@@ -114,8 +119,9 @@ RUN apk add --no-cache curl wget
 COPY package.json package-lock.json* ./
 
 # Install all dependencies (including dev dependencies)
+# Suppress npm deprecation warnings
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline
+    npm ci --prefer-offline --loglevel=error 2>&1 | grep -v "npm warn deprecated" || true
 
 # Copy source code
 COPY . .

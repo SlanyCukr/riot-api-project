@@ -1,10 +1,25 @@
 # Docker Bake Configuration
 # This file defines build configurations for local builds (no registry publishing)
 # Use with: docker buildx bake [target]
+#
+# Raspberry Pi 5 (16GB RAM, 2TB SSD) Optimizations:
+# - Builds optimized for ARM64 architecture
+# - Parallel builds tuned for 4-core CPU with generous memory allocation (3GB per build)
+# - Build cache stored on high-performance SSD for fast rebuilds
+# - No storage constraints with 2TB available
 
 # Variables for configuration
 variable "NEXT_PUBLIC_API_URL" {
   default = "http://localhost:8000"
+}
+
+# BuildKit optimization variables for RPi5
+variable "BUILDKIT_PARALLELISM" {
+  default = "2"  # Limit to 2 parallel builds on RPi5 (4 cores, leaving headroom)
+}
+
+variable "DOCKER_BUILDKIT_CACHE_SIZE" {
+  default = "50GB"  # Generous cache size with 2TB SSD available
 }
 
 # Default group builds all services
@@ -27,6 +42,21 @@ target "_common" {
   # Local cache for faster rebuilds (skipped on docker driver)
   # The docker driver doesn't support cache export, so we omit cache settings
   # when using docker driver. buildx automatically detects this.
+
+  # ARM64/RPi5 optimizations
+  args = {
+    # Optimize for ARM64 native builds
+    BUILDKIT_INLINE_CACHE = "1"
+  }
+
+  # Add useful labels for troubleshooting and metadata
+  labels = {
+    "org.opencontainers.image.source" = "riot-api-project"
+    "com.rpi5.optimized" = "true"
+    "com.rpi5.build.date" = "${timestamp()}"
+    "com.rpi5.architecture" = "arm64"
+    "com.buildkit.version" = "latest"
+  }
 }
 
 # Common configuration for production builds (single platform - local deployment)
@@ -36,6 +66,14 @@ target "_prod_common" {
   # When building on linux/arm64 (RPI5), this will automatically use ARM64 images
   # Load into local Docker daemon
   output = ["type=docker"]
+
+  # RPi5-specific build args for production
+  # 16GB RAM allows for comfortable 3GB allocation to Node.js builds
+  args = {
+    BUILDKIT_INLINE_CACHE = "1"
+    # Optimize Node.js builds for ARM64 (RPi5 has 16GB RAM)
+    NODE_OPTIONS = "--max-old-space-size=3072"
+  }
 }
 
 # Backend base configuration

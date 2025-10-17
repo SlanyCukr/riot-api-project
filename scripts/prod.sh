@@ -112,14 +112,28 @@ fi
 if [ "$FORCE_BUILD" = true ]; then
     cd "$PROJECT_ROOT"
 
+    # Check Docker status
+    echo -e "${YELLOW}🔍 Pre-build checks...${NC}"
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Error: Docker is not running${NC}"
+        exit 1
+    fi
+
     echo -e "${YELLOW}🔍 Build environment info:${NC}"
     echo "   Docker version: $(docker --version)"
     echo "   Docker Compose version: $(docker compose version)"
+    echo "   BuildKit status: $(docker buildx version 2>/dev/null || echo 'not available')"
     echo "   NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-not set}"
+    echo "   Available memory: $(free -h 2>/dev/null | grep Mem | awk '{print $7}' || echo 'unknown')"
+    echo "   Disk space: $(df -h . | tail -1 | awk '{print $4 " available"}')"
     echo ""
 
     echo -e "${YELLOW}🔨 Building production containers with Docker Bake...${NC}"
-    echo -e "${YELLOW}   Features: parallel builds, local caching${NC}"
+    echo -e "${YELLOW}   Platform: ARM64 (Raspberry Pi 5)${NC}"
+    echo -e "${YELLOW}   Features: parallel builds, SSD-backed caching${NC}"
+    echo -e "${YELLOW}   Build started at: $(date '+%H:%M:%S')${NC}"
+
+    BUILD_START=$(date +%s)
 
     # Export environment variables for Bake
     export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
@@ -138,23 +152,41 @@ if [ "$FORCE_BUILD" = true ]; then
     # Build with Bake using prod group
     if [ ${#SERVICES[@]} -eq 0 ]; then
         if ! docker buildx bake -f docker/docker-bake.hcl prod --load "${BAKE_ARGS[@]}"; then
-            echo -e "${RED}❌ Bake build failed!${NC}"
+            BUILD_END=$(date +%s)
+            BUILD_DURATION=$((BUILD_END - BUILD_START))
+
+            echo ""
+            echo -e "${RED}❌ Bake build failed after ${BUILD_DURATION}s!${NC}"
+            echo ""
             echo -e "${YELLOW}💡 Troubleshooting tips:${NC}"
-            echo -e "   1. Check Bake config: docker buildx bake -f docker/docker-bake.hcl --print"
-            echo -e "   2. Check disk space: df -h"
-            echo -e "   3. Clean Docker cache: docker buildx prune -a"
-            echo -e "   4. Check .env file has NEXT_PUBLIC_API_URL set"
+            echo -e "   1. Check Bake config: docker buildx bake -f docker/docker-bake.hcl prod --print"
+            echo -e "   2. Check disk space: df -h ."
+            echo -e "   3. Check memory usage: free -h"
+            echo -e "   4. Clean Docker cache: docker buildx prune -a"
+            echo -e "   5. Check .env file has NEXT_PUBLIC_API_URL set"
+            echo -e "   6. Check Docker logs: docker compose logs"
+            echo ""
+            echo -e "${YELLOW}📊 Docker system info:${NC}"
+            docker system df 2>/dev/null || true
             exit 1
         fi
     else
         # Build specific services
         for service in "${SERVICES[@]}"; do
             if ! docker buildx bake --allow=fs=/tmp -f docker/docker-bake.hcl "${service}-prod" --load "${BAKE_ARGS[@]}"; then
-                echo -e "${RED}❌ Bake build failed for ${service}!${NC}"
+                BUILD_END=$(date +%s)
+                BUILD_DURATION=$((BUILD_END - BUILD_START))
+                echo -e "${RED}❌ Bake build failed for ${service} after ${BUILD_DURATION}s!${NC}"
                 exit 1
             fi
         done
     fi
+
+    BUILD_END=$(date +%s)
+    BUILD_DURATION=$((BUILD_END - BUILD_START))
+    echo ""
+    echo -e "${GREEN}✅ Build completed successfully!${NC}"
+    echo -e "${GREEN}   Duration: ${BUILD_DURATION}s ($(($BUILD_DURATION / 60))m $(($BUILD_DURATION % 60))s)${NC}"
     echo ""
 fi
 
