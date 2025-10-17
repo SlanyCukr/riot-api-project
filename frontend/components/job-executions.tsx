@@ -69,7 +69,7 @@ export function JobExecutions({
   const [displayCount, setDisplayCount] = useState(20);
   const PAGE_SIZE = 20;
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const previousExecutionCount = useRef(0);
+  const previousScrollTop = useRef(0);
 
   // Create job name mapping
   const jobNameMap = useMemo(() => {
@@ -80,10 +80,6 @@ export function JobExecutions({
 
   // Reset display count when initial data changes
   const executionKey = initialExecutions?.total ?? 0;
-  useEffect(() => {
-    // This runs when the initial data changes, resetting pagination
-    previousExecutionCount.current = 0;
-  }, [executionKey]);
 
   // Derive display count from the execution key to avoid setState in effect
   const [resetKey, setResetKey] = useState(executionKey);
@@ -112,11 +108,12 @@ export function JobExecutions({
       return result;
     },
     enabled: !!initialExecutions,
+    refetchInterval: 15000, // Auto-refresh every 15 seconds
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
     placeholderData: (previousData) => previousData,
-    staleTime: 15000,
+    staleTime: 0, // Always consider data stale so invalidation triggers refetch
   });
 
   const data = response?.success ? response.data : initialExecutions;
@@ -127,17 +124,20 @@ export function JobExecutions({
   const totalExecutions = data?.total || 0;
   const hasMore = allExecutions.length < totalExecutions;
 
-  // Preserve scroll position when new executions load
+  // Preserve scroll position when data updates (auto-refresh)
   useEffect(() => {
-    if (
-      allExecutions.length > previousExecutionCount.current &&
-      previousExecutionCount.current > 0
-    ) {
-      previousExecutionCount.current = allExecutions.length;
-    } else if (allExecutions.length > 0) {
-      previousExecutionCount.current = allExecutions.length;
+    // Save scroll position before fetching
+    if (isFetching) {
+      previousScrollTop.current = window.scrollY;
     }
-  }, [allExecutions.length]);
+  }, [isFetching]);
+
+  useEffect(() => {
+    // Restore scroll position after data updates
+    if (!isFetching && previousScrollTop.current > 0) {
+      window.scrollTo(0, previousScrollTop.current);
+    }
+  }, [isFetching, allExecutions]);
 
   // Load more function
   const loadMore = useCallback(() => {

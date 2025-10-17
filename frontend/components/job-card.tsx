@@ -132,10 +132,27 @@ export function JobCard({ job }: JobCardProps) {
           title: "Job Triggered",
           description: result.data.message,
         });
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ["jobs"] });
-        queryClient.invalidateQueries({ queryKey: ["job-executions"] });
-        queryClient.invalidateQueries({ queryKey: ["job-status"] });
+        // Wait for job execution to be created in DB (background task)
+        // then invalidate queries to refresh data
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["jobs"] });
+          queryClient.invalidateQueries({ queryKey: ["job-executions"] });
+          queryClient.invalidateQueries({ queryKey: ["job-executions-all"] });
+          queryClient.invalidateQueries({
+            queryKey: ["job-executions-infinite"],
+          });
+          queryClient.invalidateQueries({ queryKey: ["job-status"] });
+        }, 1500);
+
+        // Refresh again after job likely completes to update status
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["job-executions"] });
+          queryClient.invalidateQueries({ queryKey: ["job-executions-all"] });
+          queryClient.invalidateQueries({
+            queryKey: ["job-executions-infinite"],
+          });
+          queryClient.invalidateQueries({ queryKey: ["job-status"] });
+        }, 5000);
       } else {
         toast({
           title: "Failed to Trigger Job",
