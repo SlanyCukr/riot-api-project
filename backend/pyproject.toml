@@ -7,21 +7,22 @@ authors = [
     {name = "Matěj Kadlec", email = "mat.kadlec@email.cz"},
 ]
 dependencies = [
-    "fastapi>=0.118.2",
-    "uvicorn[standard]>=0.37.0",
-    "sqlalchemy>=2.0.43",
+    "alembic>=1.17.0",
+    "apscheduler>=3.10.4",
+    "aiohttp>=3.13.0",
     "asyncpg>=0.30.0",
+    "fastapi>=0.118.2",
+    "httpx>=0.28.1",
     "psycopg2-binary>=2.9.9",
     "pydantic>=2.12.0",
     "pydantic-settings>=2.7.0",
     "python-dotenv>=1.1.1",
-    "httpx>=0.28.1",
-    "aiohttp>=3.13.0",
-    "tenacity>=9.1.2",
-    "structlog>=25.4.0",
-    "python-multipart>=0.0.20",
-    "apscheduler>=3.10.4",
     "python-Levenshtein>=0.25.1",
+    "python-multipart>=0.0.20",
+    "sqlalchemy>=2.0.43",
+    "structlog>=25.4.0",
+    "tenacity>=9.1.2",
+    "uvicorn[standard]>=0.37.0",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
