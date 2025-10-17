@@ -84,6 +84,36 @@ class SmurfDetection(Base):
         comment="Rank discrepancy based smurf score component",
     )
 
+    rank_progression_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 3),
+        nullable=True,
+        comment="Rank progression based smurf score component",
+    )
+
+    win_rate_trend_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 3),
+        nullable=True,
+        comment="Win rate trend based smurf score component",
+    )
+
+    performance_consistency_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 3),
+        nullable=True,
+        comment="Performance consistency based smurf score component",
+    )
+
+    performance_trends_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 3),
+        nullable=True,
+        comment="Performance trends based smurf score component",
+    )
+
+    role_performance_score: Mapped[Optional[Decimal]] = mapped_column(
+        Numeric(5, 3),
+        nullable=True,
+        comment="Role performance based smurf score component",
+    )
+
     # Analysis parameters
     games_analyzed: Mapped[int] = mapped_column(
         Integer,
@@ -207,6 +237,29 @@ class SmurfDetection(Base):
             "rank_discrepancy_score": (
                 float(self.rank_discrepancy_score)
                 if self.rank_discrepancy_score
+                else None
+            ),
+            "rank_progression_score": (
+                float(self.rank_progression_score)
+                if self.rank_progression_score
+                else None
+            ),
+            "win_rate_trend_score": (
+                float(self.win_rate_trend_score) if self.win_rate_trend_score else None
+            ),
+            "performance_consistency_score": (
+                float(self.performance_consistency_score)
+                if self.performance_consistency_score
+                else None
+            ),
+            "performance_trends_score": (
+                float(self.performance_trends_score)
+                if self.performance_trends_score
+                else None
+            ),
+            "role_performance_score": (
+                float(self.role_performance_score)
+                if self.role_performance_score
                 else None
             ),
             "games_analyzed": self.games_analyzed,

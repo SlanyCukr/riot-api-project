@@ -267,11 +267,15 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
                 >
                   {(detection.detection_score * 100).toFixed(0)}%
                 </div>
-                <Badge
-                  variant={getConfidenceVariant(detection.confidence_level)}
-                >
-                  {detection.confidence_level.toUpperCase()} confidence
-                </Badge>
+                {detection.confidence_level !== "none" ? (
+                  <Badge
+                    variant={getConfidenceVariant(detection.confidence_level)}
+                  >
+                    {detection.confidence_level.toUpperCase()} confidence
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">Not detected</Badge>
+                )}
               </div>
             </div>
 
@@ -317,12 +321,13 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
             <Alert>
               <AlertDescription className="text-sm">
                 Based on {detection.sample_size} recent matches
-                {detection.analysis_time_seconds && (
-                  <span className="ml-2">
-                    • Analysis took {detection.analysis_time_seconds.toFixed(2)}
-                    s
-                  </span>
-                )}
+                {detection.analysis_time_seconds &&
+                  detection.analysis_time_seconds > 0 && (
+                    <span className="ml-2">
+                      • Analysis took{" "}
+                      {detection.analysis_time_seconds.toFixed(2)}s
+                    </span>
+                  )}
               </AlertDescription>
             </Alert>
 

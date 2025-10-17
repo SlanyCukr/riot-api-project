@@ -262,10 +262,10 @@ export const EncounterStatsResponseSchema = z.object({
 // Detection Exists Response Schema
 export const DetectionExistsResponseSchema = z.object({
   exists: z.boolean(),
-  last_analysis: z.string().optional(),
-  is_smurf: z.boolean().optional(),
-  detection_score: z.number().optional(),
-  confidence_level: z.string().optional(),
+  last_analysis: z.string().nullish(),
+  is_smurf: z.boolean().nullish(),
+  detection_score: z.number().nullish(),
+  confidence_level: z.string().nullish(),
 });
 
 // Infer types
