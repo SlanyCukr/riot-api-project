@@ -103,6 +103,10 @@ FROM base AS development
 
 WORKDIR /app
 
+# Accept build argument for API URL configuration
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Install development tools
 RUN apk add --no-cache curl wget
 

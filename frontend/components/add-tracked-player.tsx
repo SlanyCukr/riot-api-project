@@ -37,20 +37,18 @@ export function AddTrackedPlayer() {
   const form = useForm<AddTrackedPlayerForm>({
     resolver: zodResolver(addTrackedPlayerSchema),
     defaultValues: {
-      searchType: "riot_id",
       searchValue: "",
       platform: "eun1",
     },
   });
 
-  const searchType = form.watch("searchType");
-
   const { mutate, isPending, error, reset } = useMutation({
     mutationFn: async (data: AddTrackedPlayerForm) => {
-      const params =
-        data.searchType === "riot_id"
-          ? { riot_id: data.searchValue.trim(), platform: data.platform }
-          : { summoner_name: data.searchValue.trim(), platform: data.platform };
+      // Smart format detection
+      const isRiotId = data.searchValue.includes("#");
+      const params = isRiotId
+        ? { riot_id: data.searchValue, platform: data.platform }
+        : { summoner_name: data.searchValue, platform: data.platform };
 
       const result = await addTrackedPlayer(params);
 
@@ -77,7 +75,6 @@ export function AddTrackedPlayer() {
 
       // Reset form
       form.reset({
-        searchType: form.getValues("searchType"),
         searchValue: "",
         platform: form.getValues("platform"),
       });
@@ -108,62 +105,20 @@ export function AddTrackedPlayer() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="searchType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Search Type</FormLabel>
-                  <div className="flex gap-4">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        value="riot_id"
-                        checked={field.value === "riot_id"}
-                        onChange={() => field.onChange("riot_id")}
-                        className="h-4 w-4"
-                      />
-                      <span className="text-sm">Riot ID (name#tag)</span>
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        value="summoner_name"
-                        checked={field.value === "summoner_name"}
-                        onChange={() => field.onChange("summoner_name")}
-                        className="h-4 w-4"
-                      />
-                      <span className="text-sm">Summoner Name</span>
-                    </label>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="searchValue"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {searchType === "riot_id" ? "Riot ID" : "Summoner Name"}
-                  </FormLabel>
+                  <FormLabel>Player Name</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={
-                        searchType === "riot_id"
-                          ? "DangerousDan#EUW"
-                          : "DangerousDan"
-                      }
+                      placeholder="Player#TAG or SummonerName"
                       disabled={isPending}
                       {...field}
                     />
                   </FormControl>
-                  {searchType === "summoner_name" && (
-                    <p className="text-xs text-muted-foreground">
-                      Note: Summoner name search only works for players already
-                      in the database. Use Riot ID for new players.
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Enter Riot ID (Name#TAG) or summoner name
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -197,6 +152,11 @@ export function AddTrackedPlayer() {
                       <SelectItem value="ru">Russia</SelectItem>
                       <SelectItem value="tr1">Turkey</SelectItem>
                       <SelectItem value="jp1">Japan</SelectItem>
+                      <SelectItem value="ph2">Philippines</SelectItem>
+                      <SelectItem value="sg2">Singapore</SelectItem>
+                      <SelectItem value="th2">Thailand</SelectItem>
+                      <SelectItem value="tw2">Taiwan</SelectItem>
+                      <SelectItem value="vn2">Vietnam</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

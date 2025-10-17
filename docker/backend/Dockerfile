@@ -59,9 +59,9 @@ FROM deps AS development
 
 USER root
 
-# Install development dependencies with cache mount
+# Install development dependencies with cache mount (skip project install until code is copied)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --dev --frozen
+    uv sync --dev --frozen --no-install-project
 
 USER app
 

@@ -51,5 +51,31 @@ class DetectionResponse(BaseModel):
     )
     sample_size: int = Field(..., description="Number of matches analyzed")
     created_at: Optional[datetime] = Field(None, description="Analysis timestamp")
+    reason: Optional[str] = Field(
+        None, description="Human-readable reason for detection"
+    )
+    analysis_time_seconds: Optional[float] = Field(
+        None, description="Time taken for analysis"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DetectionExistsResponse(BaseModel):
+    """Response indicating whether detection analysis exists for a player."""
+
+    exists: bool = Field(..., description="Whether detection analysis exists")
+    last_analysis: Optional[datetime] = Field(
+        None, description="Timestamp of last analysis"
+    )
+    is_smurf: Optional[bool] = Field(
+        None, description="Whether player is detected as smurf"
+    )
+    detection_score: Optional[float] = Field(
+        None, description="Overall detection score (0.0-1.0)"
+    )
+    confidence_level: Optional[str] = Field(
+        None, description="Confidence level (none/low/medium/high)"
+    )
 
     model_config = ConfigDict(from_attributes=True)

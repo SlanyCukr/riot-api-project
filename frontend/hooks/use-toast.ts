@@ -21,7 +21,6 @@ export function useToast() {
     variant = "default",
     duration,
   }: ToastOptions) => {
-    const message = description || title || "";
     const options = {
       duration: duration || 4000,
     };

@@ -12,6 +12,29 @@ interface PlayerCardProps {
   player: Player;
 }
 
+// Helper function to get win rate colors based on percentage
+function getWinRateColors(winRate: number): string {
+  if (winRate >= 60) {
+    // Excellent (60%+) - Bright lime/chartreuse (distinct from emerald backgrounds)
+    return "text-lime-700 dark:text-lime-300 font-semibold";
+  } else if (winRate >= 55) {
+    // Good (55-60%) - Bright green (strong contrast)
+    return "text-green-700 dark:text-green-300 font-medium";
+  } else if (winRate >= 50) {
+    // Above average (50-55%) - Teal (distinct from rank colors)
+    return "text-teal-700 dark:text-teal-300";
+  } else if (winRate >= 45) {
+    // Average (45-50%) - Yellow/amber (strong contrast)
+    return "text-amber-700 dark:text-amber-300";
+  } else if (winRate >= 40) {
+    // Below average (40-45%) - Orange (strong contrast)
+    return "text-orange-700 dark:text-orange-300";
+  } else {
+    // Poor (<40%) - Red (strong contrast)
+    return "text-red-700 dark:text-red-300 font-medium";
+  }
+}
+
 // Helper function to get rank colors based on tier
 function getRankColors(tier: string): {
   gradient: string;
@@ -187,7 +210,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
                           {rank.display_rank}
                         </span>
                         <Badge className={`font-mono ${colors.badge} border-0`}>
-                          {rank.display_lp}
+                          {rank.league_points} LP
                         </Badge>
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
@@ -195,7 +218,9 @@ export function PlayerCard({ player }: PlayerCardProps) {
                           {rank.wins}W / {rank.losses}L
                         </span>
                         <span>•</span>
-                        <span>{rank.win_rate.toFixed(1)}% WR</span>
+                        <span className={getWinRateColors(rank.win_rate)}>
+                          {rank.win_rate.toFixed(1)}% WR
+                        </span>
                         {rank.hot_streak && (
                           <>
                             <span>•</span>

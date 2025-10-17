@@ -127,6 +127,13 @@ if [ "$FORCE_BUILD" = true ]; then
 
     echo -e "${YELLOW}🔨 Building containers with Docker Bake (parallel build)...${NC}"
 
+    # Load .env file into shell environment for docker-bake
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        set -a  # Automatically export all variables
+        source "$PROJECT_ROOT/.env"
+        set +a
+    fi
+
     # Export environment variables for Bake
     export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
     export TAG="dev"

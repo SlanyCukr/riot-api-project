@@ -39,8 +39,8 @@ export const MatchSchema = z.object({
   game_start_datetime: z.string().optional().nullable(),
   game_end_datetime: z.string().optional().nullable(),
   patch_version: z.string().optional().nullable(),
-  is_ranked_match: z.boolean(),
-  is_normal_match: z.boolean(),
+  is_ranked_match: z.boolean().optional(),
+  is_normal_match: z.boolean().optional(),
 });
 
 // Match List Response Schema
@@ -306,10 +306,6 @@ export const PlayerRankSchema = z.object({
   win_rate: z.number(),
   total_games: z.number(),
   display_rank: z.string(),
-  display_lp: z.string(),
-  is_high_tier: z.boolean(),
-  is_diamond_plus: z.boolean(),
-  is_platinum_plus: z.boolean(),
 });
 
 export type PlayerRank = z.infer<typeof PlayerRankSchema>;

@@ -20,6 +20,7 @@ dependencies = [
     "structlog>=25.4.0",
     "python-multipart>=0.0.20",
     "apscheduler>=3.10.4",
+    "python-Levenshtein>=0.25.1",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
@@ -109,6 +110,7 @@ exclude = [
     "app/riot_api/constants.py",  # Enum definitions used as constants
     "app/schemas/response_jobs_schema.py",  # Response-only schemas for API
     "app/schemas/response_matches_schema.py",  # Response-only schemas for API
+    "app/schemas/detection.py",  # Pydantic schema fields appear unused but are used by API
 ]
 ignore_decorators = ["@app.route", "@router.*", "@app.*", "@abstractmethod"]
 ignore_names = [

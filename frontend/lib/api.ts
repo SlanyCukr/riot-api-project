@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { z } from "zod";
+import { Player, PlayerSchema } from "./schemas";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -105,6 +106,16 @@ export async function validatedGet<T>(
     const parsed = schema.safeParse(response.data);
 
     if (!parsed.success) {
+      // FAIL LOUDLY: Log validation errors with full details
+      console.error("🔴 ZOD VALIDATION FAILED 🔴");
+      console.error("URL:", url);
+      console.error("Response data:", response.data);
+      console.error("Validation errors:", parsed.error.issues);
+      console.error(
+        "Formatted issues:",
+        JSON.stringify(parsed.error.format(), null, 2),
+      );
+
       return {
         success: false,
         error: formatError(parsed.error),
@@ -134,6 +145,16 @@ export async function validatedPost<T>(
     const parsed = schema.safeParse(response.data);
 
     if (!parsed.success) {
+      // FAIL LOUDLY: Log validation errors with full details
+      console.error("🔴 ZOD VALIDATION FAILED 🔴");
+      console.error("URL:", url);
+      console.error("Response data:", response.data);
+      console.error("Validation errors:", parsed.error.issues);
+      console.error(
+        "Formatted issues:",
+        JSON.stringify(parsed.error.format(), null, 2),
+      );
+
       return {
         success: false,
         error: formatError(parsed.error),
@@ -163,6 +184,16 @@ export async function validatedPut<T>(
     const parsed = schema.safeParse(response.data);
 
     if (!parsed.success) {
+      // FAIL LOUDLY: Log validation errors with full details
+      console.error("🔴 ZOD VALIDATION FAILED 🔴");
+      console.error("URL:", url);
+      console.error("Response data:", response.data);
+      console.error("Validation errors:", parsed.error.issues);
+      console.error(
+        "Formatted issues:",
+        JSON.stringify(parsed.error.format(), null, 2),
+      );
+
       return {
         success: false,
         error: formatError(parsed.error),
@@ -191,6 +222,16 @@ export async function validatedDelete<T>(
     const parsed = schema.safeParse(response.data);
 
     if (!parsed.success) {
+      // FAIL LOUDLY: Log validation errors with full details
+      console.error("🔴 ZOD VALIDATION FAILED 🔴");
+      console.error("URL:", url);
+      console.error("Response data:", response.data);
+      console.error("Validation errors:", parsed.error.issues);
+      console.error(
+        "Formatted issues:",
+        JSON.stringify(parsed.error.format(), null, 2),
+      );
+
       return {
         success: false,
         error: formatError(parsed.error),
@@ -299,6 +340,23 @@ export async function addTrackedPlayer(
       error: formatError(error),
     };
   }
+}
+
+export interface SearchSuggestionsParams {
+  q: string;
+  platform: string;
+  limit?: number;
+}
+
+export async function searchPlayerSuggestions(
+  params: SearchSuggestionsParams,
+): Promise<ApiResponse<Player[]>> {
+  const PlayerArraySchema = z.array(PlayerSchema);
+  return validatedGet(PlayerArraySchema, "/players/suggestions", {
+    q: params.q,
+    platform: params.platform,
+    ...(params.limit !== undefined && { limit: params.limit }),
+  });
 }
 
 export default api;

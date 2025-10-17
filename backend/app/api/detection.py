@@ -11,6 +11,7 @@ import structlog
 from ..schemas.detection import (
     DetectionResponse,
     DetectionRequest,
+    DetectionExistsResponse,
 )
 from ..api.dependencies import DetectionServiceDep
 
@@ -78,6 +79,56 @@ async def analyze_player(
         raise HTTPException(status_code=500, detail="Detection analysis failed")
 
 
+@router.get("/player/{puuid}/exists", response_model=DetectionExistsResponse)
+async def check_detection_exists(
+    puuid: str,
+    detection_service: DetectionServiceDep,
+):
+    """
+    Check if smurf detection analysis exists for a player.
+
+    This endpoint checks if a smurf detection analysis exists for a player
+    and returns basic information about the most recent analysis.
+
+    Args:
+        puuid: Player PUUID
+
+    Returns:
+        DetectionExistsResponse with existence status and basic info
+
+    Raises:
+        HTTPException: If query fails
+    """
+    try:
+        # Get most recent detection (within last 30 days)
+        recent_result = await detection_service._get_recent_detection(
+            puuid, hours=24 * 30
+        )
+
+        if recent_result:
+            return DetectionExistsResponse(
+                exists=True,
+                last_analysis=recent_result.last_analysis,
+                is_smurf=recent_result.is_smurf,
+                detection_score=float(recent_result.smurf_score),
+                confidence_level=recent_result.confidence or "none",
+            )
+        else:
+            return DetectionExistsResponse(
+                exists=False,
+                last_analysis=None,
+                is_smurf=None,
+                detection_score=None,
+                confidence_level=None,
+            )
+
+    except Exception as e:
+        logger.error("Failed to check detection exists", puuid=puuid, error=str(e))
+        raise HTTPException(
+            status_code=500, detail="Failed to check detection existence"
+        )
+
+
 @router.get("/player/{puuid}/latest", response_model=DetectionResponse)
 async def get_latest_detection(
     puuid: str,
@@ -121,5 +172,9 @@ async def get_latest_detection(
         logger.error("Player not found", puuid=puuid, error=str(e))
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error("Failed to get latest detection", puuid=puuid, error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to get detection result")
+        logger.error(
+            "Failed to get latest detection", puuid=puuid, error=str(e), exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get detection result: {str(e)}"
+        )

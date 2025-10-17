@@ -541,7 +541,9 @@ class SmurfDetectionService:
 
     async def _get_player(self, puuid: str) -> Optional[Player]:
         """Get player from database."""
-        result = await self.db.execute(select(Player).where(Player.puuid == puuid))
+        result = await self.db.execute(
+            select(Player).where(Player.puuid == puuid).limit(1)
+        )
         return result.scalar_one_or_none()
 
     async def _get_recent_matches(
@@ -737,9 +739,9 @@ class SmurfDetectionService:
     async def _get_current_rank(self, puuid: str) -> Optional[PlayerRank]:
         """Get player's current rank."""
         result = await self.db.execute(
-            select(PlayerRank).where(
-                and_(PlayerRank.puuid == puuid, PlayerRank.is_current)
-            )
+            select(PlayerRank)
+            .where(and_(PlayerRank.puuid == puuid, PlayerRank.is_current))
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -758,6 +760,7 @@ class SmurfDetectionService:
                 )
             )
             .order_by(desc(SmurfDetection.last_analysis))
+            .limit(1)
         )
         return result.scalar_one_or_none()
 

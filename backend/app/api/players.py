@@ -1,5 +1,6 @@
 """Player API endpoints for the Riot API application."""
 
+import logging
 import re
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from sqlalchemy import select
@@ -16,6 +17,9 @@ from ..api.dependencies import (
     get_player_service,
     get_db,
 )
+from ..riot_api.constants import Platform
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/players", tags=["players"])
 router.get_player_service = get_player_service  # type: ignore[attr-defined]
@@ -45,77 +49,123 @@ def validate_riot_id(riot_id: str) -> tuple[str, str]:
     return game_name, tag_line
 
 
-@router.get("/search", response_model=PlayerResponse)
+@router.get("/search", response_model=list[PlayerResponse])
 async def search_player(
     request: Request,
     player_service: PlayerServiceDep,
-    riot_id: str | None = Query(None, description="Riot ID in format name#tag"),
-    summoner_name: str | None = Query(None, description="Summoner name"),
-    platform: str = Query("eun1", description="Platform region"),
+    query: str = Query(
+        ...,
+        min_length=3,
+        max_length=30,
+        description="Search query (name, tag, or riot_id)",
+    ),
+    platform: Platform = Query(Platform.EUN1, description="Platform region"),
 ):
     """
-    Search for a player by Riot ID or summoner name.
+    Fuzzy search for players by name, tag, or Riot ID.
+
+    **BREAKING CHANGE (Phase 2)**: This endpoint now returns an array
+    of results instead of a single player object. Returns empty array []
+    if no matches found (no longer returns 404).
+
+    Search patterns:
+    - "Name#TAG" → Search for Riot ID (exact match gets highest priority)
+    - "#TAG" → Search for tag only
+    - "Name" → Search for summoner name
+
+    Args:
+        query: Search string (3-100 characters)
+        platform: Platform region (e.g., "eun1", "euw1", "na1")
+
+    Returns:
+        list[PlayerResponse]: Array of up to 10 matching players,
+                              sorted by relevance (empty array if none found)
 
     Examples:
-    - /players/search?riot_id=DangerousDan#EUW
-    - /players/search?summoner_name=DangerousDan&platform=eun1
+        GET /players/search?query=Dangerous&platform=eun1
+        GET /players/search?query=DangerousDan#EUW&platform=eun1
+        GET /players/search?query=#EUW&platform=eun1
     """
-    if not riot_id and not summoner_name:
-        raise HTTPException(
-            status_code=400, detail="Either riot_id or summoner_name must be provided"
-        )
-
     try:
-        if riot_id:
-            # Parse and validate Riot ID (name#tag)
-            tag_line_fragment = None
-            fragment = request.url.fragment or ""
-
-            if "#" in riot_id:
-                game_name, tag_line = validate_riot_id(riot_id)
-            else:
-                # Extract details from URL fragment for compatibility with tests/clients
-                fragment_parts = [part for part in fragment.split("&") if part]
-                if fragment_parts:
-                    tag_line_fragment = fragment_parts[0]
-                for part in fragment_parts[1:]:
-                    if part.startswith("platform="):
-                        platform = part.split("=", 1)[1] or platform
-
-                if not tag_line_fragment:
-                    raise HTTPException(
-                        status_code=400, detail="Riot ID must be in format name#tag"
-                    )
-                # Validate the reconstructed Riot ID
-                reconstructed_riot_id = f"{riot_id}#{tag_line_fragment}"
-                game_name, tag_line = validate_riot_id(reconstructed_riot_id)
-
-            player = await player_service.get_player_by_riot_id(
-                game_name,
-                tag_line,
-                platform,
+        results = await player_service.fuzzy_search_players(
+            query=query,
+            platform=platform.value,
+            limit=10,
+        )
+        if not results:
+            logger.debug(
+                f"No results found for query: {query}, platform: {platform.value}"
             )
-        else:
-            if summoner_name is None:
-                raise HTTPException(status_code=400, detail="summoner_name is required")
-            player = await player_service.get_player_by_summoner_name(
-                summoner_name,
-                platform,
-            )
+        return results
 
-        return player
-
-    except ValueError as e:
-        # Player not found - expected case
-        raise HTTPException(status_code=404, detail=str(e))
-    except HTTPException:
-        # Re-raise HTTP exceptions (like 400 validation errors)
-        raise
-    except Exception:
+    except Exception as e:
         # Unexpected error - log and return 500
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while searching for player",
+            detail=f"Search failed: {str(e)}",
+        )
+
+
+@router.get("/suggestions", response_model=list[PlayerResponse])
+async def get_player_suggestions(
+    request: Request,
+    player_service: PlayerServiceDep,
+    q: str = Query(
+        ...,
+        min_length=3,
+        max_length=30,
+        description="Search query (name, tag, or riot_id)",
+    ),
+    platform: Platform = Query(..., description="Platform region (required)"),
+    limit: int = Query(
+        5,
+        ge=1,
+        le=10,
+        description="Number of suggestions to return (default: 5, max: 10)",
+    ),
+):
+    """
+    Get autocomplete suggestions for player search.
+
+    This endpoint is optimized for autocomplete/typeahead functionality
+    and returns a smaller set of top matches (default: 5) for quick response.
+
+    Search patterns:
+    - "Name#TAG" → Search for Riot ID (exact match gets highest priority)
+    - "#TAG" → Search for tag only
+    - "Name" → Search for summoner name
+
+    Args:
+        q: Search string (3-100 characters)
+        platform: Platform region (e.g., "eun1", "euw1", "na1") - required
+        limit: Maximum number of suggestions to return (default: 5, max: 10)
+
+    Returns:
+        list[PlayerResponse]: Array of up to `limit` matching players,
+                              sorted by relevance (empty array if none found)
+
+    Examples:
+        GET /players/suggestions?q=Danger&platform=eun1
+        GET /players/suggestions?q=DangerousDan#EUW&platform=eun1&limit=3
+        GET /players/suggestions?q=#EUW&platform=eun1&limit=10
+    """
+    try:
+        results = await player_service.fuzzy_search_players(
+            query=q,
+            platform=platform.value,
+            limit=limit,
+        )
+        if not results:
+            logger.debug(
+                f"No suggestions found for query: {q}, platform: {platform.value}"
+            )
+        return results
+
+    except Exception as e:
+        # Unexpected error - log and return 500
+        raise HTTPException(
+            status_code=500,
+            detail=f"Suggestions failed: {str(e)}",
         )
 
 
@@ -354,7 +404,6 @@ async def get_player_current_rank(
             select(PlayerRank)
             .where(PlayerRank.puuid == puuid)
             .where(PlayerRank.queue_type == queue_type)
-            .where(PlayerRank.is_current == True)  # noqa: E712
             .order_by(PlayerRank.updated_at.desc())
             .limit(1)
         )
