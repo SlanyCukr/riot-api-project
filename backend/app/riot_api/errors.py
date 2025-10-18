@@ -42,39 +42,6 @@ class RiotAPIError(Exception):
             return f"Riot API Error {self.status_code}: {self.message}"
         return f"Riot API Error: {self.message}"
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        return {
-            "error": "RiotAPIError",
-            "message": self.message,
-            "status_code": self.status_code,
-            "retry_after": self.retry_after,
-            "app_rate_limit": self.app_rate_limit,
-            "method_rate_limit": self.method_rate_limit,
-            "response_data": self.response_data,
-        }
-
-    # Helper methods for error type checking
-    def is_rate_limit(self) -> bool:
-        """Check if this is a rate limit error (429)."""
-        return self.status_code == 429
-
-    def is_not_found(self) -> bool:
-        """Check if this is a not found error (404)."""
-        return self.status_code == 404
-
-    def is_auth_error(self) -> bool:
-        """Check if this is an authentication/authorization error (401, 403)."""
-        return self.status_code in (401, 403)
-
-    def is_server_error(self) -> bool:
-        """Check if this is a server error (5xx)."""
-        return self.status_code is not None and self.status_code >= 500
-
-    def is_bad_request(self) -> bool:
-        """Check if this is a bad request error (400)."""
-        return self.status_code == 400
-
 
 # Backwards compatibility aliases (deprecated)
 RateLimitError = RiotAPIError

@@ -97,21 +97,6 @@ class RiotAPIEndpoints:
         return f"{platform_url}/lol/league/v4/entries/by-puuid/{puuid}"
 
 
-class RateLimitInfo:
-    """Rate limit information for different endpoints."""
-
-    # App-level rate limits
-    APP_LIMITS = {
-        "short": {"requests": 20, "window": 1},  # 20 requests per second
-        "long": {"requests": 100, "window": 120},  # 100 requests per 2 minutes
-    }
-
-    @classmethod
-    def get_app_limits(cls) -> Dict[str, Dict[str, int]]:
-        """Get app-level rate limits."""
-        return cls.APP_LIMITS
-
-
 def parse_rate_limit_header(header_value: str) -> List[Dict[str, int]]:
     """
     Parse rate limit header value.

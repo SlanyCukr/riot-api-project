@@ -10,12 +10,6 @@ from .endpoints import parse_rate_limit_header, parse_rate_count_header
 logger = structlog.get_logger(__name__)
 
 
-class RateLimitExceededError(Exception):
-    """Raised when rate limit is exceeded."""
-
-    pass
-
-
 class RateLimiter:
     """Header-based rate limiter that trusts Riot API response headers."""
 
@@ -41,9 +35,6 @@ class RateLimiter:
         Args:
             endpoint: API endpoint being called
             method: HTTP method being used
-
-        Raises:
-            RateLimitExceededError: If we're out of requests and need to wait
         """
         async with self.lock:
             now = time.time()
