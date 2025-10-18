@@ -37,8 +37,8 @@ class TrackedPlayerUpdaterJob(BaseJob):
     def __init__(self, job_config: JobConfiguration):
         """Initialize tracked player updater job.
 
-        Args:
-            job_config: Job configuration from database.
+        :param job_config: Job configuration from database.
+        :type job_config: JobConfiguration
         """
         super().__init__(job_config)
         self.settings = get_global_settings()
@@ -54,6 +54,12 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
     @asynccontextmanager
     async def _riot_resources(self, db: AsyncSession):
+        """Async context manager for Riot API resources.
+
+        :param db: Database session.
+        :type db: AsyncSession
+        :yields: None - sets up API client and data manager
+        """
         # Get API key from database first, fallback to environment
         # Pass the db session so it can query settings without creating a new engine
         api_key = await get_riot_api_key(db)
@@ -77,7 +83,9 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Record API request metrics from Riot API client callbacks.
 
         :param metric: Name of the metric being recorded.
+        :type metric: str
         :param count: Number of requests made.
+        :type count: int
         """
         if metric == "requests_made":
             self.increment_metric("api_requests_made", count)
@@ -86,6 +94,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Execute the tracked player updater job.
 
         :param db: Database session for job execution.
+        :type db: AsyncSession
         """
         logger.info(
             "Starting tracked player updater job",
@@ -143,7 +152,9 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Get all players marked as tracked.
 
         :param db: Database session.
+        :type db: AsyncSession
         :returns: List of tracked players.
+        :rtype: List[Player]
         """
         stmt = (
             select(Player)
@@ -163,7 +174,15 @@ class TrackedPlayerUpdaterJob(BaseJob):
     async def _sync_tracked_player(
         self, db: AsyncSession, player: Player
     ) -> Dict[str, int]:
-        """Synchronize tracked player's matches and rank."""
+        """Synchronize tracked player's matches and rank.
+
+        :param db: Database session.
+        :type db: AsyncSession
+        :param player: Player to synchronize.
+        :type player: Player
+        :returns: Summary statistics.
+        :rtype: Dict[str, int]
+        """
         logger.info(
             "Updating tracked player",
             puuid=player.puuid,
@@ -209,8 +228,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Fetch new match IDs for a player since last check.
 
         :param db: Database session.
+        :type db: AsyncSession
         :param player: Player to fetch matches for.
+        :type player: Player
         :returns: List of new match IDs.
+        :rtype: List[str]
         """
         try:
             existing_match_count = await self._get_existing_match_count(db, player)
@@ -249,10 +271,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
     ) -> int:
         """Process a single match - fetch details and store participants.
 
-        Args:
-            db: Database session.
-            match_id: Match ID to process.
-            player: The tracked player (for context).
+        :param db: Database session.
+        :type db: AsyncSession
+        :param match_id: Match ID to process.
+        :type match_id: str
+        :param player: The tracked player (for context).
+        :type player: Player
+        :returns: Number of discovered players.
+        :rtype: int
         """
         logger.debug("Processing match", match_id=match_id, puuid=player.puuid)
 
@@ -263,35 +289,31 @@ class TrackedPlayerUpdaterJob(BaseJob):
             logger.warning("Match not found", match_id=match_id)
             return 0
 
-        try:
-            # Use PlayerService to discover and mark new players from match
-            from ..services.players import PlayerService
-            from ..services.matches import MatchService
+        # Use PlayerService to discover and mark new players from match
+        from ..services.players import PlayerService
+        from ..services.matches import MatchService
 
-            player_service = PlayerService(db)
-            match_service = MatchService(db)
+        player_service = PlayerService(db)
+        match_service = MatchService(db)
 
-            # Extract and mark discovered players FIRST (before creating match participants)
-            # This ensures players exist before we create foreign key references
-            discovered_players = await player_service.discover_players_from_match(
-                match_dto, player.platform
-            )
+        # Extract and mark discovered players FIRST (before creating match participants)
+        # This ensures players exist before we create foreign key references
+        # Note: discover_players_from_match handles its own transactions
+        discovered_players = await player_service.discover_players_from_match(
+            match_dto, player.platform
+        )
 
-            # Store match in database (this creates match and participants)
-            await match_service.store_match_from_dto(
-                match_dto, default_platform=player.platform
-            )
+        # Store match in database (this creates match and participants)
+        await match_service.store_match_from_dto(
+            match_dto, default_platform=player.platform
+        )
 
-            # Commit the transaction once for all changes
-            await db.commit()
-            self.increment_metric("records_created")
+        # Commit the transaction for match storage only
+        await db.commit()
+        self.increment_metric("records_created")
 
-            logger.debug("Successfully processed match", match_id=match_id)
-            return discovered_players
-
-        except Exception:
-            await db.rollback()
-            raise
+        logger.debug("Successfully processed match", match_id=match_id)
+        return discovered_players
 
     # NOTE: _store_match has been moved to MatchService.store_match_from_dto()
     # This method is no longer used and can be removed in future cleanup
@@ -307,33 +329,28 @@ class TrackedPlayerUpdaterJob(BaseJob):
     async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
         """Update player's current rank from Riot API.
 
-        Args:
-            db: Database session.
-            player: Player to update rank for.
+        :param db: Database session.
+        :type db: AsyncSession
+        :param player: Player to update rank for.
+        :type player: Player
         """
         from ..services.players import PlayerService
 
         player_service = PlayerService(db)
 
-        try:
-            rank_updated = await player_service.update_player_rank(
-                player, self.api_client
-            )
-            if rank_updated:
-                await db.commit()
-                self.increment_metric("records_created")
-        except ValueError as e:
-            # Invalid platform - log and skip
-            logger.warning(
-                "Could not update player rank",
-                puuid=player.puuid,
-                error=str(e),
-            )
+        rank_updated = await player_service.update_player_rank(player, self.api_client)
+        if rank_updated:
+            await db.commit()
+            self.increment_metric("records_created")
 
     # Private helper methods
 
     def _log_summary_to_execution_log(self, summary: Dict[str, Any]) -> None:
-        """Log job execution summary to execution log."""
+        """Log job execution summary to execution log.
+
+        :param summary: Summary dictionary with job statistics.
+        :type summary: Dict[str, Any]
+        """
         self.add_log_entry("tracked_players_count", summary["total"])
         self.add_log_entry("tracked_players", summary["tracked_ids"])
         self.add_log_entry("players_processed", summary["processed"])
@@ -346,8 +363,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Get count of existing matches for a player.
 
         :param db: Database session.
+        :type db: AsyncSession
         :param player: Player to count matches for.
+        :type player: Player
         :returns: Number of existing matches.
+        :rtype: int
         """
         from ..services.matches import MatchService
 
@@ -360,8 +380,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Get timestamp of player's most recent match in database.
 
         :param db: Database session.
+        :type db: AsyncSession
         :param player: Player to get last match time for.
+        :type player: Player
         :returns: Timestamp in milliseconds, or None if no matches.
+        :rtype: Optional[int]
         """
         from ..services.matches import MatchService
 
@@ -374,9 +397,13 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Calculate start time for match fetching based on fetch strategy.
 
         :param last_match_time: Timestamp of last match in milliseconds, or None.
+        :type last_match_time: Optional[int]
         :param existing_match_count: Number of existing matches.
+        :type existing_match_count: int
         :param puuid: Player PUUID for logging.
+        :type puuid: str
         :returns: Start time timestamp in seconds.
+        :rtype: int
         """
         # Limited fetch mode
         if self.max_new_matches_per_player > 0:
@@ -423,8 +450,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Fetch match IDs from Riot API in batches.
 
         :param player: Player to fetch matches for.
+        :type player: Player
         :param start_time: Start time timestamp in seconds.
+        :type start_time: int
         :returns: List of match IDs.
+        :rtype: List[str]
         """
         logger.debug(
             "Fetching matches since timestamp",
@@ -487,7 +517,9 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Extract match IDs from match list DTO.
 
         :param match_list_dto: Match list DTO from Riot API.
+        :type match_list_dto: Any
         :returns: List of match ID strings.
+        :rtype: List[str]
         """
         from ..schemas.transformers import MatchDTOTransformer
 
@@ -499,8 +531,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         """Filter out matches that already exist in database.
 
         :param db: Database session.
+        :type db: AsyncSession
         :param match_ids: List of match IDs to filter.
+        :type match_ids: List[str]
         :returns: List of new match IDs not in database.
+        :rtype: List[str]
         """
         from ..services.matches import MatchService
 
