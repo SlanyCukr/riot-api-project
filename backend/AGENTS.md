@@ -39,3 +39,4 @@
 - Don't catch generic Exception (catch specific exceptions)
 - Don't hardcode configuration (use app/config.py)
 - Don't use `create_all()` or manual SQL (use Alembic - see MIGRATIONS.md)
+- Don't write complex functions (keep cyclomatic complexity <20, aim for <10)

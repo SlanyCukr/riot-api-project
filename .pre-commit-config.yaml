@@ -40,6 +40,39 @@ repos:
         args: ["--config", "backend/pyproject.toml", "backend/app/"]
         pass_filenames: false
 
+  # Radon - Code complexity and maintainability checks
+  - repo: local
+    hooks:
+      # Cyclomatic Complexity Check
+      - id: radon-cc
+        name: Radon Cyclomatic Complexity
+        entry: bash -c 'docker compose exec -T backend uv run radon cc app/ --min C --show-complexity --no-assert || (echo "❌ Code complexity too high! Refactor complex functions (complexity ≥ 11)" && exit 1)'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
+
+      # Maintainability Index Check
+      - id: radon-mi
+        name: Radon Maintainability Index
+        entry: bash -c 'docker compose exec -T backend uv run radon mi app/ --min B --show || (echo "❌ Code maintainability too low! Improve code quality (MI < 20)" && exit 1)'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
+
+      # Radon Complexity Report (non-blocking, informational)
+      - id: radon-report
+        name: Radon Complexity Report (Info)
+        entry: bash -c 'echo "📊 Complexity Report:" && docker compose exec -T backend uv run radon cc app/ -a -s -n C || true'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        stages: [manual]  # Only runs when explicitly called with --hook-stage manual
+
   # pydocstyle - Documentation quality checker (disabled - optional for now)
   # - repo: https://github.com/PyCQA/pydocstyle
   #   rev: 6.3.0
@@ -86,6 +119,18 @@ repos:
         files: ^frontend/.*\.(ts|tsx)$
         exclude: ^frontend/node_modules/
         pass_filenames: false
+
+  # Frontend Complexity Check
+  - repo: local
+    hooks:
+      - id: frontend-complexity
+        name: Frontend Complexity Check
+        entry: bash -c 'cd frontend && npx eslint app/ components/ lib/ --rule "complexity:[error,10]" --rule "max-lines-per-function:[warn,50]" || (echo "❌ Frontend code too complex! Consider refactoring." && exit 1)'
+        language: system
+        files: ^frontend/(app|components|lib)/.*\.(ts|tsx|js|jsx)$
+        exclude: ^frontend/node_modules/
+        pass_filenames: false
+        stages: [manual]  # Optional - only runs when explicitly called
 
 # Configuration for pre-commit
 default_stages: [pre-commit]

@@ -46,6 +46,7 @@ dev = [
     "flake8>=7.3.0",
     "mypy>=1.18.2",
     "vulture>=2.14",
+    "radon>=6.0.1",
 ]
 
 [tool.black]
@@ -135,3 +136,23 @@ ignore_names = [
 min_confidence = 60
 paths = ["app/"]
 # sort_by_size = true  # Uncomment to sort by size
+
+[tool.radon]
+# Cyclomatic Complexity thresholds
+# A: 1-5 (simple)
+# B: 6-10 (more complex)
+# C: 11-20 (complex)
+# D: 21-50 (very complex)
+# E: 51-100 (extremely complex)
+# F: 100+ (unmaintainable)
+# Current state: avg=16.15, 1 function at E(36), 1 at D(23), 11 at C(11-20)
+cc_min = "C"  # Fail on complexity >= 11 (matches current average)
+exclude = "tests/*,alembic/*,scripts/*,*/migrations/*"
+
+# Maintainability Index thresholds
+# A: 20-100 (maintainable)
+# B: 10-19 (moderately maintainable)
+# C: 0-9 (difficult to maintain)
+# Current state: ALL files are A grade, lowest=32.08
+mi_min = "B"  # Fail on MI < 20 (all files currently exceed this)
+paths = ["app/"]
