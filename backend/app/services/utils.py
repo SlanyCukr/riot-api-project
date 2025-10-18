@@ -122,19 +122,20 @@ def validate_puuid(puuid: str) -> str:
     # Remove whitespace and validate format
     normalized_puuid = puuid.strip()
 
-    # PUUIDs should be 78 character alphanumeric strings (with dashes)
-    # Riot API PUUID format: 8-4-4-4-12 characters with dashes
+    # Riot API PUUIDs are base64url-encoded strings
+    # Format: alphanumeric characters plus hyphens and underscores
+    # Typically 78 characters long but can vary
     puuid_pattern = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+        r"^[A-Za-z0-9_-]{20,}$"  # At least 20 chars of base64url characters
     )
 
     if not puuid_pattern.match(normalized_puuid):
         raise ValueError(
             f"Invalid PUUID format: '{puuid}'. "
-            "PUUID should be in format: 12345678-1234-1234-1234-123456789012"
+            "PUUID should contain only alphanumeric characters, hyphens, and underscores"
         )
 
-    return normalized_puuid.lower()
+    return normalized_puuid
 
 
 def validate_summoner_name(summoner_name: str) -> str:

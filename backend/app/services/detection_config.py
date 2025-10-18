@@ -26,14 +26,14 @@ DETECTION_THRESHOLDS: Dict[str, float] = {
 # Factor weights configuration (must sum to 1.0)
 DETECTION_WEIGHTS: Dict[str, float] = {
     "win_rate": 0.18,  # Base win rate
-    "win_rate_trend": 0.10,  # Win rate over time (NEW)
+    "win_rate_trend": 0.10,  # Win rate over time
     "account_level": 0.08,  # Account age indicator
     "rank_progression": 0.09,  # Rank climb speed
-    "rank_discrepancy": 0.20,  # Rank vs performance mismatch (NEW) - HIGH
-    "kda_ratio": 0.12,  # Kill/Death/Assist ratio
-    "damage_per_minute": 0.08,  # Consistent high damage output
-    "vision_score": 0.06,  # Vision and map awareness
-    "cs_per_minute": 0.09,  # Farming efficiency
+    "rank_discrepancy": 0.20,  # Rank vs performance mismatch - HIGH
+    "kda": 0.12,  # Kill/Death/Assist ratio
+    "performance_consistency": 0.10,  # Performance variance analysis
+    "performance_trends": 0.08,  # Performance trending over time
+    "role_performance": 0.05,  # Role versatility and performance
 }
 
 # Analysis configuration

@@ -176,5 +176,5 @@ async def get_latest_detection(
             "Failed to get latest detection", puuid=puuid, error=str(e), exc_info=True
         )
         raise HTTPException(
-            status_code=500, detail=f"Failed to get detection result: {str(e)}"
+            status_code=500, detail="Internal server error retrieving detection result"
         )

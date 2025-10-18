@@ -67,6 +67,56 @@ class RankProgressionAnalyzer:
             Tier.CHALLENGER: 9,
         }
 
+        # Expected performance metrics by tier level
+        # These thresholds are used to detect performance/rank mismatches
+        self.expected_kda_by_tier = {
+            0: 1.0,  # Iron
+            1: 1.2,  # Bronze
+            2: 1.5,  # Silver
+            3: 2.0,  # Gold
+            4: 2.5,  # Platinum
+            5: 3.0,  # Emerald
+            6: 3.5,  # Diamond
+            7: 4.0,  # Master+
+        }
+
+        self.expected_win_rate_by_tier = {
+            0: 0.45,  # Iron
+            1: 0.48,  # Bronze
+            2: 0.50,  # Silver
+            3: 0.52,  # Gold
+            4: 0.54,  # Platinum
+            5: 0.56,  # Emerald
+            6: 0.58,  # Diamond
+            7: 0.60,  # Master+
+        }
+
+        # Discrepancy detection weights and thresholds
+        self.kda_weight = 0.6
+        self.win_rate_weight = 0.4
+        self.suspicion_threshold = 0.15  # 15% above expected performance
+
+    def _get_tier_level(self, tier_string: str) -> int:
+        """Safely convert tier string to tier level.
+
+        Normalizes Master/Grandmaster/Challenger (7-9) to level 7 for consistent
+        performance expectations, since all high tiers use the same thresholds.
+
+        Args:
+            tier_string: Tier name (e.g., "GOLD", "PLATINUM").
+
+        Returns:
+            Tier level (0-7), or 0 if tier is invalid. Master+ tiers normalized to 7.
+        """
+        try:
+            tier_enum = Tier(tier_string)
+            tier_level = self.tier_hierarchy.get(tier_enum, 0)
+            # Normalize Master+ (7-9) to level 7 for performance expectations
+            return min(tier_level, 7)
+        except (ValueError, KeyError):
+            logger.warning("Invalid tier value encountered", tier=tier_string)
+            return 0
+
     async def analyze(self, puuid: str, db: AsyncSession) -> RankProgressionResult:
         """
         Analyze rank progression factor for a player.
@@ -162,8 +212,11 @@ class RankProgressionAnalyzer:
 
     def _calculate_rank_score(self, rank: PlayerRank) -> int:
         """Calculate numeric score for a rank."""
-        tier_score = self.tier_hierarchy.get(Tier(rank.tier), 0)
-        rank_score = 4 - (ord(rank.rank) - ord("I")) if rank.rank else 0
+        # Map Roman numerals to division scores (IV=1, III=2, II=3, I=4)
+        division_scores = {"IV": 1, "III": 2, "II": 3, "I": 4}
+
+        tier_score = self._get_tier_level(rank.tier)
+        rank_score = division_scores.get(rank.rank, 0) if rank.rank else 0
         return tier_score * 100 + rank_score * 25 + rank.league_points
 
     def _calculate_progression_speed(self, rank_history: List[PlayerRank]) -> float:
@@ -194,10 +247,10 @@ class RankProgressionAnalyzer:
             return 0
 
         tier_jumps = 0
-        current_tier_level: int = self.tier_hierarchy.get(Tier(rank_history[0].tier), 0)
+        current_tier_level: int = self._get_tier_level(rank_history[0].tier)
 
         for rank in rank_history[1:]:
-            tier_level: int = self.tier_hierarchy.get(Tier(rank.tier), 0)
+            tier_level: int = self._get_tier_level(rank.tier)
             if tier_level > current_tier_level:
                 tier_jumps += tier_level - current_tier_level
             current_tier_level = tier_level
@@ -237,7 +290,7 @@ class RankProgressionAnalyzer:
             if (
                 time_to_current
                 and time_to_current < self.rapid_progression_days
-                and self.tier_hierarchy.get(Tier(current_rank.tier), 0)
+                and self._get_tier_level(current_rank.tier)
                 >= self.tier_hierarchy[Tier.GOLD]
             ):
                 return True
@@ -312,43 +365,23 @@ class RankProgressionAnalyzer:
                 "note": "Player is unranked - no tier comparison available",
             }
 
-        tier_level: int = self.tier_hierarchy.get(Tier(current_rank.tier), 0)
-
-        # Expected performance metrics for this tier
-        expected_kda = {
-            0: 1.0,  # Iron
-            1: 1.2,  # Bronze
-            2: 1.5,  # Silver
-            3: 2.0,  # Gold
-            4: 2.5,  # Platinum
-            5: 3.0,  # Emerald
-            6: 3.5,  # Diamond
-            7: 4.0,  # Master+
-        }
-
-        expected_win_rate = {
-            0: 0.45,  # Iron
-            1: 0.48,  # Bronze
-            2: 0.50,  # Silver
-            3: 0.52,  # Gold
-            4: 0.54,  # Platinum
-            5: 0.56,  # Emerald
-            6: 0.58,  # Diamond
-            7: 0.60,  # Master+
-        }
+        tier_level: int = self._get_tier_level(current_rank.tier)
 
         actual_kda = performance_metrics.get("kda", 0.0)
         actual_win_rate = performance_metrics.get("win_rate", 0.0)
 
-        expected_kda_value = expected_kda.get(tier_level, 2.0)
-        expected_win_rate_value = expected_win_rate.get(tier_level, 0.50)
+        expected_kda_value = self.expected_kda_by_tier.get(tier_level, 2.0)
+        expected_win_rate_value = self.expected_win_rate_by_tier.get(tier_level, 0.50)
 
         kda_discrepancy = max(0, actual_kda - expected_kda_value)
         win_rate_discrepancy = max(0, actual_win_rate - expected_win_rate_value)
 
         # Calculate overall discrepancy score
-        discrepancy_score = kda_discrepancy * 0.6 + win_rate_discrepancy * 0.4
-        is_suspicious = discrepancy_score > 0.15  # 15% or more above expected
+        discrepancy_score = (
+            kda_discrepancy * self.kda_weight
+            + win_rate_discrepancy * self.win_rate_weight
+        )
+        is_suspicious = discrepancy_score > self.suspicion_threshold
 
         return {
             "discrepancy_score": discrepancy_score,

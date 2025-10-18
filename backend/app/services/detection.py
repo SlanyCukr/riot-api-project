@@ -25,8 +25,11 @@ from .utils import validate_puuid
 from .detection_config import get_detection_config
 from .analyzers import (
     WinRateFactorAnalyzer,
+    WinRateTrendFactorAnalyzer,
     AccountLevelFactorAnalyzer,
 )
+from ..algorithms.performance import PerformanceAnalyzer
+from ..algorithms.rank_progression import RankProgressionAnalyzer
 
 logger = structlog.get_logger(__name__)
 
@@ -55,8 +58,25 @@ class SmurfDetectionService:
         # Initialize modular factor analyzers
         self.factor_analyzers = {
             "win_rate": WinRateFactorAnalyzer(),
+            "win_rate_trend": WinRateTrendFactorAnalyzer(),
             "account_level": AccountLevelFactorAnalyzer(),
         }
+
+        # Initialize algorithm-level analyzers
+        self.rank_analyzer = RankProgressionAnalyzer(
+            tier_jump_threshold=self.thresholds.get("rank_tier_jump", 2),
+            rapid_progression_days=30,
+            min_games_for_analysis=self.analysis_config.get(
+                "min_matches_for_analysis", 10
+            ),
+        )
+        self.performance_analyzer = PerformanceAnalyzer(
+            high_kda_threshold=self.thresholds.get("high_kda", 3.5),
+            consistency_threshold=self.thresholds.get("performance_variance", 0.3),
+            min_games_for_analysis=self.analysis_config.get(
+                "min_matches_for_analysis", 10
+            ),
+        )
 
         logger.info(
             "SmurfDetectionService initialized",
@@ -235,22 +255,6 @@ class SmurfDetectionService:
             successful_analyzers=sum(1 for f in factors if f.score > 0),
         )
 
-        # Account level analysis
-        account_level_factor = DetectionFactor(
-            name="account_level",
-            value=float(player.account_level or 0),
-            meets_threshold=(player.account_level or 0)
-            <= self.thresholds["low_account_level"],
-            weight=self.weights["account_level"],
-            description=f"Account level: {player.account_level or 'Unknown'}",
-            score=(
-                0.15
-                if (player.account_level or 0) <= self.thresholds["low_account_level"]
-                else 0.0
-            ),
-        )
-        factors.append(account_level_factor)
-
         # Rank progression analysis
         rank_result = await self.rank_analyzer.analyze(puuid, self.db)
         rank_score = (
@@ -286,37 +290,6 @@ class SmurfDetectionService:
                 score=performance_score,
             )
         )
-
-        # Win rate trend analysis
-        if len(recent_matches) >= 10:
-            win_rate_trend_result = self.win_rate_analyzer.analyze_win_rate_trend(
-                recent_matches
-            )
-            trend_score = win_rate_trend_result.get("score", 0.0)
-            trend_type = win_rate_trend_result.get("trend", "stable")
-            improvement = win_rate_trend_result.get("improvement", 0.0)
-
-            factors.append(
-                DetectionFactor(
-                    name="win_rate_trend",
-                    value=improvement,
-                    meets_threshold=trend_score > 0.5,
-                    weight=self.weights["win_rate_trend"],
-                    description=f"Win rate trend: {trend_type} ({improvement:+.1%} change)",
-                    score=trend_score,
-                )
-            )
-        else:
-            factors.append(
-                DetectionFactor(
-                    name="win_rate_trend",
-                    value=0.0,
-                    meets_threshold=False,
-                    weight=self.weights["win_rate_trend"],
-                    description="Win rate trend: insufficient data",
-                    score=0.0,
-                )
-            )
 
         # Performance trends analysis
         if len(recent_matches) >= 10:

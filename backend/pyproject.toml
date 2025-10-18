@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "python-Levenshtein>=0.25.1",
     "python-multipart>=0.0.20",
+    "slowapi>=0.1.9",
     "sqlalchemy>=2.0.43",
     "structlog>=25.4.0",
     "tenacity>=9.1.2",

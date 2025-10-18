@@ -43,10 +43,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
         super().__init__(job_config)
         self.settings = get_global_settings()
 
-        # Extract configuration
+        # Extract configuration (use settings defaults for consistency across environments)
         config = job_config.config_json or {}
-        self.max_new_matches_per_player = config.get("max_new_matches_per_player", 50)
-        self.max_tracked_players = config.get("max_tracked_players", 20)
+        self.max_new_matches_per_player = config.get(
+            "max_new_matches_per_player", self.settings.max_new_matches_per_player
+        )
+        self.max_tracked_players = config.get(
+            "max_tracked_players", self.settings.max_tracked_players
+        )
 
         # Initialize Riot API client (will be created in execute)
         self.api_client: Optional[RiotAPIClient] = None
@@ -212,8 +216,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
         await self._update_player_rank(db, player)
 
         player.updated_at = datetime.now()
-        await db.commit()
-        self.increment_metric("records_updated")
+        await self.safe_commit(
+            db,
+            "tracked player update",
+            on_success=lambda: self.increment_metric("records_updated"),
+        )
 
         logger.info(
             "Successfully updated tracked player",
@@ -309,17 +316,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
         )
 
         # Commit the transaction for match storage only
-        await db.commit()
-        self.increment_metric("records_created")
+        await self.safe_commit(
+            db,
+            "match storage",
+            on_success=lambda: self.increment_metric("records_created"),
+        )
 
         logger.debug("Successfully processed match", match_id=match_id)
         return discovered_players
-
-    # NOTE: _store_match has been moved to MatchService.store_match_from_dto()
-    # This method is no longer used and can be removed in future cleanup
-
-    # NOTE: _mark_discovered_players has been moved to PlayerService.discover_players_from_match()
-    # This method is no longer used and can be removed in future cleanup
 
     @handle_riot_api_errors(
         operation="update player rank",
@@ -340,8 +344,11 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
         rank_updated = await player_service.update_player_rank(player, self.api_client)
         if rank_updated:
-            await db.commit()
-            self.increment_metric("records_created")
+            await self.safe_commit(
+                db,
+                "player rank update",
+                on_success=lambda: self.increment_metric("records_created"),
+            )
 
     # Private helper methods
 

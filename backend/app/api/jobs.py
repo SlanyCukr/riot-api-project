@@ -1,11 +1,8 @@
 """Job management API endpoints."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 
-from ..database import get_db
-from ..services.jobs import JobService
 from ..models.job_tracking import JobStatus
 from ..schemas.jobs import (
     JobConfigurationUpdate,
@@ -16,6 +13,7 @@ from ..schemas.response_jobs_schema import (
     JobStatusResponse,
     JobTriggerResponse,
 )
+from ..api.dependencies import JobServiceDep
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -23,19 +21,13 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-# Dependency for JobService
-async def get_job_service(db: AsyncSession = Depends(get_db)) -> JobService:
-    """Get job service instance."""
-    return JobService(db)
-
-
 # === Job Configuration Endpoints ===
 
 
 @router.get("/", response_model=list[JobConfigurationResponse])
 async def list_job_configurations(
+    job_service: JobServiceDep,
     active_only: bool = Query(False, description="Filter to active jobs only"),
-    job_service: JobService = Depends(get_job_service),
 ):
     """
     List all job configurations.
@@ -53,7 +45,7 @@ async def list_job_configurations(
         logger.error("Failed to list job configurations", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve job configurations: {str(e)}",
+            detail="Internal server error retrieving job configurations",
         )
 
 
@@ -61,7 +53,7 @@ async def list_job_configurations(
 async def update_job_configuration(
     job_id: int,
     job_update: JobConfigurationUpdate,
-    job_service: JobService = Depends(get_job_service),
+    job_service: JobServiceDep,
 ):
     """
     Update a job configuration.
@@ -95,7 +87,7 @@ async def update_job_configuration(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update job configuration: {str(e)}",
+            detail="Internal server error updating job configuration",
         )
 
 
@@ -105,10 +97,10 @@ async def update_job_configuration(
 @router.get("/{job_id}/executions", response_model=JobExecutionListResponse)
 async def get_job_executions(
     job_id: int,
+    job_service: JobServiceDep,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
     status: Optional[JobStatus] = Query(None, description="Filter by status"),
-    job_service: JobService = Depends(get_job_service),
 ):
     """
     Get execution history for a specific job.
@@ -139,16 +131,16 @@ async def get_job_executions(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve job executions: {str(e)}",
+            detail="Internal server error retrieving job executions",
         )
 
 
 @router.get("/executions/all", response_model=JobExecutionListResponse)
 async def list_all_executions(
+    job_service: JobServiceDep,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Page size"),
     status: Optional[JobStatus] = Query(None, description="Filter by status"),
-    job_service: JobService = Depends(get_job_service),
 ):
     """
     Get execution history for all jobs.
@@ -172,7 +164,7 @@ async def list_all_executions(
         logger.error("Failed to list all executions", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve job executions: {str(e)}",
+            detail="Internal server error retrieving all job executions",
         )
 
 
@@ -183,7 +175,7 @@ async def list_all_executions(
 async def trigger_job(
     job_id: int,
     background_tasks: BackgroundTasks,
-    job_service: JobService = Depends(get_job_service),
+    job_service: JobServiceDep,
 ):
     """
     Manually trigger a job execution.
@@ -260,13 +252,13 @@ async def trigger_job(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to trigger job: {str(e)}",
+            detail="Internal server error triggering job",
         )
 
 
 @router.get("/status/overview", response_model=JobStatusResponse)
 async def get_job_system_status(
-    job_service: JobService = Depends(get_job_service),
+    job_service: JobServiceDep,
 ):
     """
     Get overall job system status.
@@ -301,5 +293,5 @@ async def get_job_system_status(
         logger.error("Failed to get job system status", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve job system status: {str(e)}",
+            detail="Internal server error retrieving job system status",
         )

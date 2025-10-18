@@ -230,8 +230,11 @@ class PlayerAnalyzerJob(BaseJob):
 
         player.is_analyzed = True
         player.updated_at = datetime.now()
-        await self.db.commit()
-        self.increment_metric("records_updated")
+        await self.safe_commit(
+            self.db,
+            "player analysis",
+            on_success=lambda: self.increment_metric("records_updated"),
+        )
 
         logger.info(
             "Player analyzed",

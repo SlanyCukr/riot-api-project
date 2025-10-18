@@ -50,10 +50,10 @@ async def get_riot_api_key(
         return setting
 
     except Exception as e:
-        logger.error("failed_to_get_riot_api_key", error=str(e))
+        logger.error("failed_to_get_riot_api_key", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve Riot API key: {str(e)}",
+            detail="Internal server error retrieving Riot API key",
         )
 
 
@@ -104,10 +104,10 @@ async def update_riot_api_key(
         raise HTTPException(status_code=400, detail=str(e))
 
     except Exception as e:
-        logger.error("failed_to_update_riot_api_key", error=str(e))
+        logger.error("failed_to_update_riot_api_key", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update Riot API key: {str(e)}",
+            detail="Internal server error updating Riot API key",
         )
 
 
@@ -136,8 +136,8 @@ async def test_riot_api_key(
         return test_result
 
     except Exception as e:
-        logger.error("failed_to_test_riot_api_key", error=str(e))
+        logger.error("failed_to_test_riot_api_key", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to test Riot API key: {str(e)}",
+            detail="Internal server error testing Riot API key",
         )

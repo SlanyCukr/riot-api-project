@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,11 +65,7 @@ class BaseJob(ABC):
         pass
 
     async def log_start(self, db: AsyncSession) -> None:
-        """Log job execution start and create JobExecution record.
-
-        :param db: Database session for creating execution record.
-        :raises Exception: If job execution record creation fails.
-        """
+        """Log job execution start and create JobExecution record."""
         try:
             self.job_execution = JobExecution(
                 job_config_id=self.job_config.id,
@@ -82,7 +78,8 @@ class BaseJob(ABC):
                 detailed_logs=None,  # Will be populated on completion
             )
             db.add(self.job_execution)
-            await db.commit()
+            if not await self.safe_commit(db, "job start"):
+                raise Exception("Failed to create job execution record")
             await db.refresh(self.job_execution)
 
             logger.debug(
@@ -109,13 +106,7 @@ class BaseJob(ABC):
         error_message: Optional[str] = None,
         logs: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Log job execution completion and update JobExecution record.
-
-        :param db: Database session for updating execution record.
-        :param success: Whether job completed successfully.
-        :param error_message: Error message if job failed.
-        :param logs: Detailed log entries from job execution.
-        """
+        """Log job execution completion and update JobExecution record."""
         # Exit early if job execution was never started
         if self.job_execution is None:
             logger.warning(
@@ -132,23 +123,28 @@ class BaseJob(ABC):
 
             self._log_completion_details(success, duration)
 
-            detailed_logs = self._prepare_detailed_logs(logs)
+            # Prepare detailed logs for database storage
+            detailed_logs = None
+            if logs:
+                detailed_logs = {"logs": self._strip_redundant_fields(logs)}
+
             update_stmt = self._build_completion_update_statement(
                 JobExecution, completed_at, success, error_message, detailed_logs
             )
 
             await self._execute_completion_update(db, update_stmt)
-            self._update_local_execution_state(completed_at, success)
+
+            # Update local execution object state
+            self.job_execution.completed_at = completed_at
+            self.job_execution.status = (
+                JobStatus.SUCCESS if success else JobStatus.FAILED
+            )
 
         except Exception as e:
             await self._handle_completion_error(db, e)
 
     async def is_already_running(self, db: AsyncSession) -> bool:
-        """Check if this job is already running.
-
-        :param db: Database session for querying execution records.
-        :returns: True if job is already running, False otherwise.
-        """
+        """Check if this job is already running."""
         from sqlalchemy import select
 
         stmt = (
@@ -177,12 +173,7 @@ class BaseJob(ABC):
         return False
 
     async def handle_error(self, db: AsyncSession, error: Exception) -> str:
-        """Handle job execution error.
-
-        :param db: Database session for updating execution record.
-        :param error: Exception that was raised during job execution.
-        :returns: Formatted error message string.
-        """
+        """Handle job execution error and return formatted error message."""
         error_message = f"{type(error).__name__}: {str(error)}"
 
         logger.error(
@@ -250,7 +241,33 @@ class BaseJob(ABC):
                 )
             finally:
                 structlog_contextvars.clear_contextvars()
-                self._cleanup_log_buffer()
+
+    async def safe_commit(
+        self,
+        db: AsyncSession,
+        operation: str = "database operation",
+        on_success: Optional[Callable[[], None]] = None,
+    ) -> bool:
+        """Safely commit database changes with automatic rollback on failure.
+
+        Executes optional callback only after successful commit.
+        Returns True on success, False on failure (logs error automatically).
+        """
+        try:
+            await db.commit()
+            if on_success:
+                on_success()
+            return True
+        except Exception as e:
+            await db.rollback()
+            logger.error(
+                f"Failed to commit {operation}",
+                error=str(e),
+                error_type=type(e).__name__,
+                job_name=self.job_config.name,
+                execution_id=self.job_execution.id if self.job_execution else None,
+            )
+            return False
 
     def _get_job_logs(self) -> List[Dict[str, Any]]:
         """Extract logs for this job execution."""
@@ -262,11 +279,6 @@ class BaseJob(ABC):
             for entry in job_log_capture.entries
             if entry.get("job_execution_id") == self.job_execution.id
         ]
-
-    def _cleanup_log_buffer(self) -> None:
-        """Prevent memory buildup."""
-        if len(job_log_capture.entries) > 10000:
-            job_log_capture.entries.clear()
 
     def _strip_redundant_fields(
         self, logs: List[Dict[str, Any]]
@@ -289,19 +301,11 @@ class BaseJob(ABC):
         ]
 
     def increment_metric(self, metric_name: str, count: int = 1) -> None:
-        """Increment a metric counter.
-
-        :param metric_name: Name of the metric to increment.
-        :param count: Amount to increment by (default: 1).
-        """
+        """Increment a metric counter."""
         self.metrics[metric_name] += count
 
     def add_log_entry(self, key: str, value: Any) -> None:
-        """Add an entry to the execution log.
-
-        :param key: Log entry key.
-        :param value: Log entry value.
-        """
+        """Add an entry to the execution log."""
         self.execution_log[key] = value
 
     # Private helper methods
@@ -320,14 +324,6 @@ class BaseJob(ABC):
             records_updated=self.metrics["records_updated"],
             success=success,
         )
-
-    def _prepare_detailed_logs(
-        self, logs: Optional[List[Dict[str, Any]]]
-    ) -> Optional[Dict[str, Any]]:
-        """Prepare detailed logs for database storage."""
-        if not logs:
-            return None
-        return {"logs": self._strip_redundant_fields(logs)}
 
     def _build_completion_update_statement(
         self, job_execution_model, completed_at, success, error_message, detailed_logs
@@ -354,42 +350,40 @@ class BaseJob(ABC):
         """Execute the completion update with retry logic."""
         try:
             await db.execute(stmt)
-            await db.commit()
-            return
-        except Exception as commit_error:
+            if await self.safe_commit(db, "job completion"):
+                return
+        except Exception as execute_error:
             logger.error(
-                "Failed to commit job completion - attempting rollback and retry",
+                "Failed to execute job completion update",
                 job_name=self.job_config.name,
                 execution_id=self.job_execution.id,
-                error=str(commit_error),
-                error_type=type(commit_error).__name__,
+                error=str(execute_error),
+                error_type=type(execute_error).__name__,
             )
 
         # Retry once after rollback
         try:
             await db.rollback()
             await db.execute(stmt)
-            await db.commit()
-            logger.info(
-                "Successfully committed job completion on retry",
-                execution_id=self.job_execution.id,
-            )
+            if await self.safe_commit(db, "job completion retry"):
+                logger.info(
+                    "Successfully committed job completion on retry",
+                    execution_id=self.job_execution.id,
+                )
+            else:
+                logger.warning(
+                    "Job completion retry commit failed - job may remain stuck",
+                    execution_id=self.job_execution.id,
+                )
         except Exception as retry_error:
             logger.error(
-                "Failed to commit job completion even after retry - job may remain stuck",
+                "Failed to execute job completion retry - job may remain stuck",
                 job_name=self.job_config.name,
                 execution_id=self.job_execution.id,
                 error=str(retry_error),
                 error_type=type(retry_error).__name__,
             )
             # Don't raise - we want the job to complete even if logging fails
-
-    def _update_local_execution_state(
-        self, completed_at: datetime, success: bool
-    ) -> None:
-        """Update local job execution object state."""
-        self.job_execution.completed_at = completed_at
-        self.job_execution.status = JobStatus.SUCCESS if success else JobStatus.FAILED
 
     async def _handle_completion_error(
         self, db: AsyncSession, error: Exception

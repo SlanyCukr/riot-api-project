@@ -321,13 +321,12 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
             <Alert>
               <AlertDescription className="text-sm">
                 Based on {detection.sample_size} recent matches
-                {detection.analysis_time_seconds &&
-                  detection.analysis_time_seconds > 0 && (
-                    <span className="ml-2">
-                      • Analysis took{" "}
-                      {detection.analysis_time_seconds.toFixed(2)}s
-                    </span>
-                  )}
+                {(detection.analysis_time_seconds ?? 0) > 0 && (
+                  <span className="ml-2">
+                    • Analysis took{" "}
+                    {detection.analysis_time_seconds?.toFixed(2)}s
+                  </span>
+                )}
               </AlertDescription>
             </Alert>
 

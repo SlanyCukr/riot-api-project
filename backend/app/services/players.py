@@ -23,6 +23,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from ..riot_api.client import RiotAPIClient
+    from ..models.ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
 
@@ -1020,3 +1021,28 @@ class PlayerService:
         )
 
         return True
+
+    async def get_player_rank(
+        self, puuid: str, queue_type: str = "RANKED_SOLO_5x5"
+    ) -> "PlayerRank | None":
+        """Get the most recent rank for a player.
+
+        Args:
+            puuid: Player's PUUID
+            queue_type: Queue type (default: RANKED_SOLO_5x5)
+
+        Returns:
+            Most recent PlayerRank or None if no rank data exists
+        """
+        from sqlalchemy import select
+        from ..models.ranks import PlayerRank
+
+        stmt = (
+            select(PlayerRank)
+            .where(PlayerRank.puuid == puuid)
+            .where(PlayerRank.queue_type == queue_type)
+            .order_by(PlayerRank.updated_at.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
