@@ -108,12 +108,12 @@ exclude = [
     ".venv/",
     "__pycache__/",
     "*.pyc",
-    "app/models/__init__.py",  # Type aliases and SQLAlchemy helpers
+    "app/models/",  # SQLAlchemy ORM fields appear unused but are accessed by framework
+    "app/schemas/",  # Pydantic fields appear unused but are used for serialization
+    "app/algorithms/",  # Dataclass fields appear unused but are used by framework
     "app/tests/",  # Test fixtures and mocks often appear unused
     "app/riot_api/constants.py",  # Enum definitions used as constants
-    "app/schemas/response_jobs_schema.py",  # Response-only schemas for API
-    "app/schemas/response_matches_schema.py",  # Response-only schemas for API
-    "app/schemas/detection.py",  # Pydantic schema fields appear unused but are used by API
+    "app/riot_api/models.py",  # Pydantic DTO fields from Riot API
 ]
 ignore_decorators = ["@app.route", "@router.*", "@app.*", "@abstractmethod"]
 ignore_names = [
@@ -128,6 +128,9 @@ ignore_names = [
     "model_config",
     # CircuitBreaker method used for failure handling
     "on_failure",
+    # SQLAlchemy ORM fields accessed indirectly by transformers
+    "riot_id_name",
+    "riot_id_tagline",
 ]
 min_confidence = 60
 paths = ["app/"]

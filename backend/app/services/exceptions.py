@@ -34,17 +34,6 @@ class ServiceException(Exception):
             return f"[{self.service}.{self.operation}] {self.message}"
         return self.message
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert exception to dictionary for logging/serialization."""
-        return {
-            "error_type": self.__class__.__name__,
-            "message": self.message,
-            "service": self.service,
-            "operation": self.operation,
-            "context": self.context,
-            "original_error": str(self.original_error) if self.original_error else None,
-        }
-
 
 class PlayerServiceError(ServiceException):
     """Exception raised by PlayerService for errors during player operations."""

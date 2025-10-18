@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -218,72 +218,6 @@ class SmurfDetection(Base):
     def __repr__(self) -> str:
         """Return string representation of the player analysis."""
         return f"<SmurfDetection(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert player analysis to dictionary representation."""
-        return {
-            "id": self.id,
-            "puuid": str(self.puuid),
-            "is_smurf": self.is_smurf,
-            "confidence": self.confidence,
-            "smurf_score": float(self.smurf_score) if self.smurf_score else 0.0,
-            "win_rate_score": (
-                float(self.win_rate_score) if self.win_rate_score else None
-            ),
-            "kda_score": float(self.kda_score) if self.kda_score else None,
-            "account_level_score": (
-                float(self.account_level_score) if self.account_level_score else None
-            ),
-            "rank_discrepancy_score": (
-                float(self.rank_discrepancy_score)
-                if self.rank_discrepancy_score
-                else None
-            ),
-            "rank_progression_score": (
-                float(self.rank_progression_score)
-                if self.rank_progression_score
-                else None
-            ),
-            "win_rate_trend_score": (
-                float(self.win_rate_trend_score) if self.win_rate_trend_score else None
-            ),
-            "performance_consistency_score": (
-                float(self.performance_consistency_score)
-                if self.performance_consistency_score
-                else None
-            ),
-            "performance_trends_score": (
-                float(self.performance_trends_score)
-                if self.performance_trends_score
-                else None
-            ),
-            "role_performance_score": (
-                float(self.role_performance_score)
-                if self.role_performance_score
-                else None
-            ),
-            "games_analyzed": self.games_analyzed,
-            "queue_type": self.queue_type,
-            "time_period_days": self.time_period_days,
-            "win_rate_threshold": (
-                float(self.win_rate_threshold) if self.win_rate_threshold else None
-            ),
-            "kda_threshold": float(self.kda_threshold) if self.kda_threshold else None,
-            "account_level": self.account_level,
-            "current_tier": self.current_tier,
-            "current_rank": self.current_rank,
-            "peak_tier": self.peak_tier,
-            "peak_rank": self.peak_rank,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "last_analysis": (
-                self.last_analysis.isoformat() if self.last_analysis else None
-            ),
-            "analysis_version": self.analysis_version,
-            "false_positive_reported": self.false_positive_reported,
-            "manually_verified": self.manually_verified,
-            "notes": self.notes,
-        }
 
 
 # Create composite indexes for common queries

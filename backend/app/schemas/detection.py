@@ -20,7 +20,7 @@ class DetectionFactor(BaseModel):
     )
     weight: float = Field(..., description="Factor weight in overall scoring")
     description: str = Field(..., description="Human-readable description")
-    score: float = Field(..., description="Normalized score (0.0-1.0)")
+    score: float = Field(..., ge=0.0, le=1.0, description="Normalized score (0.0-1.0)")
 
 
 class DetectionRequest(BaseModel):
@@ -42,7 +42,9 @@ class DetectionResponse(BaseModel):
 
     puuid: str = Field(..., description="Player PUUID")
     is_smurf: bool = Field(..., description="Whether player is detected as smurf")
-    detection_score: float = Field(..., description="Overall detection score (0.0-1.0)")
+    detection_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Overall detection score (0.0-1.0)"
+    )
     confidence_level: str = Field(
         ..., description="Confidence level (none/low/medium/high)"
     )
@@ -72,7 +74,7 @@ class DetectionExistsResponse(BaseModel):
         None, description="Whether player is detected as smurf"
     )
     detection_score: Optional[float] = Field(
-        None, description="Overall detection score (0.0-1.0)"
+        None, ge=0.0, le=1.0, description="Overall detection score (0.0-1.0)"
     )
     confidence_level: Optional[str] = Field(
         None, description="Confidence level (none/low/medium/high)"

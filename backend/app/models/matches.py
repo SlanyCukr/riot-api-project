@@ -1,7 +1,7 @@
 """Match data model for storing League of Legends match information."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -135,26 +135,6 @@ class Match(Base):
     def __repr__(self) -> str:
         """Return string representation of the match."""
         return f"<Match(match_id='{self.match_id}', queue_id={self.queue_id}, game_creation={self.game_creation})>"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert match to dictionary representation."""
-        return {
-            "match_id": self.match_id,
-            "platform_id": self.platform_id,
-            "game_creation": self.game_creation,
-            "game_duration": self.game_duration,
-            "queue_id": self.queue_id,
-            "game_version": self.game_version,
-            "map_id": self.map_id,
-            "game_mode": self.game_mode,
-            "game_type": self.game_type,
-            "game_end_timestamp": self.game_end_timestamp,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "tournament_id": self.tournament_id,
-            "is_processed": self.is_processed,
-            "processing_error": self.processing_error,
-        }
 
 
 # Create indexes for common queries

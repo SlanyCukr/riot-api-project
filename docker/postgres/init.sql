@@ -3,6 +3,10 @@
 --
 -- Note: uuid-ossp extension removed - not needed since PUUIDs are stored as strings
 
+-- Enable pg_stat_statements for query performance monitoring
+-- Note: requires shared_preload_libraries=pg_stat_statements in postgres command
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+
 -- Create schema if not exists
 CREATE SCHEMA IF NOT EXISTS app;
 

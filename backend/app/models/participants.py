@@ -1,7 +1,7 @@
 """Match participant model for storing individual player performance in matches."""
 
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Optional
 from datetime import datetime
 
 from sqlalchemy import (
@@ -182,43 +182,13 @@ class MatchParticipant(Base):
         """Return string representation of the match participant."""
         return f"<MatchParticipant(match_id='{self.match_id}', summoner_name='{self.summoner_name}', champion='{self.champion_name}')>"
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert match participant to dictionary representation."""
-        return {
-            "id": self.id,
-            "match_id": self.match_id,
-            "puuid": str(self.puuid),
-            "summoner_name": self.summoner_name,
-            "team_id": self.team_id,
-            "champion_id": self.champion_id,
-            "champion_name": self.champion_name,
-            "kills": self.kills,
-            "deaths": self.deaths,
-            "assists": self.assists,
-            "win": self.win,
-            "gold_earned": self.gold_earned,
-            "vision_score": self.vision_score,
-            "cs": self.cs,
-            "kda": float(self.kda) if self.kda else None,
-            "champ_level": self.champ_level,
-            "total_damage_dealt": self.total_damage_dealt,
-            "total_damage_dealt_to_champions": self.total_damage_dealt_to_champions,
-            "total_damage_taken": self.total_damage_taken,
-            "total_heal": self.total_heal,
-            "individual_position": self.individual_position,
-            "team_position": self.team_position,
-            "role": self.role,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-    # Database-only fields - used by SQLAlchemy ORM but not directly referenced in Python code
-    # These fields store historical data for database queries and analysis
-    riot_id_name: Mapped[Optional[str]] = mapped_column(  # noqa: F841 - Used by SQLAlchemy ORM
+    # Player identity fields at time of match (from Riot API)
+    # Used by transformers and player services for historical player identification
+    riot_id_name: Mapped[Optional[str]] = mapped_column(
         String(128), nullable=True, comment="Riot ID game name at the time of the match"
     )
 
-    riot_id_tagline: Mapped[Optional[str]] = mapped_column(  # noqa: F841 - Used by SQLAlchemy ORM
+    riot_id_tagline: Mapped[Optional[str]] = mapped_column(
         String(32), nullable=True, comment="Riot ID tagline at the time of the match"
     )
 
