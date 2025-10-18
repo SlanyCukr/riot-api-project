@@ -258,33 +258,3 @@ def create_safe_riot_id(
         return None
 
 
-def validate_pagination_params(  # noqa: F401 - Should be used in API endpoints with pagination
-    offset: Optional[int] = None, limit: Optional[int] = None, max_limit: int = 100
-) -> tuple[int, int]:
-    """
-    Validate and normalize pagination parameters.
-
-    Args:
-        offset: Number of items to skip (default: 0)
-        limit: Maximum number of items to return (default: max_limit)
-        max_limit: Maximum allowed limit value
-
-    Returns:
-        Tuple of (validated_offset, validated_limit)
-
-    Raises:
-        ValueError: If parameters are invalid
-    """
-    validated_offset = max(0, offset or 0)
-
-    if limit is None:
-        validated_limit = max_limit
-    else:
-        validated_limit = min(max(1, limit), max_limit)
-
-    if validated_offset > 10000:
-        raise ValueError(
-            f"Offset too large: {validated_offset}. Maximum offset is 10000"
-        )
-
-    return validated_offset, validated_limit
