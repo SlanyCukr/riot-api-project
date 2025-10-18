@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, Any, List
 import structlog
 
-from ..schemas.detection import DetectionFactor
+from ...schemas.detection import DetectionFactor
 from ..detection_config import DETECTION_WEIGHTS, DETECTION_THRESHOLDS
 
 if TYPE_CHECKING:
