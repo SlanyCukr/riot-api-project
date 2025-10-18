@@ -29,7 +29,7 @@ class PlayerRankBase(BaseModel):
         ..., max_length=78, description="Reference to the player (Riot PUUID)"
     )
     queue_type: str = Field(..., max_length=32, description="Queue type")
-    tier: str = Field(..., max_length=16, description="Rank tier")
+    tier: Tier = Field(..., description="Rank tier")
     rank: Optional[str] = Field(None, max_length=4, description="Rank division")
     league_points: int = Field(0, ge=0, le=100, description="League points")
     wins: int = Field(0, ge=0, description="Number of wins")
@@ -53,28 +53,15 @@ class PlayerRankCreate(PlayerRankBase):
 
 
 class PlayerRankUpdate(BaseModel):
-    """Schema for updating a PlayerRank."""
+    """Schema for updating a PlayerRank - minimal fields for rank progression."""
 
-    tier: Optional[str] = Field(None, max_length=16, description="Rank tier")
+    tier: Optional[Tier] = Field(None, description="Rank tier")
     rank: Optional[str] = Field(None, max_length=4, description="Rank division")
     league_points: Optional[int] = Field(
         None, ge=0, le=100, description="League points"
     )
     wins: Optional[int] = Field(None, ge=0, description="Number of wins")
     losses: Optional[int] = Field(None, ge=0, description="Number of losses")
-    veteran: Optional[bool] = Field(None, description="Whether the player is a veteran")
-    inactive: Optional[bool] = Field(None, description="Whether the player is inactive")
-    fresh_blood: Optional[bool] = Field(
-        None, description="Whether the player is fresh blood"
-    )
-    hot_streak: Optional[bool] = Field(
-        None, description="Whether the player is on a hot streak"
-    )
-    league_id: Optional[str] = Field(None, max_length=64, description="League ID")
-    league_name: Optional[str] = Field(None, max_length=64, description="League name")
-    season_id: Optional[str] = Field(
-        None, max_length=16, description="Season identifier"
-    )
     is_current: Optional[bool] = Field(
         None, description="Whether this is the current rank"
     )

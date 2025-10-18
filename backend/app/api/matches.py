@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from ..schemas.response_matches_schema import (
+from ..schemas.matches import (
     MatchListResponse,
     MatchStatsResponse,
 )

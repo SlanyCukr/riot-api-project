@@ -10,8 +10,6 @@ from sqlalchemy import select, update, func, desc
 from ..models.job_tracking import JobConfiguration, JobExecution, JobStatus
 from ..schemas.jobs import (
     JobConfigurationUpdate,
-)
-from ..schemas.response_jobs_schema import (
     JobConfigurationResponse,
     JobExecutionResponse,
     JobExecutionListResponse,

@@ -6,8 +6,6 @@ from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from ..models.job_tracking import JobStatus
 from ..schemas.jobs import (
     JobConfigurationUpdate,
-)
-from ..schemas.response_jobs_schema import (
     JobConfigurationResponse,
     JobExecutionListResponse,
     JobStatusResponse,

@@ -9,7 +9,7 @@ from sqlalchemy import select, func, desc
 from ..models.matches import Match
 from ..models.participants import MatchParticipant
 from ..models.players import Player
-from ..schemas.response_matches_schema import (
+from ..schemas.matches import (
     MatchResponse,
     MatchListResponse,
     MatchStatsResponse,
@@ -70,20 +70,26 @@ class MatchService:
                 MatchResponse.model_validate(match) for match in db_matches
             ]
 
+            # Calculate page-based pagination from start/count
+            page = (start // count) if count > 0 else 0
+            size = count
+            pages = ((total_count + count - 1) // count) if count > 0 else 0
+
             logger.debug(
                 "Retrieved matches from database",
                 puuid=puuid,
                 matches_count=len(match_responses),
                 total_count=total_count,
-                start=start,
-                count=count,
+                page=page,
+                size=size,
             )
 
             return MatchListResponse(
                 matches=match_responses,
                 total=total_count,
-                start=start,
-                count=count,
+                page=page,
+                size=size,
+                pages=pages,
             )
         except Exception as e:
             logger.error(
