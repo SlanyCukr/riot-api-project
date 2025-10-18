@@ -65,63 +65,6 @@ class PlayerServiceError(ServiceException):
         )
 
 
-class MatchServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
-    """Exception raised by MatchService for errors during match operations."""
-
-    def __init__(
-        self,
-        message: str,
-        operation: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        original_error: Optional[Exception] = None,
-    ):
-        super().__init__(
-            message=message,
-            service="MatchService",
-            operation=operation,
-            context=context,
-            original_error=original_error,
-        )
-
-
-class DetectionServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
-    """Exception raised by DetectionService for errors during player analysis."""
-
-    def __init__(
-        self,
-        message: str,
-        operation: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        original_error: Optional[Exception] = None,
-    ):
-        super().__init__(
-            message=message,
-            service="DetectionService",
-            operation=operation,
-            context=context,
-            original_error=original_error,
-        )
-
-
-class SettingsServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
-    """Exception raised by SettingsService for errors during settings operations."""
-
-    def __init__(
-        self,
-        message: str,
-        operation: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        original_error: Optional[Exception] = None,
-    ):
-        super().__init__(
-            message=message,
-            service="SettingsService",
-            operation=operation,
-            context=context,
-            original_error=original_error,
-        )
-
-
 class DatabaseError(ServiceException):
     """Exception raised for database-related errors in services."""
 

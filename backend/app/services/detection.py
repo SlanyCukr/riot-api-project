@@ -505,8 +505,10 @@ class SmurfDetectionService:
 
         # Build query for recent matches
         # Use analysis config for minimum matches calculation
-        min_matches_for_analysis = self.analysis_config.get("min_matches_for_analysis", 10)
-        effective_min_games = max(min_games, min_games_for_analysis)
+        min_matches_for_analysis = self.analysis_config.get(
+            "min_matches_for_analysis", 10
+        )
+        effective_min_games = max(min_games, min_matches_for_analysis)
 
         query = (
             select(Match, MatchParticipant)

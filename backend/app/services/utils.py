@@ -31,26 +31,6 @@ VALID_PLATFORMS: Set[str] = {
     "VN2",  # Vietnam
 }
 
-# Platform region mapping
-PLATFORM_REGIONS: dict[str, str] = {
-    "NA1": "americas",
-    "BR1": "americas",
-    "LA1": "americas",
-    "LA2": "americas",
-    "OC1": "americas",
-    "EUW1": "europe",
-    "EUN1": "europe",
-    "TR1": "europe",
-    "RU": "europe",
-    "KR": "asia",
-    "JP1": "asia",
-    "PH2": "sea",  # Southeast Asia
-    "SG2": "sea",
-    "TH2": "sea",
-    "TW2": "sea",
-    "VN2": "sea",
-}
-
 
 def validate_platform(platform: str) -> str:
     """
@@ -90,51 +70,6 @@ def validate_platform(platform: str) -> str:
     )
 
     return normalized_platform
-
-
-def get_platform_region(platform: str) -> str:  # noqa: F401 - Useful for future regional API calls
-    """
-    Get the regional shard for a given platform.
-
-    Args:
-        platform: Valid platform code
-
-    Returns:
-        Region string ('americas', 'europe', 'asia', 'sea')
-
-    Raises:
-        ValueError: If platform is invalid
-    """
-    normalized_platform = validate_platform(platform)
-
-    region = PLATFORM_REGIONS.get(normalized_platform)
-    if not region:
-        raise ValueError(f"No region mapping found for platform: {normalized_platform}")
-
-    logger.debug(
-        "Platform region retrieved",
-        platform=normalized_platform,
-        region=region,
-    )
-
-    return region
-
-
-def is_valid_platform(platform: str) -> bool:  # noqa: F401 - Useful for conditional validation without exceptions
-    """
-    Check if a platform code is valid without raising an exception.
-
-    Args:
-        platform: Platform code to check
-
-    Returns:
-        True if platform is valid, False otherwise
-    """
-    try:
-        validate_platform(platform)
-        return True
-    except ValueError:
-        return False
 
 
 def sanitize_string_field(
@@ -256,5 +191,3 @@ def create_safe_riot_id(
         return safe_riot_id
     else:
         return None
-
-
