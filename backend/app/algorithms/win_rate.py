@@ -127,27 +127,7 @@ class WinRateAnalyzer:
         else:
             return f"Normal win rate: {win_rate:.1%} ({wins}/{total_games} games)"
 
-    def calculate_win_rate_score(self, win_rate: float, total_games: int) -> float:
-        """
-        Calculate a normalized score for win rate factor.
-
-        Args:
-            win_rate: Player's win rate
-            total_games: Number of games analyzed
-
-        Returns:
-            Normalized score (0.0-1.0)
-        """
-        if total_games < self.min_games:
-            return 0.0
-
-        # Score increases exponentially above threshold
-        if win_rate >= self.threshold:
-            excess = win_rate - self.threshold
-            return min(1.0, 0.5 + (excess * 5))  # Scale excess win rate
-        else:
-            return 0.0
-
+    
     # TODO: Integrate into detection service for win rate evolution tracking
     #       Tracks: Changes in win rate over time (improving vs declining)
     #       Use case: Sudden win rate spike = smurf/booster, gradual improvement = legitimate improvement

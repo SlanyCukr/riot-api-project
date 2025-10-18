@@ -65,7 +65,7 @@ class PlayerServiceError(ServiceException):
         )
 
 
-class MatchServiceError(ServiceException):
+class MatchServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
     """Exception raised by MatchService for errors during match operations."""
 
     def __init__(
@@ -84,7 +84,7 @@ class MatchServiceError(ServiceException):
         )
 
 
-class DetectionServiceError(ServiceException):
+class DetectionServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
     """Exception raised by DetectionService for errors during player analysis."""
 
     def __init__(
@@ -103,7 +103,7 @@ class DetectionServiceError(ServiceException):
         )
 
 
-class SettingsServiceError(ServiceException):
+class SettingsServiceError(ServiceException):  # noqa: F401 - Intended for future error handling
     """Exception raised by SettingsService for errors during settings operations."""
 
     def __init__(

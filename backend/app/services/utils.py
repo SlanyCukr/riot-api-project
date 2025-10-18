@@ -92,7 +92,7 @@ def validate_platform(platform: str) -> str:
     return normalized_platform
 
 
-def get_platform_region(platform: str) -> str:
+def get_platform_region(platform: str) -> str:  # noqa: F401 - Useful for future regional API calls
     """
     Get the regional shard for a given platform.
 
@@ -120,7 +120,7 @@ def get_platform_region(platform: str) -> str:
     return region
 
 
-def is_valid_platform(platform: str) -> bool:
+def is_valid_platform(platform: str) -> bool:  # noqa: F401 - Useful for conditional validation without exceptions
     """
     Check if a platform code is valid without raising an exception.
 
@@ -258,7 +258,7 @@ def create_safe_riot_id(
         return None
 
 
-def validate_pagination_params(
+def validate_pagination_params(  # noqa: F401 - Should be used in API endpoints with pagination
     offset: Optional[int] = None, limit: Optional[int] = None, max_limit: int = 100
 ) -> tuple[int, int]:
     """

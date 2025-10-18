@@ -115,6 +115,18 @@ class SmurfDetectionService:
             puuid, queue_filter, min_games, time_period_days
         )
 
+        # Apply analysis configuration limits
+        max_matches = self.analysis_config.get("recent_matches_limit", 50)
+        if len(recent_matches) > max_matches:
+            recent_matches = recent_matches[:max_matches]
+            match_ids = match_ids[:max_matches]
+            logger.debug(
+                "Limited matches by analysis_config",
+                puuid=puuid,
+                original_count=len(recent_matches),
+                limited_to=max_matches,
+            )
+
         if len(recent_matches) < min_games:
             logger.info(
                 "Insufficient match data",
@@ -492,12 +504,16 @@ class SmurfDetectionService:
         from ..models.participants import MatchParticipant
 
         # Build query for recent matches
+        # Use analysis config for minimum matches calculation
+        min_matches_for_analysis = self.analysis_config.get("min_matches_for_analysis", 10)
+        effective_min_games = max(min_games, min_games_for_analysis)
+
         query = (
             select(Match, MatchParticipant)
             .join(MatchParticipant, Match.match_id == MatchParticipant.match_id)
             .where(MatchParticipant.puuid == puuid)
             .order_by(desc(Match.game_creation))
-            .limit(min_games * 2)
+            .limit(effective_min_games * 2)
         )  # Get more to filter
 
         if queue_filter:
@@ -535,7 +551,7 @@ class SmurfDetectionService:
             match_ids.append(match.match_id)
 
         # Return only the requested number of matches
-        limit = min(len(matches_data), min_games)
+        limit = min(len(matches_data), effective_min_games)
         return matches_data[:limit], match_ids[:limit]
 
     def _analyze_kda(self, recent_matches: List[Dict[str, Any]]) -> DetectionFactor:
