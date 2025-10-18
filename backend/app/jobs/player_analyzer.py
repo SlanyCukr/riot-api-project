@@ -60,7 +60,6 @@ class PlayerAnalyzerJob(BaseJob):
                 api_key=api_key,
                 region=self.settings.riot_region,
                 platform=self.settings.riot_platform,
-                request_callback=self._record_api_request,
             )
             self.data_manager = RiotDataManager(db, self.api_client)
             self.player_service = PlayerService(db)
@@ -79,15 +78,6 @@ class PlayerAnalyzerJob(BaseJob):
             self.match_service = None
             self.detection_service = None
             self.db = None
-
-    def _record_api_request(self, metric: str, count: int) -> None:
-        """Track API request counts for job metrics.
-
-        :param metric: Name of the metric being recorded.
-        :param count: Number of requests made.
-        """
-        if metric == "requests_made":
-            self.increment_metric("api_requests_made", count)
 
     async def execute(self, db: AsyncSession) -> None:
         """Execute the player analyzer job.

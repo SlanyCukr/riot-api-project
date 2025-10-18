@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 
 
 class RiotAPIError(Exception):
-    """Base exception for Riot API errors."""
+    """Base exception for Riot API errors with status code tracking."""
 
     def __init__(
         self,
@@ -12,16 +12,32 @@ class RiotAPIError(Exception):
         status_code: Optional[int] = None,
         response_data: Optional[Dict[str, Any]] = None,
         retry_after: Optional[float] = None,
+        app_rate_limit: Optional[str] = None,
+        method_rate_limit: Optional[str] = None,
     ) -> None:
-        """Initialize RiotAPIError."""
+        """
+        Initialize RiotAPIError.
+
+        Args:
+            message: Error message
+            status_code: HTTP status code (400, 401, 403, 404, 429, 503, etc.)
+            response_data: Raw response data from API
+            retry_after: Seconds to wait before retry (for 429 errors)
+            app_rate_limit: App-level rate limit header (for 429 errors)
+            method_rate_limit: Method-level rate limit header (for 429 errors)
+        """
         super().__init__(message)
         self.status_code: Optional[int] = status_code
         self.response_data: Dict[str, Any] = response_data or {}
         self.retry_after: Optional[float] = retry_after
+        self.app_rate_limit: Optional[str] = app_rate_limit
+        self.method_rate_limit: Optional[str] = method_rate_limit
         self.message: str = message
 
     def __str__(self) -> str:
         """Return string representation of the error."""
+        if self.status_code == 429 and self.retry_after:
+            return f"Rate Limit Error {self.status_code}: {self.message} (Retry after: {self.retry_after}s)"
         if self.status_code:
             return f"Riot API Error {self.status_code}: {self.message}"
         return f"Riot API Error: {self.message}"
@@ -33,134 +49,37 @@ class RiotAPIError(Exception):
             "message": self.message,
             "status_code": self.status_code,
             "retry_after": self.retry_after,
+            "app_rate_limit": self.app_rate_limit,
+            "method_rate_limit": self.method_rate_limit,
             "response_data": self.response_data,
         }
 
+    # Helper methods for error type checking
+    def is_rate_limit(self) -> bool:
+        """Check if this is a rate limit error (429)."""
+        return self.status_code == 429
 
-class RateLimitError(RiotAPIError):
-    """Exception raised when rate limit is exceeded."""
+    def is_not_found(self) -> bool:
+        """Check if this is a not found error (404)."""
+        return self.status_code == 404
 
-    def __init__(
-        self,
-        message: str,
-        retry_after: Optional[float] = None,
-        app_rate_limit: Optional[str] = None,
-        method_rate_limit: Optional[str] = None,
-    ) -> None:
-        """Initialize RateLimitError."""
-        super().__init__(message=message, status_code=429, retry_after=retry_after)
-        self.app_rate_limit: Optional[str] = app_rate_limit
-        self.method_rate_limit: Optional[str] = method_rate_limit
+    def is_auth_error(self) -> bool:
+        """Check if this is an authentication/authorization error (401, 403)."""
+        return self.status_code in (401, 403)
 
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        if self.retry_after:
-            return (
-                f"Rate Limit Error: {self.message} (Retry after: {self.retry_after}s)"
-            )
-        return f"Rate Limit Error: {self.message}"
+    def is_server_error(self) -> bool:
+        """Check if this is a server error (5xx)."""
+        return self.status_code is not None and self.status_code >= 500
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict.update(
-            {
-                "error": "RateLimitError",
-                "app_rate_limit": self.app_rate_limit,
-                "method_rate_limit": self.method_rate_limit,
-            }
-        )
-        return base_dict
+    def is_bad_request(self) -> bool:
+        """Check if this is a bad request error (400)."""
+        return self.status_code == 400
 
 
-class AuthenticationError(RiotAPIError):
-    """Exception raised for authentication/authorization failures."""
-
-    def __init__(self, message: str = "Authentication failed") -> None:
-        """Initialize AuthenticationError."""
-        super().__init__(message=message, status_code=401)
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"Authentication Error: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "AuthenticationError"
-        return base_dict
-
-
-class ForbiddenError(RiotAPIError):
-    """Exception raised when access is forbidden (e.g., deprecated endpoint or insufficient permissions)."""
-
-    def __init__(
-        self,
-        message: str = "Access forbidden - may be deprecated endpoint or insufficient API key permissions",
-    ) -> None:
-        """Initialize ForbiddenError."""
-        super().__init__(message=message, status_code=403)
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"Forbidden Error: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "ForbiddenError"
-        return base_dict
-
-
-class NotFoundError(RiotAPIError):
-    """Exception raised when requested resource is not found."""
-
-    def __init__(self, message: str = "Resource not found") -> None:
-        """Initialize NotFoundError."""
-        super().__init__(message=message, status_code=404)
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"Not Found Error: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "NotFoundError"
-        return base_dict
-
-
-class ServiceUnavailableError(RiotAPIError):
-    """Exception raised when Riot API service is unavailable."""
-
-    def __init__(self, message: str = "API service unavailable") -> None:
-        """Initialize ServiceUnavailableError."""
-        super().__init__(message=message, status_code=503)
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"Service Unavailable Error: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "ServiceUnavailableError"
-        return base_dict
-
-
-class BadRequestError(RiotAPIError):
-    """Exception raised for malformed requests."""
-
-    def __init__(self, message: str = "Invalid API request") -> None:
-        """Initialize InvalidRequestError."""
-        super().__init__(message=message, status_code=400)
-
-    def __str__(self) -> str:
-        """Return string representation of the error."""
-        return f"Bad Request Error: {self.message}"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary for JSON serialization."""
-        base_dict = super().to_dict()
-        base_dict["error"] = "BadRequestError"
-        return base_dict
+# Backwards compatibility aliases (deprecated)
+RateLimitError = RiotAPIError
+AuthenticationError = RiotAPIError
+ForbiddenError = RiotAPIError
+NotFoundError = RiotAPIError
+ServiceUnavailableError = RiotAPIError
+BadRequestError = RiotAPIError

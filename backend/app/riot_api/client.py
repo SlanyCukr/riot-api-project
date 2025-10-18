@@ -1,21 +1,13 @@
 """Riot API HTTP client with proper rate limiting, error handling, and authentication."""
 
 import asyncio
-from typing import Optional, Dict, Any, List, Union, Callable
+from typing import Optional, Dict, Any, List, Union
 import aiohttp
 import structlog
 
 from ..config import get_global_settings
 from .rate_limiter import RateLimiter
-from .errors import (
-    RiotAPIError,
-    RateLimitError,
-    AuthenticationError,
-    ForbiddenError,
-    NotFoundError,
-    ServiceUnavailableError,
-    BadRequestError,
-)
+from .errors import RiotAPIError
 from .models import (
     AccountDTO,
     SummonerDTO,
@@ -38,7 +30,6 @@ class RiotAPIClient:
         region: Optional[Region] = None,
         platform: Optional[Platform] = None,
         enable_logging: bool = True,
-        request_callback: Optional[Callable[[str, int], None]] = None,
     ):
         """
         Initialize Riot API client.
@@ -54,7 +45,6 @@ class RiotAPIClient:
         self.region = region or Region(settings.riot_region.lower())
         self.platform = platform or Platform(settings.riot_platform.lower())
         self.enable_logging = enable_logging
-        self.request_callback = request_callback
 
         # Initialize components
         self.rate_limiter = RateLimiter()
@@ -63,13 +53,6 @@ class RiotAPIClient:
         # HTTP session
         self.session = None
         self._session_lock = asyncio.Lock()
-
-        # Statistics
-        self.stats = {
-            "requests_made": 0,
-            "retries": 0,
-            "errors": 0,
-        }
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -108,22 +91,10 @@ class RiotAPIClient:
                         headers=headers, timeout=timeout, connector=connector
                     )
 
-                    # Handle both enum and string types for logging
-                    region_str = (
-                        self.region.value
-                        if isinstance(self.region, Region)
-                        else self.region
-                    )
-                    platform_str = (
-                        self.platform.value
-                        if isinstance(self.platform, Platform)
-                        else self.platform
-                    )
-
                     logger.info(
                         "Riot API client session started",
-                        region=region_str,
-                        platform=platform_str,
+                        region=self._enum_str(self.region),
+                        platform=self._enum_str(self.platform),
                         api_key_prefix="[REDACTED]" if self.api_key else "None",
                     )
 
@@ -172,10 +143,6 @@ class RiotAPIClient:
 
         for attempt in range(max_retries + 1):
             try:
-                self.stats["requests_made"] += 1
-                if self.request_callback:
-                    self.request_callback("requests_made", 1)
-
                 async with self.session.request(
                     method, url, params=params, json=data
                 ) as response:
@@ -185,28 +152,36 @@ class RiotAPIClient:
 
                     # Handle status codes
                     if response.status == 400:
-                        raise BadRequestError("Invalid request parameters")
+                        raise RiotAPIError(
+                            "Invalid request parameters", status_code=400
+                        )
                     elif response.status == 401:
-                        raise AuthenticationError("Invalid API key")
+                        raise RiotAPIError("Invalid API key", status_code=401)
                     elif response.status == 403:
-                        raise ForbiddenError("Access forbidden")
+                        raise RiotAPIError("Access forbidden", status_code=403)
                     elif response.status == 404:
-                        raise NotFoundError("Resource not found")
+                        raise RiotAPIError("Resource not found", status_code=404)
                     elif response.status == 429:
                         retry_after = int(response.headers.get("Retry-After", 1))
                         if attempt < max_retries:
                             await asyncio.sleep(retry_after)
-                            self.stats["retries"] += 1
                             continue
-                        raise RateLimitError(
-                            "Rate limit exceeded", retry_after=retry_after
+                        raise RiotAPIError(
+                            "Rate limit exceeded",
+                            status_code=429,
+                            retry_after=retry_after,
+                            app_rate_limit=response.headers.get("X-App-Rate-Limit"),
+                            method_rate_limit=response.headers.get(
+                                "X-Method-Rate-Limit"
+                            ),
                         )
                     elif response.status >= 500:
                         if attempt < max_retries:
                             await asyncio.sleep(2**attempt)
-                            self.stats["retries"] += 1
                             continue
-                        raise ServiceUnavailableError("Service unavailable")
+                        raise RiotAPIError(
+                            "Service unavailable", status_code=response.status
+                        )
 
                     # Success
                     response_data = await response.json()
@@ -217,10 +192,8 @@ class RiotAPIClient:
                 last_error = e
                 if attempt < max_retries:
                     await asyncio.sleep(2**attempt)
-                    self.stats["retries"] += 1
                     continue
 
-        self.stats["errors"] += 1
         raise RiotAPIError(f"Request failed: {str(last_error)}")
 
     def _extract_endpoint_path(self, url: str) -> str:
@@ -230,6 +203,11 @@ class RiotAPIClient:
         if len(parts) == 2:
             return parts[1]
         return stripped
+
+    @staticmethod
+    def _enum_str(value: Union[Region, Platform, str]) -> str:
+        """Extract string value from enum or return as-is."""
+        return value.value if hasattr(value, "value") else value
 
     # Account endpoints
     async def get_account_by_riot_id(
@@ -309,50 +287,16 @@ class RiotAPIClient:
     def _normalize_queue_type(
         queue: Optional[Union[int, str, QueueType]],
     ) -> Optional[QueueType]:
-        """
-        Normalize queue parameter to QueueType enum.
-
-        Args:
-            queue: Queue ID as int, string, QueueType enum, or None
-
-        Returns:
-            QueueType enum or None
-
-        Notes:
-            - If queue is already QueueType, return as-is
-            - If queue is int or str, try to find matching QueueType
-            - If no match found, return None (let Riot API handle invalid values)
-        """
-        if queue is None:
-            return None
-
-        if isinstance(queue, QueueType):
+        """Normalize queue parameter to QueueType enum."""
+        if queue is None or isinstance(queue, QueueType):
             return queue
 
-        # Convert queue to int for comparison
         try:
             queue_int = int(queue) if isinstance(queue, str) else queue
+            for queue_type in QueueType:
+                if queue_type.value == queue_int:
+                    return queue_type
         except (ValueError, TypeError):
-            logger.warning("Invalid queue type", queue=queue)
-            return None
+            pass
 
-        # Try to find matching QueueType by value
-        for queue_type in QueueType:
-            if queue_type.value == queue_int:
-                return queue_type
-
-        # If no exact match, return None
-        # Alternative: Could pass raw int and let Riot API validate
-        logger.warning("Unknown queue type", queue=queue)
         return None
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get client statistics."""
-        rate_limiter_stats = self.rate_limiter.get_stats()
-
-        return {
-            "client": self.stats.copy(),
-            "rate_limiter": rate_limiter_stats,
-            "region": self.region.value,
-            "platform": self.platform.value,
-        }

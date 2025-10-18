@@ -27,16 +27,17 @@ class RiotAPIEndpoints:
     def get_base_url(self, region: Optional[Region] = None) -> str:
         """Get base URL for regional endpoints."""
         region = region or self.region
-        # Handle both Region enum and string
-        region_str = region.value if isinstance(region, Region) else region
-        return f"https://{region_str}.api.riotgames.com"
+        return f"https://{self._enum_str(region)}.api.riotgames.com"
 
     def get_platform_url(self, platform: Optional[Platform] = None) -> str:
         """Get base URL for platform endpoints."""
         platform = platform or self.platform
-        # Handle both Platform enum and string
-        platform_str = platform.value if isinstance(platform, Platform) else platform
-        return f"https://{platform_str}.api.riotgames.com"
+        return f"https://{self._enum_str(platform)}.api.riotgames.com"
+
+    @staticmethod
+    def _enum_str(value) -> str:
+        """Extract string value from enum or return as-is."""
+        return value.value if hasattr(value, "value") else value
 
     # Account endpoints (Regional)
     def account_by_riot_id(

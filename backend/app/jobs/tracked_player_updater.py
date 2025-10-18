@@ -72,7 +72,6 @@ class TrackedPlayerUpdaterJob(BaseJob):
             api_key=api_key,
             region=self.settings.riot_region,
             platform=self.settings.riot_platform,
-            request_callback=self._record_api_request,
         )
         self.data_manager = RiotDataManager(db, self.api_client)
         try:
@@ -82,17 +81,6 @@ class TrackedPlayerUpdaterJob(BaseJob):
                 await self.api_client.close()
             self.api_client = None
             self.data_manager = None
-
-    def _record_api_request(self, metric: str, count: int) -> None:
-        """Record API request metrics from Riot API client callbacks.
-
-        :param metric: Name of the metric being recorded.
-        :type metric: str
-        :param count: Number of requests made.
-        :type count: int
-        """
-        if metric == "requests_made":
-            self.increment_metric("api_requests_made", count)
 
     async def execute(self, db: AsyncSession) -> None:
         """Execute the tracked player updater job.
