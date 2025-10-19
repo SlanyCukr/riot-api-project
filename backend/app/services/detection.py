@@ -6,7 +6,7 @@ factors including win rate, account level, rank progression, and performance
 consistency using modular factor analyzers.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
@@ -27,9 +27,9 @@ from .analyzers import (
     WinRateFactorAnalyzer,
     WinRateTrendFactorAnalyzer,
     AccountLevelFactorAnalyzer,
+    PerformanceFactorAnalyzer,
+    RankProgressionFactorAnalyzer,
 )
-from ..algorithms.performance import PerformanceAnalyzer
-from ..algorithms.rank_progression import RankProgressionAnalyzer
 
 logger = structlog.get_logger(__name__)
 
@@ -60,23 +60,9 @@ class SmurfDetectionService:
             "win_rate": WinRateFactorAnalyzer(),
             "win_rate_trend": WinRateTrendFactorAnalyzer(),
             "account_level": AccountLevelFactorAnalyzer(),
+            "performance_consistency": PerformanceFactorAnalyzer(),
+            "rank_progression": RankProgressionFactorAnalyzer(),
         }
-
-        # Initialize algorithm-level analyzers
-        self.rank_analyzer = RankProgressionAnalyzer(
-            tier_jump_threshold=self.thresholds.get("rank_tier_jump", 2),
-            rapid_progression_days=30,
-            min_games_for_analysis=self.analysis_config.get(
-                "min_matches_for_analysis", 10
-            ),
-        )
-        self.performance_analyzer = PerformanceAnalyzer(
-            high_kda_threshold=self.thresholds.get("high_kda", 3.5),
-            consistency_threshold=self.thresholds.get("performance_variance", 0.3),
-            min_games_for_analysis=self.analysis_config.get(
-                "min_matches_for_analysis", 10
-            ),
-        )
 
         logger.info(
             "SmurfDetectionService initialized",
@@ -255,153 +241,8 @@ class SmurfDetectionService:
             successful_analyzers=sum(1 for f in factors if f.score > 0),
         )
 
-        # Rank progression analysis
-        rank_result = await self.rank_analyzer.analyze(puuid, self.db)
-        rank_score = (
-            min(1.0, rank_result.progression_speed / 100)
-            if rank_result.progression_speed > 0
-            else 0.0
-        )
-        factors.append(
-            DetectionFactor(
-                name="rank_progression",
-                value=rank_result.progression_speed,
-                meets_threshold=rank_result.meets_threshold,
-                weight=self.weights["rank_progression"],
-                description=rank_result.description,
-                score=rank_score,
-            )
-        )
-
-        # Performance consistency analysis
-        performance_result = await self.performance_analyzer.analyze(recent_matches)
-        performance_score = (
-            performance_result.consistency_score
-            if performance_result.meets_threshold
-            else 0.0
-        )
-        factors.append(
-            DetectionFactor(
-                name="performance_consistency",
-                value=performance_result.consistency_score,
-                meets_threshold=performance_result.meets_threshold,
-                weight=self.weights["performance_consistency"],
-                description=performance_result.description,
-                score=performance_score,
-            )
-        )
-
-        # Performance trends analysis
-        if len(recent_matches) >= 10:
-            performance_trend_result = (
-                self.performance_analyzer.analyze_performance_trends(recent_matches)
-            )
-            trend_score = performance_trend_result.get("trend_score", 0.0)
-            is_stable = performance_trend_result.get("is_suspiciously_stable", False)
-            overall_perf = performance_trend_result.get("overall_performance", 0.0)
-
-            # High score if either trending upward OR suspiciously stable high performance
-            final_score = max(trend_score, 0.8 if is_stable else 0.0)
-
-            factors.append(
-                DetectionFactor(
-                    name="performance_trends",
-                    value=overall_perf,
-                    meets_threshold=final_score > 0.6,
-                    weight=self.weights["performance_trends"],
-                    description=f"Performance trend: {performance_trend_result.get('trend', 'stable')} (score: {overall_perf:.2f})",
-                    score=final_score,
-                )
-            )
-        else:
-            factors.append(
-                DetectionFactor(
-                    name="performance_trends",
-                    value=0.0,
-                    meets_threshold=False,
-                    weight=self.weights["performance_trends"],
-                    description="Performance trends: insufficient data",
-                    score=0.0,
-                )
-            )
-
-        # Role performance analysis
-        role_perf_result = self.performance_analyzer.analyze_role_performance(
-            recent_matches
-        )
-        versatility_score = role_perf_result.get("role_versatility_score", 0)
-        high_perf_roles = role_perf_result.get("consistent_high_performance", 0)
-
-        # Smurfs often excel at multiple roles
-        role_score = min(1.0, high_perf_roles / 3.0) if versatility_score >= 3 else 0.0
-
-        factors.append(
-            DetectionFactor(
-                name="role_performance",
-                value=float(high_perf_roles),
-                meets_threshold=high_perf_roles >= 2,
-                weight=self.weights["role_performance"],
-                description=f"Role versatility: {high_perf_roles} roles with high performance",
-                score=role_score,
-            )
-        )
-
-        # Rank discrepancy analysis (rank vs performance mismatch)
-        current_rank = await self._get_current_rank(puuid)
-
-        if current_rank:
-            # Calculate performance metrics from recent matches
-            total_kills = sum(m.get("kills", 0) for m in recent_matches)
-            total_deaths = sum(m.get("deaths", 0) for m in recent_matches)
-            total_assists = sum(m.get("assists", 0) for m in recent_matches)
-            wins = sum(1 for m in recent_matches if m.get("win", False))
-
-            avg_kda = self._calculate_kda(total_kills, total_deaths, total_assists)
-            win_rate = wins / len(recent_matches) if recent_matches else 0.0
-
-            performance_metrics = {
-                "kda": avg_kda,
-                "win_rate": win_rate,
-            }
-
-            rank_discrepancy_result = self.rank_analyzer.analyze_rank_discrepancy(
-                current_rank, performance_metrics
-            )
-
-            discrepancy_score = rank_discrepancy_result.get("discrepancy_score", 0.0)
-            is_suspicious = rank_discrepancy_result.get("is_suspicious", False)
-
-            # Handle UNRANKED separately with clearer messaging
-            if current_rank.tier == "UNRANKED":
-                description = f"Player is unranked (KDA: {avg_kda:.2f}, WR: {win_rate:.1%}) - no tier comparison"
-            else:
-                description = f"Rank vs performance: {current_rank.tier} {current_rank.rank} (KDA: {avg_kda:.2f}, WR: {win_rate:.1%})"
-
-            factors.append(
-                DetectionFactor(
-                    name="rank_discrepancy",
-                    value=discrepancy_score,
-                    meets_threshold=is_suspicious,
-                    weight=self.weights["rank_discrepancy"],
-                    description=description,
-                    score=min(1.0, discrepancy_score * 3),  # Scale to 0-1
-                )
-            )
-        else:
-            factors.append(
-                DetectionFactor(
-                    name="rank_discrepancy",
-                    value=0.0,
-                    meets_threshold=False,
-                    weight=self.weights["rank_discrepancy"],
-                    description="Rank discrepancy: no rank data available",
-                    score=0.0,
-                )
-            )
-
-        # KDA analysis
-        kda_factor = self._analyze_kda(recent_matches)
-        factors.append(kda_factor)
+        # Add legacy KDA factor (to be migrated to factor analyzer)
+        factors.append(self._analyze_kda(recent_matches))
 
         return factors
 
@@ -432,6 +273,18 @@ class SmurfDetectionService:
         else:
             return False, "none"
 
+    @staticmethod
+    def _get_confidence_level(score: float) -> str:
+        """Determine confidence level based on score."""
+        if score >= 0.8:
+            return "very high confidence"
+        elif score >= 0.6:
+            return "high confidence"
+        elif score >= 0.4:
+            return "moderate confidence"
+        else:
+            return "low confidence"
+
     def _generate_reason(self, factors: List[DetectionFactor], score: float) -> str:
         """Generate human-readable reason for detection."""
         triggered_factors = [f for f in factors if f.meets_threshold]
@@ -443,15 +296,7 @@ class SmurfDetectionService:
         for factor in triggered_factors[:3]:  # Top 3 factors
             reasons.append(factor.description.split(":")[0])
 
-        if score >= 0.8:
-            confidence = "very high confidence"
-        elif score >= 0.6:
-            confidence = "high confidence"
-        elif score >= 0.4:
-            confidence = "moderate confidence"
-        else:
-            confidence = "low confidence"
-
+        confidence = self._get_confidence_level(score)
         return f"Smurf indicators detected: {', '.join(reasons)} ({confidence}, score: {score:.2f})"
 
     async def _get_player(self, puuid: str) -> Optional[Player]:
@@ -580,29 +425,7 @@ class SmurfDetectionService:
     ) -> SmurfDetection:
         """Store detection result in database."""
         # Get factor SCORES for storage (normalized 0-1 values)
-        win_rate_score = next((f.score for f in factors if f.name == "win_rate"), 0.0)
-        kda_score = next((f.score for f in factors if f.name == "kda"), 0.0)
-        account_level_score = next(
-            (f.score for f in factors if f.name == "account_level"), 0.0
-        )
-        rank_progression_score = next(
-            (f.score for f in factors if f.name == "rank_progression"), 0.0
-        )
-        rank_discrepancy_score = next(
-            (f.score for f in factors if f.name == "rank_discrepancy"), 0.0
-        )
-        win_rate_trend_score = next(
-            (f.score for f in factors if f.name == "win_rate_trend"), 0.0
-        )
-        performance_consistency_score = next(
-            (f.score for f in factors if f.name == "performance_consistency"), 0.0
-        )
-        performance_trends_score = next(
-            (f.score for f in factors if f.name == "performance_trends"), 0.0
-        )
-        role_performance_score = next(
-            (f.score for f in factors if f.name == "role_performance"), 0.0
-        )
+        scores = {f.name: f.score for f in factors}
 
         # Get actual account level from player data (not the score!)
         actual_account_level = player.account_level if player else 0
@@ -620,15 +443,15 @@ class SmurfDetectionService:
             time_period_days=time_period_days,
             win_rate_threshold=self.thresholds["high_win_rate"],
             kda_threshold=self.thresholds["high_kda"],
-            win_rate_score=win_rate_score,
-            kda_score=kda_score,
-            account_level_score=account_level_score,
-            rank_discrepancy_score=rank_discrepancy_score,
-            rank_progression_score=rank_progression_score,
-            win_rate_trend_score=win_rate_trend_score,
-            performance_consistency_score=performance_consistency_score,
-            performance_trends_score=performance_trends_score,
-            role_performance_score=role_performance_score,
+            win_rate_score=scores.get("win_rate", 0.0),
+            kda_score=scores.get("kda", 0.0),
+            account_level_score=scores.get("account_level", 0.0),
+            rank_discrepancy_score=scores.get("rank_discrepancy", 0.0),
+            rank_progression_score=scores.get("rank_progression", 0.0),
+            win_rate_trend_score=scores.get("win_rate_trend", 0.0),
+            performance_consistency_score=scores.get("performance_consistency", 0.0),
+            performance_trends_score=scores.get("performance_trends", 0.0),
+            role_performance_score=scores.get("role_performance", 0.0),
             account_level=actual_account_level,
             current_tier=current_rank.tier if current_rank else None,
             current_rank=current_rank.rank if current_rank else None,
@@ -721,131 +544,136 @@ class SmurfDetectionService:
             created_at=None,
         )
 
+    def _create_factor_from_detection(
+        self,
+        detection: SmurfDetection,
+        factor_name: str,
+        score_attr: str,
+        threshold_check: Callable[..., Any],
+        description_format: str,
+        value_attr: str | None = None,
+        score_transform: Callable[..., Any] | None = None,
+    ) -> DetectionFactor | None:
+        """
+        Create a DetectionFactor from detection data using configuration.
+
+        Args:
+            detection: SmurfDetection instance
+            factor_name: Name of the factor
+            score_attr: Attribute name for the score value
+            threshold_check: Function that takes score and returns bool
+            description_format: Format string for description (use {value})
+            value_attr: Optional different attribute for value field
+            score_transform: Optional function to transform score
+
+        Returns:
+            DetectionFactor or None if score is None
+        """
+        score_value = getattr(detection, score_attr, None)
+        if score_value is None:
+            return None
+
+        value = (
+            getattr(detection, value_attr, score_value) if value_attr else score_value
+        )
+        final_score = (
+            score_transform(score_value) if score_transform else float(score_value)
+        )
+
+        return DetectionFactor(
+            name=factor_name,
+            value=float(value),
+            meets_threshold=threshold_check(score_value),
+            weight=self.weights[factor_name],
+            description=description_format.format(value=score_value),
+            score=final_score,
+        )
+
     def _convert_to_response(self, detection: SmurfDetection) -> DetectionResponse:
         """Convert database detection to response."""
-        # Create factors from stored data
+        # Create factors from stored data using configuration-driven approach
+        factor_configs = [
+            # (factor_name, score_attr, threshold_check, description_format, value_attr, score_transform)
+            (
+                "win_rate",
+                "win_rate_score",
+                lambda s: s >= self.thresholds["high_win_rate"],
+                "Win rate: {value:.1%}",
+                None,
+                None,
+            ),
+            (
+                "win_rate_trend",
+                "win_rate_trend_score",
+                lambda s: s > 0.5,
+                "Win rate trend (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "account_level",
+                "account_level_score",
+                lambda s: getattr(detection, "account_level", 0)
+                <= self.thresholds["low_account_level"],
+                "Account level: {value}",
+                "account_level",
+                None,
+            ),
+            (
+                "rank_progression",
+                "rank_progression_score",
+                lambda s: s > 0.5,
+                "Rank progression (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "rank_discrepancy",
+                "rank_discrepancy_score",
+                lambda s: s > 0.6,
+                "Rank vs performance (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "performance_consistency",
+                "performance_consistency_score",
+                lambda s: s > 0.5,
+                "Performance consistency (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "performance_trends",
+                "performance_trends_score",
+                lambda s: s > 0.6,
+                "Performance trends (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "role_performance",
+                "role_performance_score",
+                lambda s: s > 0.5,
+                "Role versatility (score: {value:.2f})",
+                None,
+                None,
+            ),
+            (
+                "kda",
+                "kda_score",
+                lambda s: s >= self.thresholds["high_kda"],
+                "KDA: {value:.2f}",
+                None,
+                lambda s: min(1.0, float(s) / self.thresholds["high_kda"]),
+            ),
+        ]
+
         factors = []
-
-        # 1. Win rate
-        if detection.win_rate_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="win_rate",
-                    value=float(detection.win_rate_score),
-                    meets_threshold=detection.win_rate_score
-                    >= self.thresholds["high_win_rate"],
-                    weight=self.weights["win_rate"],
-                    description=f"Win rate: {detection.win_rate_score:.1%}",
-                    score=float(detection.win_rate_score),
-                )
-            )
-
-        # 2. Win rate trend
-        if detection.win_rate_trend_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="win_rate_trend",
-                    value=float(detection.win_rate_trend_score),
-                    meets_threshold=detection.win_rate_trend_score > 0.5,
-                    weight=self.weights["win_rate_trend"],
-                    description=f"Win rate trend (score: {detection.win_rate_trend_score:.2f})",
-                    score=float(detection.win_rate_trend_score),
-                )
-            )
-
-        # 3. Account level
-        if detection.account_level is not None:
-            factors.append(
-                DetectionFactor(
-                    name="account_level",
-                    value=float(detection.account_level),
-                    meets_threshold=detection.account_level
-                    <= self.thresholds["low_account_level"],
-                    weight=self.weights["account_level"],
-                    description=f"Account level: {detection.account_level}",
-                    score=float(detection.account_level_score or 0.0),
-                )
-            )
-
-        # 4. Rank progression
-        if detection.rank_progression_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="rank_progression",
-                    value=float(detection.rank_progression_score),
-                    meets_threshold=detection.rank_progression_score > 0.5,
-                    weight=self.weights["rank_progression"],
-                    description=f"Rank progression (score: {detection.rank_progression_score:.2f})",
-                    score=float(detection.rank_progression_score),
-                )
-            )
-
-        # 5. Rank discrepancy
-        if detection.rank_discrepancy_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="rank_discrepancy",
-                    value=float(detection.rank_discrepancy_score),
-                    meets_threshold=detection.rank_discrepancy_score > 0.6,
-                    weight=self.weights["rank_discrepancy"],
-                    description=f"Rank vs performance (score: {detection.rank_discrepancy_score:.2f})",
-                    score=float(detection.rank_discrepancy_score),
-                )
-            )
-
-        # 6. Performance consistency
-        if detection.performance_consistency_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="performance_consistency",
-                    value=float(detection.performance_consistency_score),
-                    meets_threshold=detection.performance_consistency_score > 0.5,
-                    weight=self.weights["performance_consistency"],
-                    description=f"Performance consistency (score: {detection.performance_consistency_score:.2f})",
-                    score=float(detection.performance_consistency_score),
-                )
-            )
-
-        # 7. Performance trends
-        if detection.performance_trends_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="performance_trends",
-                    value=float(detection.performance_trends_score),
-                    meets_threshold=detection.performance_trends_score > 0.6,
-                    weight=self.weights["performance_trends"],
-                    description=f"Performance trends (score: {detection.performance_trends_score:.2f})",
-                    score=float(detection.performance_trends_score),
-                )
-            )
-
-        # 8. Role performance
-        if detection.role_performance_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="role_performance",
-                    value=float(detection.role_performance_score),
-                    meets_threshold=detection.role_performance_score > 0.5,
-                    weight=self.weights["role_performance"],
-                    description=f"Role versatility (score: {detection.role_performance_score:.2f})",
-                    score=float(detection.role_performance_score),
-                )
-            )
-
-        # 9. KDA
-        if detection.kda_score is not None:
-            factors.append(
-                DetectionFactor(
-                    name="kda",
-                    value=float(detection.kda_score),
-                    meets_threshold=detection.kda_score >= self.thresholds["high_kda"],
-                    weight=self.weights["kda"],
-                    description=f"KDA: {detection.kda_score:.2f}",
-                    score=min(
-                        1.0, float(detection.kda_score) / self.thresholds["high_kda"]
-                    ),
-                )
-            )
+        for config in factor_configs:
+            factor = self._create_factor_from_detection(detection, *config)
+            if factor:
+                factors.append(factor)
 
         return DetectionResponse(
             puuid=str(detection.puuid),

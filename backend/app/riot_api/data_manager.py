@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
 from .client import RiotAPIClient
-from .errors import RateLimitError, NotFoundError
+from .errors import RateLimitError, RiotAPIError
 from .models import MatchDTO
 from .constants import Platform, Region
 from ..models.players import Player
@@ -301,17 +301,21 @@ class RiotDataManager:
 
             return match_dto
 
-        except RateLimitError as e:
-            logger.warning(
-                "Rate limited when fetching match",
-                match_id=match_id,
-                retry_after=e.retry_after,
-            )
-            return None
-
-        except NotFoundError:
-            logger.info("Match not found", match_id=match_id)
-            return None
+        except RiotAPIError as e:
+            # Handle rate limits (429) and not found (404) differently
+            if e.status_code == 429:
+                logger.warning(
+                    "Rate limited when fetching match",
+                    match_id=match_id,
+                    retry_after=e.retry_after,
+                )
+                return None
+            elif e.status_code == 404:
+                logger.info("Match not found", match_id=match_id)
+                return None
+            else:
+                # Re-raise other errors
+                raise
 
         except Exception as e:
             logger.error(

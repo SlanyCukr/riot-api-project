@@ -22,6 +22,7 @@ class ServiceException(Exception):
         context: Optional[Dict[str, Any]] = None,
         original_error: Optional[Exception] = None,
     ):
+        """Initialize the service exception with context information."""
         super().__init__(message)
         self.message = message
         self.service = service
@@ -30,6 +31,7 @@ class ServiceException(Exception):
         self.original_error = original_error
 
     def __str__(self) -> str:
+        """Return string representation with service and operation context."""
         if self.service and self.operation:
             return f"[{self.service}.{self.operation}] {self.message}"
         return self.message
@@ -45,6 +47,7 @@ class PlayerServiceError(ServiceException):
         context: Optional[Dict[str, Any]] = None,
         original_error: Optional[Exception] = None,
     ):
+        """Initialize player service error with operation context."""
         super().__init__(
             message=message,
             service="PlayerService",
@@ -65,6 +68,7 @@ class DatabaseError(ServiceException):
         context: Optional[Dict[str, Any]] = None,
         original_error: Optional[Exception] = None,
     ):
+        """Initialize database error with service context."""
         super().__init__(
             message=f"Database error: {message}",
             service=service,
@@ -86,6 +90,7 @@ class ValidationError(ServiceException):
         value: Optional[Any] = None,
         context: Optional[Dict[str, Any]] = None,
     ):
+        """Initialize validation error with field and value context."""
         validation_context = context or {}
         if field:
             validation_context["field"] = field
@@ -113,6 +118,7 @@ class ExternalServiceError(ServiceException):
         context: Optional[Dict[str, Any]] = None,
         original_error: Optional[Exception] = None,
     ):
+        """Initialize external service error with status code and service context."""
         external_context = context or {}
         if external_service:
             external_context["external_service"] = external_service

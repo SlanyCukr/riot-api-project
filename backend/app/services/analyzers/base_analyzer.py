@@ -13,7 +13,7 @@ from ...schemas.detection import DetectionFactor
 from ..detection_config import DETECTION_WEIGHTS, DETECTION_THRESHOLDS
 
 if TYPE_CHECKING:
-    from ..models.players import Player
+    from ...models.players import Player
 
 logger = structlog.get_logger(__name__)
 
@@ -27,6 +27,7 @@ class BaseFactorAnalyzer(ABC):
     """
 
     def __init__(self, factor_name: str):
+        """Initialize the analyzer with factor name and weight."""
         self.factor_name = factor_name
         self.weight = DETECTION_WEIGHTS.get(factor_name, 0.1)
         self.logger = structlog.get_logger(f"{__name__}.{factor_name}")

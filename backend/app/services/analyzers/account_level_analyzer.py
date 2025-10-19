@@ -12,7 +12,7 @@ from .base_analyzer import BaseFactorAnalyzer
 from ...schemas.detection import DetectionFactor
 
 if TYPE_CHECKING:
-    from ..models.players import Player
+    from ...models.players import Player
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +26,7 @@ class AccountLevelFactorAnalyzer(BaseFactorAnalyzer):
     """
 
     def __init__(self):
+        """Initialize the account level analyzer."""
         super().__init__("account_level")
 
     async def analyze(
@@ -49,7 +50,6 @@ class AccountLevelFactorAnalyzer(BaseFactorAnalyzer):
         :returns: DetectionFactor with account level analysis results
         :rtype: DetectionFactor
         """
-
         self._log_analysis_start(puuid)
 
         try:

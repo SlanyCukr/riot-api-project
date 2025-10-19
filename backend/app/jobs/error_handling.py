@@ -80,6 +80,37 @@ def _extract_log_context(
         return {}
 
 
+def _handle_error(
+    error: Exception, operation: str, critical: bool, context: dict
+) -> None:
+    """Handle exceptions with consistent logging and re-raise logic."""
+    if isinstance(error, RateLimitError):
+        logger.warning(
+            f"Rate limit hit during {operation}",
+            retry_after=getattr(error, "retry_after", None),
+            **context,
+        )
+        raise
+
+    if isinstance(error, (AuthenticationError, ForbiddenError)):
+        logger.error(
+            f"Authentication failure during {operation} - job cannot continue",
+            error=str(error),
+            error_type=type(error).__name__,
+            **context,
+        )
+        raise
+
+    logger.error(
+        f"Failed to {operation}",
+        error=str(error),
+        error_type=type(error).__name__,
+        **context,
+    )
+    if critical:
+        raise
+
+
 def _create_async_wrapper(
     func: Callable, operation: str, critical: bool, log_context: Optional[Callable]
 ) -> Callable:
@@ -88,34 +119,11 @@ def _create_async_wrapper(
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
-
         try:
             return await func(*args, **kwargs)
-        except RateLimitError as rate_error:
-            logger.warning(
-                f"Rate limit hit during {operation}",
-                retry_after=getattr(rate_error, "retry_after", None),
-                **context,
-            )
-            raise
-        except (AuthenticationError, ForbiddenError) as auth_error:
-            logger.error(
-                f"Authentication failure during {operation} - job cannot continue",
-                error=str(auth_error),
-                error_type=type(auth_error).__name__,
-                **context,
-            )
-            raise
         except Exception as error:
-            logger.error(
-                f"Failed to {operation}",
-                error=str(error),
-                error_type=type(error).__name__,
-                **context,
-            )
-            if critical:
-                raise
-            return None  # Explicit return for non-critical errors
+            _handle_error(error, operation, critical, context)
+            return None  # For non-critical errors that don't re-raise
 
     return async_wrapper
 
@@ -128,33 +136,10 @@ def _create_sync_wrapper(
     @wraps(func)
     def sync_wrapper(*args, **kwargs):
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
-
         try:
             return func(*args, **kwargs)
-        except RateLimitError as rate_error:
-            logger.warning(
-                f"Rate limit hit during {operation}",
-                retry_after=getattr(rate_error, "retry_after", None),
-                **context,
-            )
-            raise
-        except (AuthenticationError, ForbiddenError) as auth_error:
-            logger.error(
-                f"Authentication failure during {operation} - job cannot continue",
-                error=str(auth_error),
-                error_type=type(auth_error).__name__,
-                **context,
-            )
-            raise
         except Exception as error:
-            logger.error(
-                f"Failed to {operation}",
-                error=str(error),
-                error_type=type(error).__name__,
-                **context,
-            )
-            if critical:
-                raise
-            return None  # Explicit return for non-critical errors
+            _handle_error(error, operation, critical, context)
+            return None  # For non-critical errors that don't re-raise
 
     return sync_wrapper

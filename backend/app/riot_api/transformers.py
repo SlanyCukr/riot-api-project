@@ -130,7 +130,9 @@ class MatchTransformer:
         Returns:
             True if valid, False otherwise
         """
-        required_fields = {
+        from ..utils.validation import validate_nested_fields, validate_list_items
+
+        required_structure = {
             "metadata": ["matchId"],
             "info": [
                 "gameCreation",
@@ -142,44 +144,25 @@ class MatchTransformer:
             ],
         }
 
+        required_participant_fields = [
+            "puuid",
+            "summonerName",
+            "teamId",
+            "championId",
+            "championName",
+        ]
+
         try:
-            # Check metadata
-            metadata = match_data.get("metadata", {})
-            for field in required_fields["metadata"]:
-                if field not in metadata:
-                    logger.warning("Missing required metadata field", field=field)
-                    return False
-
-            # Check info
-            info = match_data.get("info", {})
-            for field in required_fields["info"]:
-                if field not in info:
-                    logger.warning("Missing required info field", field=field)
-                    return False
-
-            # Check participants
-            participants = info.get("participants", [])
-            if not participants:
-                logger.warning("No participants found in match")
+            # Validate nested structure
+            if not validate_nested_fields(match_data, required_structure):
                 return False
 
-            # Check each participant has required fields
-            required_participant_fields = [
-                "puuid",
-                "summonerName",
-                "teamId",
-                "championId",
-                "championName",
-            ]
-            for i, participant in enumerate(participants):
-                for field in required_participant_fields:
-                    if field not in participant:
-                        logger.warning(
-                            "Missing required participant field",
-                            participant_index=i,
-                            field=field,
-                        )
-                        return False
+            # Validate participants list
+            participants = match_data.get("info", {}).get("participants", [])
+            if not validate_list_items(
+                participants, required_participant_fields, "participant"
+            ):
+                return False
 
             return True
         except Exception as e:
