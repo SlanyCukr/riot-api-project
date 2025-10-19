@@ -2,7 +2,7 @@
 
 from enum import Enum
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -153,29 +153,6 @@ class PlayerRank(Base):
     def __repr__(self) -> str:
         """Return string representation of the player rank."""
         return f"<PlayerRank(puuid='{self.puuid}', queue='{self.queue_type}', tier='{self.tier}', rank='{self.rank}')>"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert player rank to dictionary representation."""
-        return {
-            "id": self.id,
-            "puuid": str(self.puuid),
-            "queue_type": self.queue_type,
-            "tier": self.tier,
-            "rank": self.rank,
-            "league_points": self.league_points,
-            "wins": self.wins,
-            "losses": self.losses,
-            "veteran": self.veteran,
-            "inactive": self.inactive,
-            "fresh_blood": self.fresh_blood,
-            "hot_streak": self.hot_streak,
-            "league_id": self.league_id,
-            "league_name": self.league_name,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "season_id": self.season_id,
-            "is_current": self.is_current,
-        }
 
     @property
     def win_rate(self) -> float:

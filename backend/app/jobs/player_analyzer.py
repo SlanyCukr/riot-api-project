@@ -30,6 +30,7 @@ class PlayerAnalyzerJob(BaseJob):
     """Job that analyzes discovered players for smurf/boosted status."""
 
     def __init__(self, job_config: JobConfiguration):
+        """Initialize the player analyzer job."""
         super().__init__(job_config)
         self.settings = get_global_settings()
 
@@ -60,7 +61,6 @@ class PlayerAnalyzerJob(BaseJob):
                 api_key=api_key,
                 region=self.settings.riot_region,
                 platform=self.settings.riot_platform,
-                request_callback=self._record_api_request,
             )
             self.data_manager = RiotDataManager(db, self.api_client)
             self.player_service = PlayerService(db)
@@ -79,15 +79,6 @@ class PlayerAnalyzerJob(BaseJob):
             self.match_service = None
             self.detection_service = None
             self.db = None
-
-    def _record_api_request(self, metric: str, count: int) -> None:
-        """Track API request counts for job metrics.
-
-        :param metric: Name of the metric being recorded.
-        :param count: Number of requests made.
-        """
-        if metric == "requests_made":
-            self.increment_metric("api_requests_made", count)
 
     async def execute(self, db: AsyncSession) -> None:
         """Execute the player analyzer job.
@@ -183,6 +174,13 @@ class PlayerAnalyzerJob(BaseJob):
         critical=False,
         log_context=lambda self, execution_summary: {},
     )
+    def _update_analysis_summary(self, execution_summary: dict, result) -> None:
+        """Update execution summary with analysis result."""
+        if result is not None:
+            execution_summary["players_analyzed"] += 1
+            if result.is_smurf:
+                execution_summary["smurfs_detected"] += 1
+
     async def _analyze_phase(self, execution_summary: dict) -> None:
         """Analyze players with sufficient match history."""
         # Exit early if services not initialized
@@ -204,10 +202,7 @@ class PlayerAnalyzerJob(BaseJob):
         for player in players:
             result = await self._analyze_single_player(player, execution_summary)
             # Error decorator handles failures, so we get None on error
-            if result is not None:
-                execution_summary["players_analyzed"] += 1
-                if result.is_smurf:
-                    execution_summary["smurfs_detected"] += 1
+            self._update_analysis_summary(execution_summary, result)
 
     @handle_riot_api_errors(
         operation="analyze player",
@@ -230,8 +225,11 @@ class PlayerAnalyzerJob(BaseJob):
 
         player.is_analyzed = True
         player.updated_at = datetime.now()
-        await self.db.commit()
-        self.increment_metric("records_updated")
+        await self.safe_commit(
+            self.db,
+            "player analysis",
+            on_success=lambda: self.increment_metric("records_updated"),
+        )
 
         logger.info(
             "Player analyzed",

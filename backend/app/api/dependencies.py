@@ -12,6 +12,7 @@ from ..riot_api.data_manager import RiotDataManager
 from ..services.players import PlayerService
 from ..services.matches import MatchService
 from ..services.detection import SmurfDetectionService
+from ..services.jobs import JobService
 from ..config import get_global_settings
 
 
@@ -72,8 +73,16 @@ async def get_detection_service(
     return SmurfDetectionService(db, riot_data_manager)
 
 
+async def get_job_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> JobService:
+    """Get job service instance."""
+    return JobService(db)
+
+
 # Type aliases for cleaner dependency injection
 RiotDataManagerDep = Annotated[RiotDataManager, Depends(get_riot_data_manager)]
 PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
 MatchServiceDep = Annotated[MatchService, Depends(get_match_service)]
 DetectionServiceDep = Annotated[SmurfDetectionService, Depends(get_detection_service)]
+JobServiceDep = Annotated[JobService, Depends(get_job_service)]

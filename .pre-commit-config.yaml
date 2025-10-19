@@ -16,7 +16,7 @@ repos:
 
   # Ruff - Fast Python linter and formatter (replaces black, isort, flake8)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.14.1
     hooks:
       # Run the linter
       - id: ruff
@@ -40,19 +40,60 @@ repos:
         args: ["--config", "backend/pyproject.toml", "backend/app/"]
         pass_filenames: false
 
-  # pydocstyle - Documentation quality checker (disabled - optional for now)
-  # - repo: https://github.com/PyCQA/pydocstyle
-  #   rev: 6.3.0
-  #   hooks:
-  #     - id: pydocstyle
+  # Radon - Code complexity and maintainability checks
+  - repo: local
+    hooks:
+      # Cyclomatic Complexity Check (blocks complexity >= 8)
+      # Allows: A-grade (1-5) and simple B-grade (6-7)
+      - id: radon-cc
+        name: Radon Cyclomatic Complexity (max 7)
+        entry: bash -c 'cd backend && OUT=$(uvx radon cc app/ --min B --show-complexity --no-assert 2>&1); if echo "$OUT" | grep -qE " - (B \([89]|B \(10\)|[C-F] \()"; then echo "$OUT"; echo "ERROR - Complexity >= 8 found"; exit 1; fi; echo "OK - All complexity <= 7"'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
 
-  # Pyright - Fast static type checker (disabled - generates too many warnings)
-  # - repo: https://github.com/RobertCraigie/pyright-python
-  #   rev: v1.1.406
-  #   hooks:
-  #     - id: pyright
-  #       args: ["--project", "backend/pyproject.toml"]
-  #       exclude: ^(tests/|docs/)
+      # Maintainability Index Check (Stricter: A grade = MI >= 20)
+      - id: radon-mi
+        name: Radon Maintainability Index
+        entry: bash -c 'cd backend && uvx radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
+
+      # Radon Complexity Report (non-blocking, informational)
+      - id: radon-report
+        name: Radon Complexity Report (Info)
+        entry: bash -c 'echo "📊 Complexity Report:" && cd backend && uvx radon cc app/ -a -s -n C || true'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        stages: [manual]  # Only runs when explicitly called with --hook-stage manual
+
+      # pydocstyle - Documentation quality checker (ReST style with relaxed rules)
+      - id: pydocstyle
+        name: pydocstyle - Docstring Quality
+        entry: bash -c 'cd backend && uvx pydocstyle --config=pyproject.toml app/'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
+
+      # Pyright - Fast static type checker for Python (runs in Docker for dep access)
+      # Non-blocking: shows warnings/errors but doesn't fail commits
+      - id: pyright
+        name: Pyright - Type Checker (non-blocking)
+        entry: bash -c 'docker compose exec -T backend bash -c "cd /app && uvx pyright app/" || true'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        verbose: true
 
   # Frontend linting with Next.js (local hook for better compatibility)
   - repo: local
@@ -86,6 +127,18 @@ repos:
         files: ^frontend/.*\.(ts|tsx)$
         exclude: ^frontend/node_modules/
         pass_filenames: false
+
+  # Frontend Complexity Check
+  - repo: local
+    hooks:
+      - id: frontend-complexity
+        name: Frontend Complexity Check
+        entry: bash -c 'cd frontend && npx eslint app/ components/ lib/ --rule "complexity:[error,10]" --rule "max-lines-per-function:[warn,50]" || (echo "❌ Frontend code too complex! Consider refactoring." && exit 1)'
+        language: system
+        files: ^frontend/(app|components|lib)/.*\.(ts|tsx|js|jsx)$
+        exclude: ^frontend/node_modules/
+        pass_filenames: false
+        stages: [manual]  # Optional - only runs when explicitly called
 
 # Configuration for pre-commit
 default_stages: [pre-commit]

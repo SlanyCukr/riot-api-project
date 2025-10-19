@@ -1,21 +1,13 @@
 """Riot API HTTP client with proper rate limiting, error handling, and authentication."""
 
 import asyncio
-from typing import Optional, Dict, Any, List, Union, Callable
-import aiohttp
+from typing import Optional, Dict, Any, List, Union
+import httpx
 import structlog
 
 from ..config import get_global_settings
 from .rate_limiter import RateLimiter
-from .errors import (
-    RiotAPIError,
-    RateLimitError,
-    AuthenticationError,
-    ForbiddenError,
-    NotFoundError,
-    ServiceUnavailableError,
-    BadRequestError,
-)
+from .errors import RiotAPIError
 from .models import (
     AccountDTO,
     SummonerDTO,
@@ -38,7 +30,6 @@ class RiotAPIClient:
         region: Optional[Region] = None,
         platform: Optional[Platform] = None,
         enable_logging: bool = True,
-        request_callback: Optional[Callable[[str, int], None]] = None,
     ):
         """
         Initialize Riot API client.
@@ -54,7 +45,6 @@ class RiotAPIClient:
         self.region = region or Region(settings.riot_region.lower())
         self.platform = platform or Platform(settings.riot_platform.lower())
         self.enable_logging = enable_logging
-        self.request_callback = request_callback
 
         # Initialize components
         self.rate_limiter = RateLimiter()
@@ -63,13 +53,6 @@ class RiotAPIClient:
         # HTTP session
         self.session = None
         self._session_lock = asyncio.Lock()
-
-        # Statistics
-        self.stats = {
-            "requests_made": 0,
-            "retries": 0,
-            "errors": 0,
-        }
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -86,52 +69,135 @@ class RiotAPIClient:
         await self.close()
 
     async def start_session(self) -> None:
-        """Start the aiohttp session."""
-        if self.session is None or self.session.closed:
+        """Start the httpx session."""
+        if self.session is None or self.session.is_closed:
             async with self._session_lock:
-                if self.session is None or self.session.closed:
+                if self.session is None or self.session.is_closed:
                     headers = {
                         "X-Riot-Token": self.api_key,
                         "Content-Type": "application/json",
                         "User-Agent": "RiotAPI-SmurfDetector/1.0",
                     }
 
-                    timeout = aiohttp.ClientTimeout(total=30)
-                    connector = aiohttp.TCPConnector(
-                        limit=20,
-                        limit_per_host=5,
-                        ttl_dns_cache=300,
-                        use_dns_cache=True,
+                    timeout = httpx.Timeout(
+                        connect=5.0, read=25.0, write=10.0, pool=30.0
+                    )
+                    limits = httpx.Limits(
+                        max_keepalive_connections=20, max_connections=5
                     )
 
-                    self.session = aiohttp.ClientSession(
-                        headers=headers, timeout=timeout, connector=connector
-                    )
-
-                    # Handle both enum and string types for logging
-                    region_str = (
-                        self.region.value
-                        if isinstance(self.region, Region)
-                        else self.region
-                    )
-                    platform_str = (
-                        self.platform.value
-                        if isinstance(self.platform, Platform)
-                        else self.platform
+                    self.session = httpx.AsyncClient(
+                        headers=headers, timeout=timeout, limits=limits
                     )
 
                     logger.info(
                         "Riot API client session started",
-                        region=region_str,
-                        platform=platform_str,
+                        region=self._enum_str(self.region),
+                        platform=self._enum_str(self.platform),
                         api_key_prefix="[REDACTED]" if self.api_key else "None",
                     )
 
     async def close(self) -> None:
-        """Close the aiohttp session."""
-        if self.session and not self.session.closed:
-            await self.session.close()
+        """Close the httpx session."""
+        if self.session and not self.session.is_closed:
+            await self.session.aclose()
             logger.info("Riot API client session closed")
+
+    def _raise_client_error_if_needed(self, status: int) -> None:
+        """Raise RiotAPIError for non-retryable client errors."""
+        error_messages = {
+            400: "Invalid request parameters",
+            401: "Invalid API key",
+            403: "Access forbidden",
+            404: "Resource not found",
+        }
+        if status in error_messages:
+            raise RiotAPIError(error_messages[status], status_code=status)
+
+    def _handle_rate_limit(
+        self, headers: dict, attempt: int, max_retries: int
+    ) -> tuple[bool, int]:
+        """Handle rate limit (429) with retry logic."""
+        retry_after = int(headers.get("Retry-After", 1))
+        if attempt < max_retries:
+            return (True, retry_after)
+        raise RiotAPIError(
+            "Rate limit exceeded",
+            status_code=429,
+            retry_after=retry_after,
+            app_rate_limit=headers.get("X-App-Rate-Limit"),
+            method_rate_limit=headers.get("X-Method-Rate-Limit"),
+        )
+
+    def _handle_server_error(
+        self, status: int, attempt: int, max_retries: int
+    ) -> tuple[bool, int]:
+        """Handle server errors (5xx) with exponential backoff."""
+        if attempt < max_retries:
+            return (True, 2**attempt)
+        raise RiotAPIError("Service unavailable", status_code=status)
+
+    async def _handle_http_error_status(
+        self, status: int, headers: dict, attempt: int, max_retries: int
+    ) -> tuple[bool, int]:
+        """
+        Handle HTTP error status codes.
+
+        Returns:
+            Tuple of (should_retry, sleep_seconds)
+
+        Raises:
+            RiotAPIError: For non-retryable errors
+        """
+        # Non-retryable client errors
+        self._raise_client_error_if_needed(status)
+
+        # Rate limit - retryable
+        if status == 429:
+            return self._handle_rate_limit(headers, attempt, max_retries)
+
+        # Server errors - retryable with exponential backoff
+        if status >= 500:
+            return self._handle_server_error(status, attempt, max_retries)
+
+        return (False, 0)
+
+    async def _execute_single_request(
+        self,
+        url: str,
+        method: str,
+        params: Optional[Dict[str, Any]],
+        data: Optional[Dict[str, Any]],
+        endpoint_path: str,
+        attempt: int,
+        max_retries: int,
+    ) -> Any:
+        """Execute a single HTTP request with error handling."""
+        if self.session is None:
+            raise RiotAPIError("Session not initialized")
+
+        response = await self.session.request(method, url, params=params, json=data)
+
+        try:
+            self.rate_limiter.update_limits(
+                dict(response.headers), endpoint_path, method
+            )
+
+            # Handle error status codes
+            if response.status_code != 200:
+                should_retry, sleep_seconds = await self._handle_http_error_status(
+                    response.status_code, dict(response.headers), attempt, max_retries
+                )
+                if should_retry:
+                    await asyncio.sleep(sleep_seconds)
+                    return None  # Signal to retry
+
+            # Success
+            response_data = response.json()
+            await self.rate_limiter.record_success(endpoint_path, method)
+            return response_data
+        finally:
+            await response.aclose()
 
     async def _make_request(
         self,
@@ -166,61 +232,22 @@ class RiotAPIClient:
         endpoint_path = self._extract_endpoint_path(url)
         await self.rate_limiter.wait_if_needed(endpoint_path, method)
 
-        # Simplified retry logic
+        # Retry loop
         max_retries = 3 if retry_on_failure else 0
         last_error = None
 
         for attempt in range(max_retries + 1):
             try:
-                self.stats["requests_made"] += 1
-                if self.request_callback:
-                    self.request_callback("requests_made", 1)
-
-                async with self.session.request(
-                    method, url, params=params, json=data
-                ) as response:
-                    self.rate_limiter.update_limits(
-                        dict(response.headers), endpoint_path, method
-                    )
-
-                    # Handle status codes
-                    if response.status == 400:
-                        raise BadRequestError("Invalid request parameters")
-                    elif response.status == 401:
-                        raise AuthenticationError("Invalid API key")
-                    elif response.status == 403:
-                        raise ForbiddenError("Access forbidden")
-                    elif response.status == 404:
-                        raise NotFoundError("Resource not found")
-                    elif response.status == 429:
-                        retry_after = int(response.headers.get("Retry-After", 1))
-                        if attempt < max_retries:
-                            await asyncio.sleep(retry_after)
-                            self.stats["retries"] += 1
-                            continue
-                        raise RateLimitError(
-                            "Rate limit exceeded", retry_after=retry_after
-                        )
-                    elif response.status >= 500:
-                        if attempt < max_retries:
-                            await asyncio.sleep(2**attempt)
-                            self.stats["retries"] += 1
-                            continue
-                        raise ServiceUnavailableError("Service unavailable")
-
-                    # Success
-                    response_data = await response.json()
-                    await self.rate_limiter.record_success(endpoint_path, method)
-                    return response_data
-
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                result = await self._execute_single_request(
+                    url, method, params, data, endpoint_path, attempt, max_retries
+                )
+                if result is not None:
+                    return result
+            except (httpx.RequestError, asyncio.TimeoutError) as e:
                 last_error = e
                 if attempt < max_retries:
                     await asyncio.sleep(2**attempt)
-                    self.stats["retries"] += 1
-                    continue
 
-        self.stats["errors"] += 1
         raise RiotAPIError(f"Request failed: {str(last_error)}")
 
     def _extract_endpoint_path(self, url: str) -> str:
@@ -230,6 +257,11 @@ class RiotAPIClient:
         if len(parts) == 2:
             return parts[1]
         return stripped
+
+    @staticmethod
+    def _enum_str(value: Union[Region, Platform, str]) -> str:
+        """Extract string value from enum or return as-is."""
+        return value.value if hasattr(value, "value") else value
 
     # Account endpoints
     async def get_account_by_riot_id(
@@ -309,50 +341,16 @@ class RiotAPIClient:
     def _normalize_queue_type(
         queue: Optional[Union[int, str, QueueType]],
     ) -> Optional[QueueType]:
-        """
-        Normalize queue parameter to QueueType enum.
-
-        Args:
-            queue: Queue ID as int, string, QueueType enum, or None
-
-        Returns:
-            QueueType enum or None
-
-        Notes:
-            - If queue is already QueueType, return as-is
-            - If queue is int or str, try to find matching QueueType
-            - If no match found, return None (let Riot API handle invalid values)
-        """
-        if queue is None:
-            return None
-
-        if isinstance(queue, QueueType):
+        """Normalize queue parameter to QueueType enum."""
+        if queue is None or isinstance(queue, QueueType):
             return queue
 
-        # Convert queue to int for comparison
         try:
             queue_int = int(queue) if isinstance(queue, str) else queue
+            for queue_type in QueueType:
+                if queue_type.value == queue_int:
+                    return queue_type
         except (ValueError, TypeError):
-            logger.warning("Invalid queue type", queue=queue)
-            return None
+            pass
 
-        # Try to find matching QueueType by value
-        for queue_type in QueueType:
-            if queue_type.value == queue_int:
-                return queue_type
-
-        # If no exact match, return None
-        # Alternative: Could pass raw int and let Riot API validate
-        logger.warning("Unknown queue type", queue=queue)
         return None
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get client statistics."""
-        rate_limiter_stats = self.rate_limiter.get_stats()
-
-        return {
-            "client": self.stats.copy(),
-            "rate_limiter": rate_limiter_stats,
-            "region": self.region.value,
-            "platform": self.platform.value,
-        }

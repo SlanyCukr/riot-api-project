@@ -27,16 +27,17 @@ class RiotAPIEndpoints:
     def get_base_url(self, region: Optional[Region] = None) -> str:
         """Get base URL for regional endpoints."""
         region = region or self.region
-        # Handle both Region enum and string
-        region_str = region.value if isinstance(region, Region) else region
-        return f"https://{region_str}.api.riotgames.com"
+        return f"https://{self._enum_str(region)}.api.riotgames.com"
 
     def get_platform_url(self, platform: Optional[Platform] = None) -> str:
         """Get base URL for platform endpoints."""
         platform = platform or self.platform
-        # Handle both Platform enum and string
-        platform_str = platform.value if isinstance(platform, Platform) else platform
-        return f"https://{platform_str}.api.riotgames.com"
+        return f"https://{self._enum_str(platform)}.api.riotgames.com"
+
+    @staticmethod
+    def _enum_str(value) -> str:
+        """Extract string value from enum or return as-is."""
+        return value.value if hasattr(value, "value") else value
 
     # Account endpoints (Regional)
     def account_by_riot_id(
@@ -94,21 +95,6 @@ class RiotAPIEndpoints:
         """Get league entries by PUUID endpoint."""
         platform_url = self.get_platform_url(platform)
         return f"{platform_url}/lol/league/v4/entries/by-puuid/{puuid}"
-
-
-class RateLimitInfo:
-    """Rate limit information for different endpoints."""
-
-    # App-level rate limits
-    APP_LIMITS = {
-        "short": {"requests": 20, "window": 1},  # 20 requests per second
-        "long": {"requests": 100, "window": 120},  # 100 requests per 2 minutes
-    }
-
-    @classmethod
-    def get_app_limits(cls) -> Dict[str, Dict[str, int]]:
-        """Get app-level rate limits."""
-        return cls.APP_LIMITS
 
 
 def parse_rate_limit_header(header_value: str) -> List[Dict[str, int]]:

@@ -15,7 +15,7 @@
 #   --build            Force rebuild of containers (uses Docker Bake)
 #   --no-cache         Build without using cache (useful for deployments)
 #   --down             Stop all services first
-#   --reset-db         Wipe database and recreate from SQLAlchemy models (WARNING: deletes all data)
+#   --reset-db         Wipe database and run migrations (WARNING: deletes all data)
 #   --logs, -f         Follow logs after starting
 #   --detach, -d       Run in detached mode (default for production)
 #   --help, -h         Show this help message
@@ -233,12 +233,12 @@ if [ "$RESET_DB" = true ]; then
         echo "Waiting for postgres to be ready..."
         sleep 5
 
-        # Start backend to run reset (entrypoint will recreate tables)
+        # Start backend to run migrations (entrypoint will run alembic upgrade head)
         docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d backend
-        echo "Waiting for database reset to complete..."
+        echo "Waiting for migrations to complete..."
         sleep 10
 
-        # Stop backend after reset
+        # Stop backend after migrations
         docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" stop backend
 
         echo -e "${GREEN}✅ Database reset complete${NC}"

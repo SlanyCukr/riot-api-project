@@ -10,8 +10,6 @@ from .players import (
 from .matches import (
     MatchCreate,
     MatchUpdate,
-)
-from .response_matches_schema import (
     MatchResponse,
     MatchListResponse,
 )
@@ -32,8 +30,6 @@ from .ranks import (
 from .jobs import (
     JobConfigurationCreate,
     JobConfigurationUpdate,
-)
-from .response_jobs_schema import (
     JobConfigurationResponse,
     JobExecutionResponse,
     JobExecutionListResponse,

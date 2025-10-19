@@ -65,14 +65,7 @@ def handle_riot_api_errors(
 def _extract_log_context(
     log_context: Optional[Callable], args: tuple, kwargs: dict, func_name: str
 ) -> dict:
-    """Extract logging context from function arguments.
-
-    :param log_context: Optional function to extract context.
-    :param args: Function positional arguments.
-    :param kwargs: Function keyword arguments.
-    :param func_name: Name of the function being wrapped.
-    :returns: Context dictionary for logging.
-    """
+    """Extract logging context from function arguments."""
     if not log_context:
         return {}
 
@@ -87,34 +80,27 @@ def _extract_log_context(
         return {}
 
 
-def _handle_rate_limit_error(
-    operation: str, error: RateLimitError, context: dict
+def _handle_error(
+    error: Exception, operation: str, critical: bool, context: dict
 ) -> None:
-    """Handle rate limit errors."""
-    retry_after = getattr(error, "retry_after", None)
-    logger.warning(
-        f"Rate limit hit during {operation}",
-        retry_after=retry_after,
-        **context,
-    )
-    raise
+    """Handle exceptions with consistent logging and re-raise logic."""
+    if isinstance(error, RateLimitError):
+        logger.warning(
+            f"Rate limit hit during {operation}",
+            retry_after=getattr(error, "retry_after", None),
+            **context,
+        )
+        raise
 
+    if isinstance(error, (AuthenticationError, ForbiddenError)):
+        logger.error(
+            f"Authentication failure during {operation} - job cannot continue",
+            error=str(error),
+            error_type=type(error).__name__,
+            **context,
+        )
+        raise
 
-def _handle_auth_error(operation: str, error: Exception, context: dict) -> None:
-    """Handle authentication/authorization errors."""
-    logger.error(
-        f"Authentication failure during {operation} - job cannot continue",
-        error=str(error),
-        error_type=type(error).__name__,
-        **context,
-    )
-    raise
-
-
-def _handle_general_error(
-    operation: str, error: Exception, context: dict, critical: bool
-) -> None:
-    """Handle general errors based on critical flag."""
     logger.error(
         f"Failed to {operation}",
         error=str(error),
@@ -123,7 +109,6 @@ def _handle_general_error(
     )
     if critical:
         raise
-    # If not critical, return None (caller handles)
 
 
 def _create_async_wrapper(
@@ -134,15 +119,11 @@ def _create_async_wrapper(
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
-
         try:
             return await func(*args, **kwargs)
-        except RateLimitError as rate_error:
-            _handle_rate_limit_error(operation, rate_error, context)
-        except (AuthenticationError, ForbiddenError) as auth_error:
-            _handle_auth_error(operation, auth_error, context)
         except Exception as error:
-            _handle_general_error(operation, error, context, critical)
+            _handle_error(error, operation, critical, context)
+            return None  # For non-critical errors that don't re-raise
 
     return async_wrapper
 
@@ -155,14 +136,10 @@ def _create_sync_wrapper(
     @wraps(func)
     def sync_wrapper(*args, **kwargs):
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
-
         try:
             return func(*args, **kwargs)
-        except RateLimitError as rate_error:
-            _handle_rate_limit_error(operation, rate_error, context)
-        except (AuthenticationError, ForbiddenError) as auth_error:
-            _handle_auth_error(operation, auth_error, context)
         except Exception as error:
-            _handle_general_error(operation, error, context, critical)
+            _handle_error(error, operation, critical, context)
+            return None  # For non-critical errors that don't re-raise
 
     return sync_wrapper

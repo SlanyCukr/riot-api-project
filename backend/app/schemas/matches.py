@@ -1,8 +1,9 @@
 """Pydantic schemas for Match model."""
 
-from typing import Optional
+from datetime import datetime
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class MatchBase(BaseModel):
@@ -62,3 +63,49 @@ class MatchUpdate(BaseModel):
     processing_error: Optional[str] = Field(
         None, max_length=256, description="Error message if match processing failed"
     )
+
+
+class MatchResponse(MatchBase):
+    """Schema for Match response."""
+
+    match_id: str = Field(
+        ..., max_length=64, description="Unique match identifier from Riot API"
+    )
+    created_at: datetime = Field(
+        ..., description="When this match record was created in our database"
+    )
+    updated_at: datetime = Field(
+        ..., description="When this match record was last updated"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MatchListResponse(BaseModel):
+    """Schema for paginated Match list response."""
+
+    matches: List[MatchResponse]
+    total: int = Field(..., description="Total matches available")
+    page: int = Field(..., description="Current page number")
+    size: int = Field(..., description="Number of matches per page")
+    pages: int = Field(..., description="Total number of pages")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MatchStatsResponse(BaseModel):
+    """Schema for player match statistics response."""
+
+    puuid: str = Field(..., description="Player PUUID")
+    total_matches: int = Field(..., ge=0, description="Total matches analyzed")
+    wins: int = Field(..., ge=0, description="Number of wins")
+    losses: int = Field(..., ge=0, description="Number of losses")
+    win_rate: float = Field(..., ge=0.0, le=1.0, description="Win rate (0.0 to 1.0)")
+    avg_kills: float = Field(..., ge=0.0, description="Average kills per match")
+    avg_deaths: float = Field(..., ge=0.0, description="Average deaths per match")
+    avg_assists: float = Field(..., ge=0.0, description="Average assists per match")
+    avg_kda: float = Field(..., ge=0.0, description="Average KDA ratio")
+    avg_cs: float = Field(..., ge=0.0, description="Average CS per match")
+    avg_vision_score: float = Field(..., ge=0.0, description="Average vision score")
+
+    model_config = ConfigDict(from_attributes=True)

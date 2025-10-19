@@ -47,8 +47,9 @@ export const MatchSchema = z.object({
 export const MatchListResponseSchema = z.object({
   matches: z.array(MatchSchema),
   total: z.number(),
-  start: z.number(),
-  count: z.number(),
+  page: z.number(),
+  size: z.number(),
+  pages: z.number(),
 });
 
 // Match Stats Response Schema

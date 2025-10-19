@@ -1,6 +1,6 @@
 """Player data model for storing player information."""
 
-from typing import Any, Dict, Optional
+from typing import Optional
 from datetime import datetime
 
 from sqlalchemy import (
@@ -131,28 +131,6 @@ class Player(Base):
     def __repr__(self) -> str:
         """Return string representation of the player."""
         return f"<Player(puuid='{self.puuid}', summoner_name='{self.summoner_name}', platform='{self.platform}')>"
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert player to dictionary representation."""
-        return {
-            "puuid": str(self.puuid),
-            "riot_id": self.riot_id,
-            "tag_line": self.tag_line,
-            "summoner_name": self.summoner_name,
-            "platform": self.platform,
-            "account_level": self.account_level,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
-            "is_active": self.is_active,
-            "is_tracked": self.is_tracked,
-            "is_analyzed": self.is_analyzed,
-            "last_ban_check": self.last_ban_check.isoformat()
-            if self.last_ban_check
-            else None,
-            "profile_icon_id": self.profile_icon_id,
-            "summoner_id": self.summoner_id,
-        }
 
     # Database-only relationships - used by SQLAlchemy ORM but not directly referenced in Python code
     # These relationships enable database queries and cascade operations

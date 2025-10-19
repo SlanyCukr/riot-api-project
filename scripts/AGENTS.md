@@ -41,8 +41,16 @@ git pull && ./scripts/prod.sh --build
 - Builds use parallel backend + frontend builds with local caching
 - Hot reload works for both frontend and backend (no restart needed)
 
+## Pre-commit
+
+Always run `pre-commit run --all-files` before creating PRs to ensure:
+- **pydocstyle**: All docstrings present and formatted correctly
+- **pyright**: No type errors (runs in Docker with full dependency access)
+- **All other quality checks pass** (ruff, bandit, vulture, radon, frontend checks)
+
 **Do Not**:
 - Run Docker commands directly - use scripts
 - Clear `/tmp/.buildx-cache` unless troubleshooting
 - Use production scripts for development
 - Modify scripts without testing all options
+- Skip pre-commit hooks with `--no-verify`

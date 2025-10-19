@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class PlayerBase(BaseModel):
     """Base player schema with common fields."""
 
-    puuid: str = Field(..., description="Player's PUUID")
+    puuid: str = Field(..., min_length=78, max_length=78, description="Player's PUUID")
     riot_id: Optional[str] = Field(None, description="Riot ID in format name#tag")
     tag_line: Optional[str] = Field(None, description="Riot tag line")
     summoner_name: str = Field(..., description="Current summoner name")

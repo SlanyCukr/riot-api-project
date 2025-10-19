@@ -245,10 +245,17 @@ logs/
 
 agents/
 .zed/
-.claude/
 .ruff_cache/
 
 # Factory.ai - exclude personal settings but include project commands
 .factory/docs/
 !.factory/commands/
 openspec/
+
+# Code review documents
+CODE_REVIEW*.md
+code-reviews/
+
+!.claude/skills
+.claude/settings.local.json
+.claude/.claude

@@ -1,28 +1,51 @@
 """Player API endpoints for the Riot API application."""
 
-import logging
 import re
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+import structlog
 
 from ..schemas.players import (
     PlayerResponse,
 )
 from ..schemas.ranks import PlayerRankResponse
-from ..models.ranks import PlayerRank
 from ..api.dependencies import (
     PlayerServiceDep,
     RiotDataManagerDep,
     get_player_service,
-    get_db,
 )
 from ..riot_api.constants import Platform
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
+
+# Rate limiter instance
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/players", tags=["players"])
 router.get_player_service = get_player_service  # type: ignore[attr-defined]
+
+# Riot ID validation constants
+RIOT_ID_NAME_MAX_LENGTH = 16
+RIOT_ID_TAG_MAX_LENGTH = 8
+
+
+def _validate_riot_id_length(game_name: str, tag_line: str) -> None:
+    """Validate Riot ID component lengths."""
+    if (
+        len(game_name) > RIOT_ID_NAME_MAX_LENGTH
+        or len(tag_line) > RIOT_ID_TAG_MAX_LENGTH
+    ):
+        raise HTTPException(status_code=400, detail="Riot ID too long")
+
+
+def _validate_riot_id_characters(game_name: str, tag_line: str) -> None:
+    """Validate Riot ID component characters."""
+    if not re.match(r"^[a-zA-Z0-9\s\.\-_]+$", game_name):
+        raise HTTPException(status_code=400, detail="Invalid characters in name")
+
+    if not re.match(r"^[a-zA-Z0-9]+$", tag_line):
+        raise HTTPException(status_code=400, detail="Invalid characters in tag")
 
 
 def validate_riot_id(riot_id: str) -> tuple[str, str]:
@@ -36,20 +59,14 @@ def validate_riot_id(riot_id: str) -> tuple[str, str]:
     if not game_name or not tag_line:
         raise HTTPException(status_code=400, detail="Invalid Riot ID format")
 
-    if len(game_name) > 16 or len(tag_line) > 8:
-        raise HTTPException(status_code=400, detail="Riot ID too long")
-
-    # Basic character validation
-    if not re.match(r"^[a-zA-Z0-9\s\.\-_]+$", game_name):
-        raise HTTPException(status_code=400, detail="Invalid characters in name")
-
-    if not re.match(r"^[a-zA-Z0-9]+$", tag_line):
-        raise HTTPException(status_code=400, detail="Invalid characters in tag")
+    _validate_riot_id_length(game_name, tag_line)
+    _validate_riot_id_characters(game_name, tag_line)
 
     return game_name, tag_line
 
 
 @router.get("/search", response_model=list[PlayerResponse])
+@limiter.limit("100/minute")
 async def search_player(
     request: Request,
     player_service: PlayerServiceDep,
@@ -100,9 +117,16 @@ async def search_player(
 
     except Exception as e:
         # Unexpected error - log and return 500
+        logger.error(
+            "player_search_failed",
+            error=str(e),
+            query=query,
+            platform=platform.value,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Search failed: {str(e)}",
+            detail="Internal server error during player search",
         )
 
 
@@ -163,9 +187,15 @@ async def get_player_suggestions(
 
     except Exception as e:
         # Unexpected error - log and return 500
+        logger.error(
+            "player_suggestions_failed",
+            error=str(e),
+            platform=platform.value,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Suggestions failed: {str(e)}",
+            detail="Internal server error retrieving player suggestions",
         )
 
 
@@ -217,9 +247,10 @@ async def track_player(puuid: str, player_service: PlayerServiceDep):
             # Tracking limit reached or other validation error
             raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error("track_player_failed", error=str(e), puuid=puuid, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to track player: {str(e)}",
+            detail="Internal server error tracking player",
         )
 
 
@@ -243,9 +274,10 @@ async def untrack_player(puuid: str, player_service: PlayerServiceDep):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.error("untrack_player_failed", error=str(e), puuid=puuid, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to untrack player: {str(e)}",
+            detail="Internal server error untracking player",
         )
 
 
@@ -266,9 +298,12 @@ async def get_tracking_status(puuid: str, player_service: PlayerServiceDep):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        logger.error(
+            "get_tracking_status_failed", error=str(e), puuid=puuid, exc_info=True
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to get tracking status: {str(e)}",
+            detail="Internal server error retrieving tracking status",
         )
 
 
@@ -284,9 +319,39 @@ async def get_tracked_players(player_service: PlayerServiceDep):
         players = await player_service.get_tracked_players()
         return players
     except Exception as e:
+        logger.error("get_tracked_players_failed", error=str(e), exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to retrieve tracked players: {str(e)}",
+            detail="Internal server error retrieving tracked players",
+        )
+
+
+async def _process_riot_id_tracking(
+    player_service, riot_data_manager, riot_id: str, platform: str
+):
+    """Process tracking request with Riot ID."""
+    game_name, tag_line = validate_riot_id(riot_id)
+    return await player_service.add_and_track_player(
+        riot_data_manager=riot_data_manager,
+        game_name=game_name,
+        tag_line=tag_line,
+        platform=platform,
+    )
+
+
+async def _process_summoner_name_tracking(
+    player_service, summoner_name: str, platform: str
+):
+    """Process tracking request with summoner name."""
+    try:
+        player_response = await player_service.get_player_by_summoner_name(
+            summoner_name, platform
+        )
+        return await player_service.track_player(player_response.puuid)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Player '{summoner_name}' not found in database. Please use Riot ID (name#tag) format to add new players.",
         )
 
 
@@ -318,61 +383,59 @@ async def add_tracked_player(
         404: Player not found in Riot API
         500: Unexpected error
     """
-    if not riot_id and not summoner_name:
-        raise HTTPException(
-            status_code=400, detail="Either riot_id or summoner_name must be provided"
-        )
+    # Early return if neither identifier provided
+    if not riot_id:
+        if not summoner_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Either riot_id or summoner_name must be provided",
+            )
 
     try:
         if riot_id:
-            # Parse and validate Riot ID (name#tag)
-            game_name, tag_line = validate_riot_id(riot_id)
-
-            # Fetch and track player (this calls Riot API once)
-            player = await player_service.add_and_track_player(
-                riot_data_manager=riot_data_manager,
-                game_name=game_name,
-                tag_line=tag_line,
-                platform=platform,
+            return await _process_riot_id_tracking(
+                player_service, riot_data_manager, riot_id, platform
             )
-        else:
-            if summoner_name is None:
-                raise HTTPException(status_code=400, detail="summoner_name is required")
 
-            # For summoner name, we need to fetch from Riot API
-            # Since summoner name alone doesn't work with Riot API v5,
-            # we'll try to find in database first, then error if not found
-            try:
-                player_response = await player_service.get_player_by_summoner_name(
-                    summoner_name, platform
-                )
-                # Track the found player
-                player = await player_service.track_player(player_response.puuid)
-            except ValueError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Player '{summoner_name}' not found in database. Please use Riot ID (name#tag) format to add new players.",
-                )
-
-        return player
+        return await _process_summoner_name_tracking(
+            player_service,
+            summoner_name,
+            platform,  # type: ignore
+        )
 
     except ValueError as e:
-        # Player not found or validation error
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        else:
-            # Tracking limit or other validation error
-            raise HTTPException(status_code=400, detail=error_msg)
+        _handle_tracking_value_error(e)
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
-        # Unexpected error
-        raise HTTPException(
-            status_code=500,
-            detail=f"An unexpected error occurred while adding tracked player: {str(e)}",
-        )
+        _handle_tracking_unexpected_error(e, riot_id, summoner_name, platform)
+
+
+def _handle_tracking_value_error(e: ValueError) -> None:
+    """Handle ValueError during player tracking."""
+    error_msg = str(e)
+    if "not found" in error_msg.lower():
+        raise HTTPException(status_code=404, detail=error_msg)
+    else:
+        raise HTTPException(status_code=400, detail=error_msg)
+
+
+def _handle_tracking_unexpected_error(
+    e: Exception, riot_id: str | None, summoner_name: str | None, platform: str
+) -> None:
+    """Handle unexpected errors during player tracking."""
+    logger.error(
+        "add_tracked_player_failed",
+        error=str(e),
+        riot_id=riot_id,
+        summoner_name=summoner_name,
+        platform=platform,
+        exc_info=True,
+    )
+    raise HTTPException(
+        status_code=500,
+        detail="Internal server error adding tracked player",
+    )
 
 
 # === Player Rank Endpoints ===
@@ -381,10 +444,10 @@ async def add_tracked_player(
 @router.get("/{puuid}/rank", response_model=PlayerRankResponse | None)
 async def get_player_current_rank(
     puuid: str,
+    player_service: PlayerServiceDep,
     queue_type: str = Query(
         "RANKED_SOLO_5x5", description="Queue type to fetch rank for"
     ),
-    db: AsyncSession = Depends(get_db),
 ):
     """
     Get the current rank for a player.
@@ -400,21 +463,20 @@ async def get_player_current_rank(
         500: Database error
     """
     try:
-        stmt = (
-            select(PlayerRank)
-            .where(PlayerRank.puuid == puuid)
-            .where(PlayerRank.queue_type == queue_type)
-            .order_by(PlayerRank.updated_at.desc())
-            .limit(1)
-        )
-        result = await db.execute(stmt)
-        rank = result.scalar_one_or_none()
+        rank = await player_service.get_player_rank(puuid, queue_type)
 
         if rank:
             return PlayerRankResponse.model_validate(rank)
         return None
     except Exception as e:
+        logger.error(
+            "get_player_rank_failed",
+            error=str(e),
+            puuid=puuid,
+            queue_type=queue_type,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch player rank: {str(e)}",
+            detail="Internal server error retrieving player rank",
         )

@@ -6,6 +6,9 @@ from typing import Dict, Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_global_settings, get_riot_api_key
 from app.api.players import router as players_router
@@ -26,6 +29,9 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = structlog.get_logger(__name__)
+
+# Configure rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 # Configure structlog
 structlog.configure(
@@ -49,12 +55,8 @@ structlog.configure(
 )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
-    logger.info("Starting up Riot API Backend application")
-
-    # Validate Riot API key (check database first, then environment)
+async def _validate_api_key_configuration() -> None:
+    """Validate and log Riot API key configuration status."""
     try:
         api_key = await get_riot_api_key()
         if not api_key or api_key == "your_riot_api_key_here":
@@ -73,7 +75,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Could not validate API key configuration", error=str(e))
 
-    # Start job scheduler if enabled
+
+async def _start_scheduler_safely() -> None:
+    """Start job scheduler with error handling."""
     try:
         scheduler = await start_scheduler()
         if scheduler:
@@ -84,14 +88,11 @@ async def lifespan(app: FastAPI):
             error=str(e),
             error_type=type(e).__name__,
         )
-        # Don't fail startup if scheduler fails
-        # This allows manual operations to continue
+        # Don't fail startup if scheduler fails - allows manual operations
 
-    yield
 
-    logger.info("Shutting down Riot API Backend application")
-
-    # Shutdown job scheduler
+async def _shutdown_scheduler_safely() -> None:
+    """Shutdown job scheduler with error handling."""
     try:
         await shutdown_scheduler()
         logger.info("Job scheduler shut down")
@@ -101,6 +102,17 @@ async def lifespan(app: FastAPI):
             error=str(e),
             error_type=type(e).__name__,
         )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    logger.info("Starting up Riot API Backend application")
+    await _validate_api_key_configuration()
+    await _start_scheduler_safely()
+    yield
+    logger.info("Shutting down Riot API Backend application")
+    await _shutdown_scheduler_safely()
 
 
 # OpenAPI tags metadata
@@ -168,6 +180,10 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.debug,
 )
+
+# Configure rate limiter for FastAPI app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS middleware
 app.add_middleware(

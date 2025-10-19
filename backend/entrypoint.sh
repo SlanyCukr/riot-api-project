@@ -15,23 +15,23 @@ done
 echo "PostgreSQL is ready!"
 echo ""
 
-# Initialize database tables
+# Run database migrations
 echo "============================================"
-echo "Initializing database tables..."
+echo "Running database migrations..."
 echo "============================================"
-uv run python -m app.init_db init
+uv run alembic upgrade head
 
-# Check initialization exit code
+# Check migration exit code
 if [ $? -eq 0 ]; then
     echo ""
     echo "============================================"
-    echo "Database initialization completed successfully!"
+    echo "Database migrations completed successfully!"
     echo "============================================"
     echo ""
 else
     echo ""
     echo "============================================"
-    echo "ERROR: Database initialization failed!"
+    echo "ERROR: Database migrations failed!"
     echo "============================================"
     exit 1
 fi

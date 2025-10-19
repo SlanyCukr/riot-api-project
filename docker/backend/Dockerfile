@@ -65,6 +65,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --dev --frozen --no-install-project && \
     chown -R app:app /app/.venv
 
+# Fix ownership of .venv so app user can use it
+RUN chown -R app:app /app/.venv
+
 USER app
 
 # Copy application code
