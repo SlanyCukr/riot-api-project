@@ -2,7 +2,7 @@
 
 import asyncio
 from typing import Optional, Dict, Any, List, Union
-import aiohttp
+import httpx
 import structlog
 
 from ..config import get_global_settings
@@ -69,26 +69,25 @@ class RiotAPIClient:
         await self.close()
 
     async def start_session(self) -> None:
-        """Start the aiohttp session."""
-        if self.session is None or self.session.closed:
+        """Start the httpx session."""
+        if self.session is None or self.session.is_closed:
             async with self._session_lock:
-                if self.session is None or self.session.closed:
+                if self.session is None or self.session.is_closed:
                     headers = {
                         "X-Riot-Token": self.api_key,
                         "Content-Type": "application/json",
                         "User-Agent": "RiotAPI-SmurfDetector/1.0",
                     }
 
-                    timeout = aiohttp.ClientTimeout(total=30)
-                    connector = aiohttp.TCPConnector(
-                        limit=20,
-                        limit_per_host=5,
-                        ttl_dns_cache=300,
-                        use_dns_cache=True,
+                    timeout = httpx.Timeout(
+                        connect=5.0, read=25.0, write=10.0, pool=30.0
+                    )
+                    limits = httpx.Limits(
+                        max_keepalive_connections=20, max_connections=5
                     )
 
-                    self.session = aiohttp.ClientSession(
-                        headers=headers, timeout=timeout, connector=connector
+                    self.session = httpx.AsyncClient(
+                        headers=headers, timeout=timeout, limits=limits
                     )
 
                     logger.info(
@@ -99,9 +98,9 @@ class RiotAPIClient:
                     )
 
     async def close(self) -> None:
-        """Close the aiohttp session."""
-        if self.session and not self.session.closed:
-            await self.session.close()
+        """Close the httpx session."""
+        if self.session and not self.session.is_closed:
+            await self.session.aclose()
             logger.info("Riot API client session closed")
 
     def _raise_client_error_if_needed(self, status: int) -> None:
@@ -177,26 +176,28 @@ class RiotAPIClient:
         if self.session is None:
             raise RiotAPIError("Session not initialized")
 
-        async with self.session.request(
-            method, url, params=params, json=data
-        ) as response:
+        response = await self.session.request(method, url, params=params, json=data)
+
+        try:
             self.rate_limiter.update_limits(
                 dict(response.headers), endpoint_path, method
             )
 
             # Handle error status codes
-            if response.status != 200:
+            if response.status_code != 200:
                 should_retry, sleep_seconds = await self._handle_http_error_status(
-                    response.status, dict(response.headers), attempt, max_retries
+                    response.status_code, dict(response.headers), attempt, max_retries
                 )
                 if should_retry:
                     await asyncio.sleep(sleep_seconds)
                     return None  # Signal to retry
 
             # Success
-            response_data = await response.json()
+            response_data = response.json()
             await self.rate_limiter.record_success(endpoint_path, method)
             return response_data
+        finally:
+            await response.aclose()
 
     async def _make_request(
         self,
@@ -242,7 +243,7 @@ class RiotAPIClient:
                 )
                 if result is not None:
                     return result
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (httpx.RequestError, asyncio.TimeoutError) as e:
                 last_error = e
                 if attempt < max_retries:
                     await asyncio.sleep(2**attempt)
