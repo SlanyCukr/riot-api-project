@@ -43,20 +43,20 @@ repos:
   # Radon - Code complexity and maintainability checks
   - repo: local
     hooks:
-      # Cyclomatic Complexity Check
+      # Cyclomatic Complexity Check (Strict: B grade = complexity 6-10)
       - id: radon-cc
         name: Radon Cyclomatic Complexity
-        entry: bash -c 'docker compose exec -T backend uv run radon cc app/ --min C --show-complexity --no-assert || (echo "❌ Code complexity too high! Refactor complex functions (complexity ≥ 11)" && exit 1)'
+        entry: bash -c 'docker compose exec -T backend uv run radon cc app/ --min B --show-complexity --no-assert || (echo "Code complexity too high! Refactor complex functions" && exit 1)'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
         pass_filenames: false
         verbose: true
 
-      # Maintainability Index Check
+      # Maintainability Index Check (Stricter: A grade = MI >= 20)
       - id: radon-mi
         name: Radon Maintainability Index
-        entry: bash -c 'docker compose exec -T backend uv run radon mi app/ --min B --show || (echo "❌ Code maintainability too low! Improve code quality (MI < 20)" && exit 1)'
+        entry: bash -c 'docker compose exec -T backend uv run radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)

@@ -10,6 +10,7 @@ import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ...schemas.detection import DetectionFactor
+from ...utils.statistics import safe_divide
 
 if TYPE_CHECKING:
     from ..models.players import Player
@@ -27,6 +28,23 @@ class WinRateTrendFactorAnalyzer(BaseFactorAnalyzer):
 
     def __init__(self):
         super().__init__("win_rate_trend")
+
+    def _calculate_trend_metrics(self, improvement: float) -> tuple[float, str, bool]:
+        """
+        Calculate trend score, type, and threshold status from improvement value.
+
+        Args:
+            improvement: Win rate change (recent - older)
+
+        Returns:
+            Tuple of (trend_score, trend_type, meets_threshold)
+        """
+        if improvement > 0.1:  # 10% improvement
+            return min(1.0, improvement * 3), "improving", True
+        elif improvement < -0.1:
+            return min(1.0, abs(improvement) * 2), "declining", False
+        else:
+            return 0.0, "stable", False
 
     async def analyze(
         self,
@@ -68,24 +86,15 @@ class WinRateTrendFactorAnalyzer(BaseFactorAnalyzer):
             older_wins = sum(1 for m in older_matches if m.get("win", False))
             recent_wins = sum(1 for m in recent_half if m.get("win", False))
 
-            older_rate = older_wins / len(older_matches) if older_matches else 0.0
-            recent_rate = recent_wins / len(recent_half) if recent_half else 0.0
+            older_rate = safe_divide(older_wins, len(older_matches))
+            recent_rate = safe_divide(recent_wins, len(recent_half))
 
             trend_improvement = recent_rate - older_rate
 
             # Calculate trend score and type
-            if trend_improvement > 0.1:  # 10% improvement
-                trend_score = min(1.0, trend_improvement * 3)
-                trend_type = "improving"
-                meets_threshold = trend_score > 0.5
-            elif trend_improvement < -0.1:
-                trend_score = min(1.0, abs(trend_improvement) * 2)
-                trend_type = "declining"
-                meets_threshold = False
-            else:
-                trend_score = 0.0
-                trend_type = "stable"
-                meets_threshold = False
+            trend_score, trend_type, meets_threshold = self._calculate_trend_metrics(
+                trend_improvement
+            )
 
             description = (
                 f"Win rate trend: {trend_type} ({trend_improvement:+.1%} change)"

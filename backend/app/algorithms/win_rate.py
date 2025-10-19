@@ -9,6 +9,8 @@ from typing import List, Dict, Any
 from dataclasses import dataclass
 import structlog
 
+from ..utils.statistics import safe_divide
+
 logger = structlog.get_logger(__name__)
 
 
@@ -60,7 +62,7 @@ class WinRateAnalyzer:
 
         wins = sum(1 for match in recent_matches if match.get("win", False))
         total_games = len(recent_matches)
-        win_rate = wins / total_games if total_games > 0 else 0.0
+        win_rate = safe_divide(wins, total_games)
 
         # Calculate confidence based on sample size
         confidence = self._calculate_confidence(total_games)
@@ -101,7 +103,7 @@ class WinRateAnalyzer:
             Confidence score (0.0-1.0)
         """
         if sample_size < self.min_games:
-            return sample_size / self.min_games
+            return safe_divide(sample_size, self.min_games)
         return 1.0
 
     def _generate_description(

@@ -104,6 +104,49 @@ class RiotAPIClient:
             await self.session.close()
             logger.info("Riot API client session closed")
 
+    async def _handle_http_error_status(
+        self, status: int, headers: dict, attempt: int, max_retries: int
+    ) -> tuple[bool, int]:
+        """
+        Handle HTTP error status codes.
+
+        Returns:
+            Tuple of (should_retry, sleep_seconds)
+
+        Raises:
+            RiotAPIError: For non-retryable errors
+        """
+        # Non-retryable client errors
+        if status == 400:
+            raise RiotAPIError("Invalid request parameters", status_code=400)
+        if status == 401:
+            raise RiotAPIError("Invalid API key", status_code=401)
+        if status == 403:
+            raise RiotAPIError("Access forbidden", status_code=403)
+        if status == 404:
+            raise RiotAPIError("Resource not found", status_code=404)
+
+        # Rate limit - retryable
+        if status == 429:
+            retry_after = int(headers.get("Retry-After", 1))
+            if attempt < max_retries:
+                return (True, retry_after)
+            raise RiotAPIError(
+                "Rate limit exceeded",
+                status_code=429,
+                retry_after=retry_after,
+                app_rate_limit=headers.get("X-App-Rate-Limit"),
+                method_rate_limit=headers.get("X-Method-Rate-Limit"),
+            )
+
+        # Server errors - retryable with exponential backoff
+        if status >= 500:
+            if attempt < max_retries:
+                return (True, 2**attempt)
+            raise RiotAPIError("Service unavailable", status_code=status)
+
+        return (False, 0)
+
     async def _make_request(
         self,
         url: str,
@@ -137,7 +180,7 @@ class RiotAPIClient:
         endpoint_path = self._extract_endpoint_path(url)
         await self.rate_limiter.wait_if_needed(endpoint_path, method)
 
-        # Simplified retry logic
+        # Retry loop
         max_retries = 3 if retry_on_failure else 0
         last_error = None
 
@@ -150,38 +193,20 @@ class RiotAPIClient:
                         dict(response.headers), endpoint_path, method
                     )
 
-                    # Handle status codes
-                    if response.status == 400:
-                        raise RiotAPIError(
-                            "Invalid request parameters", status_code=400
+                    # Handle error status codes
+                    if response.status != 200:
+                        (
+                            should_retry,
+                            sleep_seconds,
+                        ) = await self._handle_http_error_status(
+                            response.status,
+                            dict(response.headers),
+                            attempt,
+                            max_retries,
                         )
-                    elif response.status == 401:
-                        raise RiotAPIError("Invalid API key", status_code=401)
-                    elif response.status == 403:
-                        raise RiotAPIError("Access forbidden", status_code=403)
-                    elif response.status == 404:
-                        raise RiotAPIError("Resource not found", status_code=404)
-                    elif response.status == 429:
-                        retry_after = int(response.headers.get("Retry-After", 1))
-                        if attempt < max_retries:
-                            await asyncio.sleep(retry_after)
+                        if should_retry:
+                            await asyncio.sleep(sleep_seconds)
                             continue
-                        raise RiotAPIError(
-                            "Rate limit exceeded",
-                            status_code=429,
-                            retry_after=retry_after,
-                            app_rate_limit=response.headers.get("X-App-Rate-Limit"),
-                            method_rate_limit=response.headers.get(
-                                "X-Method-Rate-Limit"
-                            ),
-                        )
-                    elif response.status >= 500:
-                        if attempt < max_retries:
-                            await asyncio.sleep(2**attempt)
-                            continue
-                        raise RiotAPIError(
-                            "Service unavailable", status_code=response.status
-                        )
 
                     # Success
                     response_data = await response.json()

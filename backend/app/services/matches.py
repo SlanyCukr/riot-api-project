@@ -15,6 +15,7 @@ from ..schemas.matches import (
     MatchStatsResponse,
 )
 from ..riot_api.transformers import MatchTransformer
+from ..utils.statistics import safe_divide
 
 if TYPE_CHECKING:
     from ..riot_api.client import RiotAPIClient
@@ -97,6 +98,62 @@ class MatchService:
             )
             raise
 
+    @staticmethod
+    def _create_empty_stats_response(puuid: str) -> MatchStatsResponse:
+        """Create stats response for players with no matches."""
+        return MatchStatsResponse(
+            puuid=puuid,
+            total_matches=0,
+            wins=0,
+            losses=0,
+            win_rate=0.0,
+            avg_kills=0.0,
+            avg_deaths=0.0,
+            avg_assists=0.0,
+            avg_kda=0.0,
+            avg_cs=0.0,
+            avg_vision_score=0.0,
+        )
+
+    @staticmethod
+    def _aggregate_participant_stats(
+        matches: list, participants_by_match: dict
+    ) -> tuple[int, int, int, int, int, int]:
+        """
+        Aggregate statistics from match participants.
+
+        Returns:
+            Tuple of (kills, deaths, assists, cs, vision, wins)
+        """
+        totals = {
+            "kills": 0,
+            "deaths": 0,
+            "assists": 0,
+            "cs": 0,
+            "vision": 0,
+            "wins": 0,
+        }
+
+        for match in matches:
+            participant = participants_by_match.get(match.match_id)
+            if participant:
+                totals["kills"] += participant.kills
+                totals["deaths"] += participant.deaths
+                totals["assists"] += participant.assists
+                totals["cs"] += participant.cs
+                totals["vision"] += participant.vision_score
+                if participant.win:
+                    totals["wins"] += 1
+
+        return (
+            totals["kills"],
+            totals["deaths"],
+            totals["assists"],
+            totals["cs"],
+            totals["vision"],
+            totals["wins"],
+        )
+
     async def get_player_stats(
         self, puuid: str, queue: Optional[int] = None, limit: int = 50
     ) -> MatchStatsResponse:
@@ -116,19 +173,7 @@ class MatchService:
             matches = await self.get_player_matches(puuid, count=limit, queue=queue)
 
             if not matches.matches:
-                return MatchStatsResponse(
-                    puuid=puuid,
-                    total_matches=0,
-                    wins=0,
-                    losses=0,
-                    win_rate=0.0,
-                    avg_kills=0.0,
-                    avg_deaths=0.0,
-                    avg_assists=0.0,
-                    avg_kda=0.0,
-                    avg_cs=0.0,
-                    avg_vision_score=0.0,
-                )
+                return self._create_empty_stats_response(puuid)
 
             # Get all participants for these matches at once (fixes N+1 query problem)
             match_ids = [m.match_id for m in matches.matches]
@@ -141,25 +186,12 @@ class MatchService:
                 p.match_id: p for p in participants_result.scalars().all()
             }
 
-            # Calculate statistics
-            total_kills = 0
-            total_deaths = 0
-            total_assists = 0
-            total_cs = 0
-            total_vision = 0
-            wins = 0
-
-            for match in matches.matches:
-                # Get participant data from pre-fetched results
-                participant = participants_by_match.get(match.match_id)
-                if participant:
-                    total_kills += participant.kills
-                    total_deaths += participant.deaths
-                    total_assists += participant.assists
-                    total_cs += participant.cs
-                    total_vision += participant.vision_score
-                    if participant.win:
-                        wins += 1
+            # Aggregate statistics
+            total_kills, total_deaths, total_assists, total_cs, total_vision, wins = (
+                self._aggregate_participant_stats(
+                    matches.matches, participants_by_match
+                )
+            )
 
             total_matches = len(matches.matches)
             avg_kda = self._calculate_kda(total_kills, total_deaths, total_assists)
@@ -169,19 +201,85 @@ class MatchService:
                 total_matches=total_matches,
                 wins=wins,
                 losses=total_matches - wins,
-                win_rate=wins / total_matches if total_matches > 0 else 0.0,
-                avg_kills=total_kills / total_matches if total_matches > 0 else 0.0,
-                avg_deaths=total_deaths / total_matches if total_matches > 0 else 0.0,
-                avg_assists=total_assists / total_matches if total_matches > 0 else 0.0,
+                win_rate=safe_divide(wins, total_matches),
+                avg_kills=safe_divide(total_kills, total_matches),
+                avg_deaths=safe_divide(total_deaths, total_matches),
+                avg_assists=safe_divide(total_assists, total_matches),
                 avg_kda=avg_kda,
-                avg_cs=total_cs / total_matches if total_matches > 0 else 0.0,
-                avg_vision_score=(
-                    total_vision / total_matches if total_matches > 0 else 0.0
-                ),
+                avg_cs=safe_divide(total_cs, total_matches),
+                avg_vision_score=safe_divide(total_vision, total_matches),
             )
         except Exception as e:
             logger.error("Failed to get player stats", puuid=puuid, error=str(e))
             raise
+
+    async def _fetch_match_ids_from_api(
+        self, riot_api_client, puuid: str, queue: int
+    ) -> list[str]:
+        """
+        Fetch match IDs from Riot API with error handling.
+
+        Raises:
+            RateLimitError, NotFoundError: API errors that should propagate
+        """
+        from ..riot_api.errors import RateLimitError, NotFoundError
+
+        try:
+            match_list = await riot_api_client.get_match_list_by_puuid(
+                puuid=puuid, queue=queue, start=0, count=100
+            )
+            return (
+                list(match_list.match_ids)
+                if match_list and match_list.match_ids
+                else []
+            )
+        except (RateLimitError, NotFoundError) as e:
+            logger.warning(
+                "Failed to fetch match list",
+                puuid=puuid,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
+
+    async def _get_new_match_ids(self, all_match_ids: list[str]) -> list[str]:
+        """Filter match IDs to only those not in database."""
+        if not all_match_ids:
+            return []
+
+        existing_stmt = select(Match.match_id).where(Match.match_id.in_(all_match_ids))
+        existing_result = await self.db.execute(existing_stmt)
+        existing_match_ids = set(existing_result.scalars().all())
+
+        return [mid for mid in all_match_ids if mid not in existing_match_ids]
+
+    async def _fetch_and_store_single_match(
+        self, riot_api_client, match_id: str
+    ) -> bool:
+        """
+        Fetch and store a single match.
+
+        Returns:
+            True if successfully stored, False otherwise
+
+        Raises:
+            RateLimitError: If rate limit is hit (should stop processing)
+        """
+        from ..riot_api.errors import RateLimitError
+
+        try:
+            match_dto = await riot_api_client.get_match(match_id)
+            if match_dto:
+                match_data = match_dto.model_dump(by_alias=True, mode="json")
+                await self._store_match_detail(match_data)
+                return True
+            return False
+        except RateLimitError:
+            logger.warning("Rate limit hit fetching match", match_id=match_id)
+            raise
+        except Exception as e:
+            logger.warning("Failed to fetch match", match_id=match_id, error=str(e))
+            return False
 
     async def fetch_and_store_matches_for_player(
         self,
@@ -216,7 +314,6 @@ class MatchService:
         from ..riot_api.constants import Platform
         from ..riot_api.errors import (
             RateLimitError,
-            NotFoundError,
             AuthenticationError,
             ForbiddenError,
         )
@@ -229,66 +326,25 @@ class MatchService:
                 logger.warning("Invalid platform", puuid=puuid, platform=platform)
                 return 0
 
-            # Get match list from Riot API (just IDs - cheap operation)
-            try:
-                match_list = await riot_api_client.get_match_list_by_puuid(
-                    puuid=puuid,
-                    queue=queue,
-                    start=0,
-                    count=100,  # Get more IDs to filter through
-                )
-            except (RateLimitError, NotFoundError) as e:
-                logger.warning(
-                    "Failed to fetch match list",
-                    puuid=puuid,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
-                raise
-
-            if not match_list or not match_list.match_ids:
+            # Fetch match IDs from API
+            all_match_ids = await self._fetch_match_ids_from_api(
+                riot_api_client, puuid, queue
+            )
+            if not all_match_ids:
                 logger.debug("No matches found for player", puuid=puuid)
                 return 0
 
-            # Check which matches already exist in database
-            existing_stmt = select(Match.match_id).where(
-                Match.match_id.in_(list(match_list.match_ids))
-            )
-            existing_result = await self.db.execute(existing_stmt)
-            existing_match_ids = set(existing_result.scalars().all())
-
-            # Filter to only new matches
-            new_match_ids = [
-                mid for mid in match_list.match_ids if mid not in existing_match_ids
-            ]
-
+            # Filter to new matches only
+            new_match_ids = await self._get_new_match_ids(all_match_ids)
             if not new_match_ids:
                 logger.debug("All matches already in database", puuid=puuid)
                 return 0
 
-            # Fetch only the requested count of new matches
-            matches_to_fetch = new_match_ids[:count]
+            # Fetch requested count of new matches
             fetched_count = 0
-
-            for match_id in matches_to_fetch:
-                try:
-                    # Fetch match details from Riot API
-                    match_dto = await riot_api_client.get_match(match_id)
-
-                    if match_dto:
-                        # Store using existing method
-                        match_data = match_dto.model_dump(by_alias=True, mode="json")
-                        await self._store_match_detail(match_data)
-                        fetched_count += 1
-
-                except RateLimitError:
-                    logger.warning("Rate limit hit fetching match", match_id=match_id)
-                    raise  # Propagate to stop processing
-                except Exception as e:
-                    logger.warning(
-                        "Failed to fetch match", match_id=match_id, error=str(e)
-                    )
-                    continue
+            for match_id in new_match_ids[:count]:
+                if await self._fetch_and_store_single_match(riot_api_client, match_id):
+                    fetched_count += 1
 
             logger.info(
                 "Fetched matches for player",
@@ -299,15 +355,11 @@ class MatchService:
             return fetched_count
 
         except RateLimitError:
-            raise  # Propagate rate limit errors
+            raise
         except (AuthenticationError, ForbiddenError):
-            raise  # Propagate authentication errors so jobs fail
+            raise
         except Exception as e:
-            logger.error(
-                "Failed to fetch and store matches",
-                puuid=puuid,
-                error=str(e),
-            )
+            logger.error("Failed to fetch and store matches", puuid=puuid, error=str(e))
             return 0
 
     async def _get_matches_from_db(
@@ -363,6 +415,50 @@ class MatchService:
         result = await self.db.execute(query)
         return result.scalar_one()
 
+    def _get_summoner_name_for_puuid(
+        self, puuid: str, participants: List[Dict[str, Any]]
+    ) -> str:
+        """Extract summoner name for a PUUID from participant data."""
+        summoner_name = next(
+            (p["summoner_name"] for p in participants if p["puuid"] == puuid),
+            None,
+        )
+        # Ensure summoner_name is never null or empty
+        if not summoner_name or summoner_name.strip() == "":
+            return "Unknown Player"
+        return summoner_name
+
+    async def _ensure_players_exist(
+        self,
+        participants: List[Dict[str, Any]],
+        platform_id: str,
+    ) -> None:
+        """Ensure all participant players exist in database, creating if needed."""
+        # Bulk check for existing players
+        participant_puuids = {p["puuid"] for p in participants}
+        existing_players_result = await self.db.execute(
+            select(Player.puuid).where(Player.puuid.in_(participant_puuids))
+        )
+        existing_puuids = {row[0] for row in existing_players_result.all()}
+
+        # Bulk create missing players
+        missing_puuids = participant_puuids - existing_puuids
+        if not missing_puuids:
+            return
+
+        new_players = [
+            Player(
+                puuid=puuid,
+                summoner_name=self._get_summoner_name_for_puuid(puuid, participants),
+                platform=platform_id.lower(),
+                is_active=False,
+            )
+            for puuid in missing_puuids
+        ]
+
+        self.db.add_all(new_players)
+        logger.debug("Created minimal player records", count=len(new_players))
+
     async def _store_match_detail(self, match_data: Dict[str, Any]) -> Match:
         """Store match detail in database."""
         try:
@@ -371,62 +467,17 @@ class MatchService:
                 raise ValueError("Invalid match data")
 
             transformed = self.transformer.transform_match_data(match_data)
-
-            # Get platform from match metadata
             platform_id = transformed["match"].get("platform_id", "EUN1")
 
-            # Ensure all participant PUUIDs exist in players table
-            # Bulk check for existing players
-            participant_puuids = {p["puuid"] for p in transformed["participants"]}
-            existing_players_result = await self.db.execute(
-                select(Player.puuid).where(Player.puuid.in_(participant_puuids))
-            )
-            existing_puuids = {row[0] for row in existing_players_result.all()}
+            # Ensure all participant players exist
+            await self._ensure_players_exist(transformed["participants"], platform_id)
 
-            # Bulk create missing players
-            missing_puuids = participant_puuids - existing_puuids
-            if missing_puuids:
-                new_players = []
-                for puuid in missing_puuids:
-                    # Get summoner name from participants
-                    summoner_name = next(
-                        (
-                            p["summoner_name"]
-                            for p in transformed["participants"]
-                            if p["puuid"] == puuid
-                        ),
-                        None,
-                    )
-                    # Ensure summoner_name is never null or empty
-                    if not summoner_name or summoner_name.strip() == "":
-                        summoner_name = (
-                            "Unknown Player"  # Fallback for missing summoner name
-                        )
-
-                    new_players.append(
-                        Player(
-                            puuid=puuid,
-                            summoner_name=summoner_name,
-                            platform=platform_id.lower(),
-                            is_active=False,
-                        )
-                    )
-
-                self.db.add_all(new_players)
-                logger.debug(
-                    "Created minimal player records",
-                    count=len(new_players),
-                )
-
-            # Store match
-            match_data_dict = transformed["match"]
-            match = Match(**match_data_dict)
+            # Store match and participants
+            match = Match(**transformed["match"])
             self.db.add(match)
 
-            # Bulk store participants
             participants = [
-                MatchParticipant(**participant_data)
-                for participant_data in transformed["participants"]
+                MatchParticipant(**p_data) for p_data in transformed["participants"]
             ]
             self.db.add_all(participants)
 
@@ -442,9 +493,9 @@ class MatchService:
 
     def _calculate_kda(self, kills: int, deaths: int, assists: int) -> float:
         """Calculate KDA ratio."""
-        if deaths == 0:
-            return float(kills + assists)
-        return (kills + assists) / deaths
+        from ..utils.statistics import safe_divide
+
+        return safe_divide(kills + assists, deaths, default=float(kills + assists))
 
     # ============================================
     # Helper Methods for Jobs

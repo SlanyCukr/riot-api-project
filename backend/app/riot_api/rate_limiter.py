@@ -40,19 +40,12 @@ class RateLimiter:
             now = time.time()
 
             # Check app-level limit
-            if self.app_remaining is not None and self.app_remaining <= 0:
-                if self.app_reset_time and self.app_reset_time > now:
-                    wait_time = self.app_reset_time - now
-                    logger.info(
-                        "App rate limit reached, waiting",
-                        wait_time=wait_time,
-                        remaining=self.app_remaining,
-                    )
-                    await asyncio.sleep(wait_time)
-                else:
-                    # Reset time passed, reset counter
-                    self.app_remaining = None
-                    self.app_reset_time = None
+            should_reset = await self._check_and_wait_for_limit(
+                self.app_remaining, self.app_reset_time, now, "App"
+            )
+            if should_reset:
+                self.app_remaining = None
+                self.app_reset_time = None
 
             # Check method-level limit
             endpoint_key = self._get_endpoint_key(endpoint, method)
@@ -60,20 +53,12 @@ class RateLimiter:
                 remaining = self.method_remaining[endpoint_key]
                 reset_time = self.method_reset_time.get(endpoint_key)
 
-                if remaining is not None and remaining <= 0:
-                    if reset_time and reset_time > now:
-                        wait_time = reset_time - now
-                        logger.info(
-                            "Method rate limit reached, waiting",
-                            endpoint=endpoint_key,
-                            wait_time=wait_time,
-                            remaining=remaining,
-                        )
-                        await asyncio.sleep(wait_time)
-                    else:
-                        # Reset time passed, reset counter
-                        self.method_remaining[endpoint_key] = None
-                        self.method_reset_time[endpoint_key] = None
+                should_reset = await self._check_and_wait_for_limit(
+                    remaining, reset_time, now, "Method", endpoint_key
+                )
+                if should_reset:
+                    self.method_remaining[endpoint_key] = None
+                    self.method_reset_time[endpoint_key] = None
 
             # Request spacing to avoid bursts
             time_since_last = now - self.last_request_time
@@ -81,6 +66,43 @@ class RateLimiter:
                 await asyncio.sleep(self.request_spacing - time_since_last)
 
             self.last_request_time = time.time()
+
+    async def _check_and_wait_for_limit(
+        self,
+        remaining: Optional[int],
+        reset_time: Optional[float],
+        now: float,
+        scope_name: str,
+        endpoint_key: Optional[str] = None,
+    ) -> bool:
+        """
+        Check if rate limit is exceeded and wait if needed.
+
+        Args:
+            remaining: Number of requests remaining
+            reset_time: Time when limit resets
+            now: Current time
+            scope_name: Name of the scope for logging (e.g., "App", "Method")
+            endpoint_key: Optional endpoint key for method-scoped limits
+
+        Returns:
+            True if limit was reset, False otherwise
+        """
+        if remaining is not None and remaining <= 0:
+            if reset_time and reset_time > now:
+                wait_time = reset_time - now
+                logger.info(
+                    f"{scope_name} rate limit reached, waiting",
+                    wait_time=wait_time,
+                    remaining=remaining,
+                    endpoint=endpoint_key,
+                )
+                await asyncio.sleep(wait_time)
+                return False
+            else:
+                # Reset time passed, reset counter
+                return True
+        return False
 
     def _get_endpoint_key(self, endpoint: str, method: str) -> str:
         """Generate a key for the endpoint."""
@@ -95,6 +117,69 @@ class RateLimiter:
 
         return f"{method}:{service_key}"
 
+    def _update_app_limit(self, remaining: int, reset_time: float) -> None:
+        """Update application-wide rate limit if more restrictive."""
+        if self.app_remaining is None or remaining < self.app_remaining:
+            self.app_remaining = remaining
+            self.app_reset_time = reset_time
+
+    def _update_method_limit(
+        self, endpoint_key: str, remaining: int, reset_time: float
+    ) -> None:
+        """Update method-specific rate limit if more restrictive."""
+        current = self.method_remaining.get(endpoint_key)
+        if current is None or remaining < current:
+            self.method_remaining[endpoint_key] = remaining
+            self.method_reset_time[endpoint_key] = reset_time
+
+    def _process_rate_limit_pair(
+        self,
+        limit_header: str,
+        count_header: str,
+        scope: str,
+        endpoint_key: str | None = None,
+    ) -> None:
+        """
+        Process a pair of rate limit headers and update internal state.
+
+        Args:
+            limit_header: Rate limit header value (e.g., "20:1,100:120")
+            count_header: Rate count header value (e.g., "15:1,80:120")
+            scope: Either "app" or "method" for logging
+            endpoint_key: Endpoint key for method-scoped limits
+        """
+        if not limit_header or not count_header:
+            return
+
+        limits = parse_rate_limit_header(limit_header)
+        counts = parse_rate_count_header(count_header)
+
+        if not limits or not counts:
+            return
+
+        for limit, count in zip(limits, counts):
+            limit_requests = limit["requests"]
+            used_requests = count["requests"]
+            window = limit["window"]
+
+            remaining = limit_requests - used_requests
+            reset_time = time.time() + window
+
+            # Update appropriate scope
+            if scope == "app":
+                self._update_app_limit(remaining, reset_time)
+            elif endpoint_key:  # method scope
+                self._update_method_limit(endpoint_key, remaining, reset_time)
+
+            logger.debug(
+                f"Updated {scope} rate limit",
+                endpoint=endpoint_key if scope == "method" else None,
+                limit=limit_requests,
+                used=used_requests,
+                remaining=remaining,
+                window=window,
+            )
+
     def update_limits(
         self, headers: Dict[str, str], endpoint: str, method: str = "GET"
     ) -> None:
@@ -107,73 +192,21 @@ class RateLimiter:
             method: HTTP method used
         """
         try:
-            # Parse app rate limits
-            app_rate_limit = headers.get("X-App-Rate-Limit", "")
-            app_rate_count = headers.get("X-App-Rate-Limit-Count", "")
+            # Process app rate limits
+            self._process_rate_limit_pair(
+                headers.get("X-App-Rate-Limit", ""),
+                headers.get("X-App-Rate-Limit-Count", ""),
+                scope="app",
+            )
 
-            if app_rate_limit and app_rate_count:
-                limits = parse_rate_limit_header(app_rate_limit)
-                counts = parse_rate_count_header(app_rate_count)
-
-                # Use the shortest time window for conservative limiting
-                if limits and counts:
-                    # Format: "20:1,100:120" -> [(requests, window), ...]
-                    # Count:  "15:1,80:120"  -> [(used, window), ...]
-                    # We want remaining for shortest window
-                    for limit, count in zip(limits, counts):
-                        limit_requests = limit["requests"]
-                        used_requests = count["requests"]
-                        window = limit["window"]
-
-                        remaining = limit_requests - used_requests
-                        reset_time = time.time() + window
-
-                        # Update if this is more restrictive
-                        if self.app_remaining is None or remaining < self.app_remaining:
-                            self.app_remaining = remaining
-                            self.app_reset_time = reset_time
-
-                        logger.debug(
-                            "Updated app rate limit",
-                            limit=limit_requests,
-                            used=used_requests,
-                            remaining=remaining,
-                            window=window,
-                        )
-
-            # Parse method rate limits
-            method_rate_limit = headers.get("X-Method-Rate-Limit", "")
-            method_rate_count = headers.get("X-Method-Rate-Limit-Count", "")
-
-            if method_rate_limit and method_rate_count:
-                limits = parse_rate_limit_header(method_rate_limit)
-                counts = parse_rate_count_header(method_rate_count)
-
-                endpoint_key = self._get_endpoint_key(endpoint, method)
-
-                if limits and counts:
-                    for limit, count in zip(limits, counts):
-                        limit_requests = limit["requests"]
-                        used_requests = count["requests"]
-                        window = limit["window"]
-
-                        remaining = limit_requests - used_requests
-                        reset_time = time.time() + window
-
-                        # Update if this is more restrictive
-                        current_remaining = self.method_remaining.get(endpoint_key)
-                        if current_remaining is None or remaining < current_remaining:
-                            self.method_remaining[endpoint_key] = remaining
-                            self.method_reset_time[endpoint_key] = reset_time
-
-                        logger.debug(
-                            "Updated method rate limit",
-                            endpoint=endpoint_key,
-                            limit=limit_requests,
-                            used=used_requests,
-                            remaining=remaining,
-                            window=window,
-                        )
+            # Process method rate limits
+            endpoint_key = self._get_endpoint_key(endpoint, method)
+            self._process_rate_limit_pair(
+                headers.get("X-Method-Rate-Limit", ""),
+                headers.get("X-Method-Rate-Limit-Count", ""),
+                scope="method",
+                endpoint_key=endpoint_key,
+            )
 
         except Exception as e:
             logger.warning(

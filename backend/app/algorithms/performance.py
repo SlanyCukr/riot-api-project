@@ -7,8 +7,9 @@ unusually consistent high performance that may indicate smurf behavior.
 
 from typing import List, Dict, Any
 from dataclasses import dataclass
-import statistics
 import structlog
+
+from ..utils.statistics import safe_mean, safe_stdev, safe_divide
 
 logger = structlog.get_logger(__name__)
 
@@ -60,29 +61,11 @@ class PerformanceAnalyzer:
             PerformanceResult with analysis details
         """
         if not recent_matches:
-            return PerformanceResult(
-                avg_kda=0.0,
-                kda_std_dev=0.0,
-                avg_cs=0.0,
-                cs_std_dev=0.0,
-                avg_vision_score=0.0,
-                consistency_score=0.0,
-                meets_threshold=False,
-                confidence=0.0,
-                description="No match data available",
-            )
+            return self._create_empty_result("No match data available")
 
         if len(recent_matches) < self.min_games_for_analysis:
-            return PerformanceResult(
-                avg_kda=0.0,
-                kda_std_dev=0.0,
-                avg_cs=0.0,
-                cs_std_dev=0.0,
-                avg_vision_score=0.0,
-                consistency_score=0.0,
-                meets_threshold=False,
-                confidence=0.0,
-                description=f"Insufficient data: only {len(recent_matches)} matches (needs {self.min_games_for_analysis})",
+            return self._create_empty_result(
+                f"Insufficient data: only {len(recent_matches)} matches (needs {self.min_games_for_analysis})"
             )
 
         # Extract performance metrics
@@ -103,30 +86,16 @@ class PerformanceAnalyzer:
                 vision_scores.append(vision)
 
         if not kda_values:
-            return PerformanceResult(
-                avg_kda=0.0,
-                kda_std_dev=0.0,
-                avg_cs=0.0,
-                cs_std_dev=0.0,
-                avg_vision_score=0.0,
-                consistency_score=0.0,
-                meets_threshold=False,
-                confidence=0.0,
-                description="No valid performance data available",
-            )
+            return self._create_empty_result("No valid performance data available")
 
         # Calculate statistics
-        avg_kda: float = statistics.mean(kda_values)
-        kda_std_dev: float = (
-            statistics.stdev(kda_values) if len(kda_values) > 1 else 0.0
-        )
+        avg_kda: float = safe_mean(kda_values)
+        kda_std_dev: float = safe_stdev(kda_values)
 
-        avg_cs: float = statistics.mean(cs_values) if cs_values else 0.0
-        cs_std_dev: float = statistics.stdev(cs_values) if len(cs_values) > 1 else 0.0
+        avg_cs: float = safe_mean(cs_values)
+        cs_std_dev: float = safe_stdev(cs_values)
 
-        avg_vision_score: float = (
-            statistics.mean(vision_scores) if vision_scores else 0.0
-        )
+        avg_vision_score: float = safe_mean(vision_scores)
 
         # Calculate consistency metrics
         kda_consistency: float = self._calculate_consistency(avg_kda, kda_std_dev)
@@ -173,17 +142,35 @@ class PerformanceAnalyzer:
         deaths = match.get("deaths", 0)
         assists = match.get("assists", 0)
 
-        if deaths == 0:
-            return kills + assists
-        return (kills + assists) / deaths
+        # If no deaths, return perfect KDA (kills + assists)
+        return safe_divide(kills + assists, deaths, default=kills + assists)
+
+    def _create_empty_result(self, description: str) -> PerformanceResult:
+        """
+        Create an empty PerformanceResult with all metrics set to zero.
+
+        Args:
+            description: Explanation for why result is empty
+
+        Returns:
+            PerformanceResult with zero values
+        """
+        return PerformanceResult(
+            avg_kda=0.0,
+            kda_std_dev=0.0,
+            avg_cs=0.0,
+            cs_std_dev=0.0,
+            avg_vision_score=0.0,
+            consistency_score=0.0,
+            meets_threshold=False,
+            confidence=0.0,
+            description=description,
+        )
 
     def _calculate_consistency(self, mean: float, std_dev: float) -> float:
         """Calculate consistency score (0.0-1.0, where 1.0 is most consistent)."""
-        if mean == 0:
-            return 0.0
-
         # Coefficient of variation (lower = more consistent)
-        cv = std_dev / mean
+        cv = safe_divide(std_dev, mean, default=0.0)
 
         # Convert to consistency score (inverse of CV, capped at 1.0)
         consistency = max(0.0, 1.0 - cv)
@@ -271,8 +258,8 @@ class PerformanceAnalyzer:
             :5
         ]  # First 5 matches (newest)
 
-        early_avg: float = statistics.mean(early_performance)
-        recent_avg: float = statistics.mean(recent_performance)
+        early_avg: float = safe_mean(early_performance)
+        recent_avg: float = safe_mean(recent_performance)
 
         performance_change: float = recent_avg - early_avg
 
@@ -288,8 +275,8 @@ class PerformanceAnalyzer:
             trend_type: str = "stable"
 
         # Check for unusually stable high performance (smurf indicator)
-        all_avg: float = statistics.mean(match_performances)
-        all_std: float = statistics.stdev(match_performances)
+        all_avg: float = safe_mean(match_performances)
+        all_std: float = safe_stdev(match_performances)
         stability_score: float = self._calculate_consistency(all_avg, all_std)
 
         is_suspiciously_stable: bool = (
@@ -308,6 +295,71 @@ class PerformanceAnalyzer:
             "is_suspiciously_stable": is_suspiciously_stable,
         }
 
+    def _build_role_performances(
+        self, recent_matches: List[Dict[str, Any]]
+    ) -> Dict[str, List[float]]:
+        """Build dictionary mapping roles to KDA performances."""
+        role_performances: Dict[str, List[float]] = {}
+
+        for match in recent_matches:
+            role = match.get("role", "UNKNOWN")
+            kda = self._calculate_match_kda(match)
+
+            if role not in role_performances:
+                role_performances[role] = []
+            role_performances[role].append(kda)
+
+        return role_performances
+
+    def _calculate_role_statistics(
+        self, role_performances: Dict[str, List[float]]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Calculate statistics for each role with sufficient data."""
+        role_stats: Dict[str, Dict[str, Any]] = {}
+
+        for role, kdas in role_performances.items():
+            if len(kdas) < 3:  # Skip roles without sufficient data
+                continue
+
+            avg_kda = safe_mean(kdas)
+            std_dev = safe_stdev(kdas)
+            role_stats[role] = {
+                "avg_kda": avg_kda,
+                "std_dev": std_dev,
+                "games_played": len(kdas),
+                "consistency": self._calculate_consistency(avg_kda, std_dev),
+            }
+
+        return role_stats
+
+    def _detect_suspicious_role_patterns(
+        self, role_stats: Dict[str, Dict[str, Any]]
+    ) -> List[str]:
+        """Detect suspicious multi-role high performance patterns."""
+        if len(role_stats) < 3:
+            return []
+
+        high_performance_roles = [
+            role
+            for role, stats in role_stats.items()
+            if stats["avg_kda"] > self.high_kda_threshold
+        ]
+
+        if len(high_performance_roles) >= 2:
+            return [f"High performance across {len(high_performance_roles)} roles"]
+
+        return []
+
+    def _count_high_performance_roles(
+        self, role_stats: Dict[str, Dict[str, Any]]
+    ) -> int:
+        """Count roles where player exceeds high performance threshold."""
+        return sum(
+            1
+            for stats in role_stats.values()
+            if stats["avg_kda"] > self.high_kda_threshold
+        )
+
     # TODO: Integrate into detection service for role-specific smurf patterns
     #       Tracks: Performance consistency across different roles
     #       Use case: Smurfs often excel at one role, boosters at multiple
@@ -324,54 +376,15 @@ class PerformanceAnalyzer:
         Returns:
             Dictionary with role-based performance analysis
         """
-        role_performances: Dict[str, List[float]] = {}
-
-        for match in recent_matches:
-            role: str = match.get("role", "UNKNOWN")
-            kda: float = self._calculate_match_kda(match)
-
-            if role not in role_performances:
-                role_performances[role] = []
-            role_performances[role].append(kda)
-
-        # Calculate statistics for each role
-        role_stats: Dict[str, Dict[str, Any]] = {}
-        for role, kdas in role_performances.items():
-            if len(kdas) >= 3:  # Only analyze roles with sufficient data
-                role_stats[role] = {
-                    "avg_kda": statistics.mean(kdas),
-                    "std_dev": statistics.stdev(kdas) if len(kdas) > 1 else 0.0,
-                    "games_played": len(kdas),
-                    "consistency": self._calculate_consistency(
-                        statistics.mean(kdas),
-                        statistics.stdev(kdas) if len(kdas) > 1 else 0.0,
-                    ),
-                }
-
-        # Check for suspicious patterns
-        suspicious_patterns: List[str] = []
-        if len(role_stats) >= 3:
-            # Check if player performs exceptionally well across multiple roles
-            high_performance_roles: List[str] = [
-                role
-                for role, stats in role_stats.items()
-                if stats["avg_kda"] > self.high_kda_threshold
-            ]
-
-            if len(high_performance_roles) >= 2:
-                suspicious_patterns.append(
-                    f"High performance across {len(high_performance_roles)} roles"
-                )
+        role_performances = self._build_role_performances(recent_matches)
+        role_stats = self._calculate_role_statistics(role_performances)
+        suspicious_patterns = self._detect_suspicious_role_patterns(role_stats)
 
         return {
             "role_stats": role_stats,
             "suspicious_patterns": suspicious_patterns,
             "role_versatility_score": len(role_stats),
-            "consistent_high_performance": len(
-                [
-                    r
-                    for r, s in role_stats.items()
-                    if s["avg_kda"] > self.high_kda_threshold
-                ]
+            "consistent_high_performance": self._count_high_performance_roles(
+                role_stats
             ),
         }

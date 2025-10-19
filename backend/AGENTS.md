@@ -29,8 +29,15 @@
 
 - Use type hints everywhere (pyright enforced)
 - Use async/await for all I/O operations
-- Log with context: `logger.info("action", puuid=puuid)`
+- Use structlog with context keys: `logger.info("action", puuid=puuid)`
 - Keep API endpoints thin, business logic in services
+
+# Documentation
+
+- Use ReST docstrings (`:param name:`, `:returns:`, `:raises:`)
+- Don't include `:type:` or `:rtype:` (redundant with type hints)
+- Add module docstrings to all files
+- Example: `"""Get player by Riot ID.\n\n:param game_name: Player's game name\n:returns: Player response\n"""`
 
 # Do Not
 
@@ -40,3 +47,4 @@
 - Don't hardcode configuration (use app/config.py)
 - Don't use `create_all()` or manual SQL (use Alembic - see MIGRATIONS.md)
 - Don't write complex functions (keep cyclomatic complexity <20, aim for <10)
+- Don't use f-strings in log messages (use context: `logger.info("msg", key=value)`)

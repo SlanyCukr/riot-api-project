@@ -227,6 +227,161 @@ class PlayerService:
 
         return PlayerResponse.model_validate(player)
 
+    @staticmethod
+    def _parse_search_query(query: str) -> tuple[str, str | None, str | None]:
+        """
+        Parse search query to detect search type and extract components.
+
+        Returns:
+            Tuple of (search_type, game_name, tag_line)
+            search_type: "riot_id", "tag", "name", or "all"
+        """
+        if query.startswith("#"):
+            # Tag-only search: "#EUW"
+            return "tag", None, query[1:].strip()
+
+        if "#" in query:
+            # Riot ID search: "DangerousDan#EUW"
+            if query.count("#") == 1:
+                game_name, tag_line = query.split("#", 1)
+                return "riot_id", game_name.strip(), tag_line.strip()
+            # Multiple # - treat as invalid, search everything
+            return "all", None, None
+
+        # Name search: "DangerousDan"
+        return "name", query.strip(), None
+
+    @staticmethod
+    def _build_player_search_query(
+        platform: str,
+        search_type: str,
+        query_lower: str,
+        game_name: str | None,
+        tag_line: str | None,
+    ):
+        """Build SQLAlchemy query based on search type."""
+        if search_type == "riot_id" and game_name and tag_line:
+            # Search for exact or partial Riot ID
+            return select(Player).where(
+                and_(
+                    Player.platform == platform,
+                    Player.is_active,
+                    or_(
+                        # Exact match
+                        and_(
+                            Player.riot_id.ilike(game_name),
+                            Player.tag_line.ilike(tag_line),
+                        ),
+                        # Partial matches
+                        Player.riot_id.ilike(f"%{game_name}%"),
+                        Player.tag_line.ilike(f"%{tag_line}%"),
+                    ),
+                )
+            )
+
+        if search_type == "tag" and tag_line:
+            # Search tags only
+            return select(Player).where(
+                and_(
+                    Player.platform == platform,
+                    Player.is_active,
+                    Player.tag_line.ilike(f"%{tag_line}%"),
+                )
+            )
+
+        # name or all - search summoner names and riot_id
+        search_term = game_name if game_name else query_lower
+        return select(Player).where(
+            and_(
+                Player.platform == platform,
+                Player.is_active,
+                or_(
+                    Player.summoner_name.ilike(f"%{search_term}%"),
+                    Player.riot_id.ilike(f"%{search_term}%"),
+                ),
+            )
+        )
+
+    @staticmethod
+    def _check_exact_riot_id_match(
+        player: Player, game_name: str, tag_line: str
+    ) -> bool:
+        """Check if player is an exact Riot ID match."""
+        return (
+            player.riot_id
+            and player.riot_id.lower() == game_name.lower()
+            and player.tag_line
+            and player.tag_line.lower() == tag_line.lower()
+        )
+
+    @staticmethod
+    def _calculate_levenshtein_distances(
+        player: Player,
+        search_type: str,
+        query_lower: str,
+        tag_line: str | None,
+    ) -> list[int]:
+        """Calculate Levenshtein distances for all relevant fields."""
+        distances = []
+
+        # Score summoner name
+        if player.summoner_name and (search_type in ["name", "all"]):
+            dist = levenshtein_distance(query_lower, player.summoner_name.lower())
+            distances.append(dist)
+
+        # Score riot_id
+        if player.riot_id and (search_type in ["name", "riot_id", "all"]):
+            target = (
+                (f"{player.riot_id}#{player.tag_line}").lower()
+                if player.tag_line
+                else player.riot_id.lower()
+            )
+            dist = levenshtein_distance(query_lower, target)
+            distances.append(dist)
+
+        # Score tag_line
+        if player.tag_line and (search_type in ["tag", "riot_id"]):
+            tag_query = tag_line.lower() if tag_line else query_lower
+            dist = levenshtein_distance(tag_query, player.tag_line.lower())
+            distances.append(dist)
+
+        return distances
+
+    @staticmethod
+    def _score_player_match(
+        player: Player,
+        search_type: str,
+        query_lower: str,
+        game_name: str | None,
+        tag_line: str | None,
+    ) -> float:
+        """
+        Calculate relevance score for a player match.
+
+        Returns:
+            Score where 1000.0 = exact match, 0.0-1.0 = fuzzy match quality
+        """
+        # Exact Riot ID match = highest priority
+        if (
+            search_type == "riot_id"
+            and game_name
+            and tag_line
+            and PlayerService._check_exact_riot_id_match(player, game_name, tag_line)
+        ):
+            return 1000.0
+
+        # Levenshtein scoring for fuzzy matches
+        distances = PlayerService._calculate_levenshtein_distances(
+            player, search_type, query_lower, tag_line
+        )
+
+        if distances:
+            min_dist = min(distances)
+            # Convert to score: 1 / (1 + distance)
+            return 1.0 / (1.0 + min_dist)
+
+        return 0.0
+
     async def fuzzy_search_players(
         self, query: str, platform: str, limit: int = 10
     ) -> List[PlayerResponse]:
@@ -252,64 +407,19 @@ class PlayerService:
         Returns:
             List of PlayerResponse sorted by relevance
         """
-
-        # Fix #3: Add Input Validation (Major)
-        # Validate and normalize input
+        # Validate input
         query = query.strip()
         if len(query) < 2:
             logger.warning("Query too short", query=query)
             return []
 
-        valid_platforms = [
-            "eun1",
-            "euw1",
-            "na1",
-            "kr",
-            "br1",
-            "la1",
-            "la2",
-            "oc1",
-            "ru",
-            "tr1",
-            "jp1",
-            "ph2",
-            "sg2",
-            "th2",
-            "tw2",
-            "vn2",
-        ]
-        if platform not in valid_platforms:
-            logger.error("Invalid platform", platform=platform)
-            raise ValueError(f"Invalid platform: {platform}")
+        # Validate platform using existing utility (moved from hardcoded list)
+        validate_platform(platform)
 
-        # Step 1: Detect search type
-        search_type = "name"
-        game_name = None
-        tag_line = None
+        # Parse search query
+        search_type, game_name, tag_line = self._parse_search_query(query)
 
-        # Fix #1: Reorder Conditional Logic (Critical)
-        # Check startswith("#") BEFORE "#" in query to fix tag-only search bug
-        if query.startswith("#"):
-            # Tag-only search: "#EUW"
-            search_type = "tag"
-            tag_line = query[1:].strip()
-        elif "#" in query:
-            # Riot ID search: "DangerousDan#EUW"
-            if query.count("#") == 1:
-                search_type = "riot_id"
-                game_name, tag_line = query.split("#", 1)
-                game_name = game_name.strip()
-                tag_line = tag_line.strip()
-            else:
-                # Multiple # - treat as invalid, search everything
-                search_type = "all"
-        else:
-            # Name search: "DangerousDan"
-            search_type = "name"
-            game_name = query.strip()
-
-        # Fix #2: Add Validation After Conditional (Critical)
-        # Validate that Riot ID search has both game_name and tag_line
+        # Validate Riot ID searches have both components
         if search_type == "riot_id" and (not game_name or not tag_line):
             logger.warning(
                 "Invalid Riot ID search: empty game_name or tag_line",
@@ -318,122 +428,29 @@ class PlayerService:
             )
             return []
 
-        # Step 2: Build database query (broad match with ILIKE)
+        # Build and execute database query
         query_lower = query.lower().strip()
-
-        if search_type == "riot_id" and game_name and tag_line:
-            # Search for exact or partial Riot ID
-            stmt = select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    or_(
-                        # Exact match
-                        and_(
-                            Player.riot_id.ilike(game_name),
-                            Player.tag_line.ilike(tag_line),
-                        ),
-                        # Partial matches
-                        Player.riot_id.ilike(f"%{game_name}%"),
-                        Player.tag_line.ilike(f"%{tag_line}%"),
-                    ),
-                )
-            )
-        elif search_type == "tag" and tag_line:
-            # Search tags only
-            stmt = select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    Player.tag_line.ilike(f"%{tag_line}%"),
-                )
-            )
-        else:  # name or all
-            # Search summoner names and riot_id
-            search_term = game_name if game_name else query_lower
-            stmt = select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    or_(
-                        Player.summoner_name.ilike(f"%{search_term}%"),
-                        Player.riot_id.ilike(f"%{search_term}%"),
-                    ),
-                )
-            )
-
-        # Fix #4: Add Performance Limit (Major)
-        # Limit candidates to prevent excessive result sets
-        stmt = stmt.limit(100)
+        stmt = self._build_player_search_query(
+            platform, search_type, query_lower, game_name, tag_line
+        )
+        stmt = stmt.limit(100)  # Prevent excessive result sets
 
         result = await self.db.execute(stmt)
         players = result.scalars().all()
 
-        # Step 3: Score and sort results
-        scored_players = []
+        # Score and sort results
+        scored_players = [
+            {
+                "player": player,
+                "score": self._score_player_match(
+                    player, search_type, query_lower, game_name, tag_line
+                ),
+                "name": player.summoner_name or player.riot_id or "",
+            }
+            for player in players
+        ]
 
-        for player in players:
-            score = 0.0
-
-            # Exact Riot ID match = highest priority (score: 1000)
-            if search_type == "riot_id" and game_name and tag_line:
-                if (
-                    player.riot_id
-                    and player.riot_id.lower() == game_name.lower()
-                    and player.tag_line
-                    and player.tag_line.lower() == tag_line.lower()
-                ):
-                    score = 1000.0
-
-            # Levenshtein scoring for fuzzy matches
-            if score < 1000:
-                distances = []
-
-                # Score summoner name
-                if player.summoner_name and (search_type in ["name", "all"]):
-                    dist = levenshtein_distance(
-                        query_lower, player.summoner_name.lower()
-                    )
-                    distances.append(dist)
-
-                # Score riot_id
-                if player.riot_id and (search_type in ["name", "riot_id", "all"]):
-                    target = (
-                        (f"{player.riot_id}#{player.tag_line}").lower()
-                        if player.tag_line
-                        else player.riot_id.lower()
-                    )
-                    dist = levenshtein_distance(query_lower, target)
-                    distances.append(dist)
-
-                # Score tag_line
-                if player.tag_line and (search_type in ["tag", "riot_id"]):
-                    dist = levenshtein_distance(
-                        tag_line.lower() if tag_line else query_lower,
-                        player.tag_line.lower(),
-                    )
-                    distances.append(dist)
-
-                # Best (minimum) distance
-                if distances:
-                    min_dist = min(distances)
-                    # Convert to score: 1 / (1 + distance)
-                    # Distance 0 = score 1.0, distance 10 = score 0.09
-                    score = 1.0 / (1.0 + min_dist)
-
-            # Add to scored list
-            scored_players.append(
-                {
-                    "player": player,
-                    "score": score,
-                    "name": player.summoner_name or player.riot_id or "",
-                }
-            )
-
-        # Step 4: Sort by score (desc), then alphabetically
         scored_players.sort(key=lambda x: (-x["score"], x["name"].lower()))
-
-        # Step 5: Return top results
         top_players = scored_players[:limit]
 
         logger.info(
