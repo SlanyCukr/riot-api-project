@@ -30,6 +30,24 @@ RIOT_ID_NAME_MAX_LENGTH = 16
 RIOT_ID_TAG_MAX_LENGTH = 8
 
 
+def _validate_riot_id_length(game_name: str, tag_line: str) -> None:
+    """Validate Riot ID component lengths."""
+    if (
+        len(game_name) > RIOT_ID_NAME_MAX_LENGTH
+        or len(tag_line) > RIOT_ID_TAG_MAX_LENGTH
+    ):
+        raise HTTPException(status_code=400, detail="Riot ID too long")
+
+
+def _validate_riot_id_characters(game_name: str, tag_line: str) -> None:
+    """Validate Riot ID component characters."""
+    if not re.match(r"^[a-zA-Z0-9\s\.\-_]+$", game_name):
+        raise HTTPException(status_code=400, detail="Invalid characters in name")
+
+    if not re.match(r"^[a-zA-Z0-9]+$", tag_line):
+        raise HTTPException(status_code=400, detail="Invalid characters in tag")
+
+
 def validate_riot_id(riot_id: str) -> tuple[str, str]:
     """Validate Riot ID format and return game_name and tag_line."""
     if "#" not in riot_id:
@@ -41,18 +59,8 @@ def validate_riot_id(riot_id: str) -> tuple[str, str]:
     if not game_name or not tag_line:
         raise HTTPException(status_code=400, detail="Invalid Riot ID format")
 
-    if (
-        len(game_name) > RIOT_ID_NAME_MAX_LENGTH
-        or len(tag_line) > RIOT_ID_TAG_MAX_LENGTH
-    ):
-        raise HTTPException(status_code=400, detail="Riot ID too long")
-
-    # Basic character validation
-    if not re.match(r"^[a-zA-Z0-9\s\.\-_]+$", game_name):
-        raise HTTPException(status_code=400, detail="Invalid characters in name")
-
-    if not re.match(r"^[a-zA-Z0-9]+$", tag_line):
-        raise HTTPException(status_code=400, detail="Invalid characters in tag")
+    _validate_riot_id_length(game_name, tag_line)
+    _validate_riot_id_characters(game_name, tag_line)
 
     return game_name, tag_line
 
@@ -375,50 +383,59 @@ async def add_tracked_player(
         404: Player not found in Riot API
         500: Unexpected error
     """
-    if not riot_id and not summoner_name:
-        raise HTTPException(
-            status_code=400, detail="Either riot_id or summoner_name must be provided"
-        )
+    # Early return if neither identifier provided
+    if not riot_id:
+        if not summoner_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Either riot_id or summoner_name must be provided",
+            )
 
     try:
         if riot_id:
-            player = await _process_riot_id_tracking(
+            return await _process_riot_id_tracking(
                 player_service, riot_data_manager, riot_id, platform
             )
-        else:
-            if summoner_name is None:
-                raise HTTPException(status_code=400, detail="summoner_name is required")
-            player = await _process_summoner_name_tracking(
-                player_service, summoner_name, platform
-            )
 
-        return player
+        return await _process_summoner_name_tracking(
+            player_service,
+            summoner_name,
+            platform,  # type: ignore
+        )
 
     except ValueError as e:
-        # Player not found or validation error
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        else:
-            # Tracking limit or other validation error
-            raise HTTPException(status_code=400, detail=error_msg)
+        _handle_tracking_value_error(e)
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
-        # Unexpected error
-        logger.error(
-            "add_tracked_player_failed",
-            error=str(e),
-            riot_id=riot_id,
-            summoner_name=summoner_name,
-            platform=platform,
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error adding tracked player",
-        )
+        _handle_tracking_unexpected_error(e, riot_id, summoner_name, platform)
+
+
+def _handle_tracking_value_error(e: ValueError) -> None:
+    """Handle ValueError during player tracking."""
+    error_msg = str(e)
+    if "not found" in error_msg.lower():
+        raise HTTPException(status_code=404, detail=error_msg)
+    else:
+        raise HTTPException(status_code=400, detail=error_msg)
+
+
+def _handle_tracking_unexpected_error(
+    e: Exception, riot_id: str | None, summoner_name: str | None, platform: str
+) -> None:
+    """Handle unexpected errors during player tracking."""
+    logger.error(
+        "add_tracked_player_failed",
+        error=str(e),
+        riot_id=riot_id,
+        summoner_name=summoner_name,
+        platform=platform,
+        exc_info=True,
+    )
+    raise HTTPException(
+        status_code=500,
+        detail="Internal server error adding tracked player",
+    )
 
 
 # === Player Rank Endpoints ===

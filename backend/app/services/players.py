@@ -107,6 +107,37 @@ class PlayerService:
             "summoner_name": validate_summoner_name,
         },
     )
+    def _find_exact_summoner_match(
+        self, players: list[Player], safe_summoner_name: str
+    ) -> Player | None:
+        """Find exact summoner name match from list of players."""
+        for player in players:
+            if (
+                player.summoner_name
+                and player.summoner_name.lower() == safe_summoner_name.lower()
+            ):
+                return player
+        return None
+
+    def _handle_no_summoner_matches(
+        self, safe_summoner_name: str, normalized_platform: str
+    ) -> None:
+        """Raise error when no summoner name matches found."""
+        logger.info(
+            "No player found in database for summoner name",
+            summoner_name=safe_summoner_name,
+            platform=normalized_platform,
+        )
+        raise PlayerServiceError(
+            message=f"No players found matching '{safe_summoner_name}' on {normalized_platform}. "
+            f"Please check the summoner name and platform, or track this player first.",
+            operation="get_player_by_summoner_name",
+            context={
+                "summoner_name": safe_summoner_name,
+                "platform": normalized_platform,
+            },
+        )
+
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
     ) -> PlayerResponse:
@@ -141,19 +172,16 @@ class PlayerService:
         )
         players = result.scalars().all()
 
-        # If exact match found, return it
-        for player in players:
-            if (
-                player.summoner_name
-                and player.summoner_name.lower() == safe_summoner_name.lower()
-            ):
-                logger.info(
-                    "Found exact match for summoner name",
-                    summoner_name=safe_summoner_name,
-                    platform=normalized_platform,
-                    puuid=player.puuid,
-                )
-                return PlayerResponse.model_validate(player)
+        # Try to find exact match first
+        exact_match = self._find_exact_summoner_match(players, safe_summoner_name)
+        if exact_match:
+            logger.info(
+                "Found exact match for summoner name",
+                summoner_name=safe_summoner_name,
+                platform=normalized_platform,
+                puuid=exact_match.puuid,
+            )
+            return PlayerResponse.model_validate(exact_match)
 
         # If only one partial match, return it
         if len(players) == 1:
@@ -185,21 +213,8 @@ class PlayerService:
                 },
             )
 
-        # No matches found in database
-        logger.info(
-            "No player found in database for summoner name",
-            summoner_name=safe_summoner_name,
-            platform=normalized_platform,
-        )
-        raise PlayerServiceError(
-            message=f"No players found matching '{safe_summoner_name}' on {normalized_platform}. "
-            f"Please check the summoner name and platform, or track this player first.",
-            operation="get_player_by_summoner_name",
-            context={
-                "summoner_name": safe_summoner_name,
-                "platform": normalized_platform,
-            },
-        )
+        # No matches found
+        self._handle_no_summoner_matches(safe_summoner_name, normalized_platform)
 
     async def get_player_by_puuid(
         self, puuid: str, platform: str = "eun1"
@@ -315,6 +330,39 @@ class PlayerService:
         )
 
     @staticmethod
+    def _score_summoner_name(
+        player: Player, search_type: str, query_lower: str
+    ) -> int | None:
+        """Calculate distance for summoner name if applicable."""
+        if player.summoner_name and (search_type in ["name", "all"]):
+            return levenshtein_distance(query_lower, player.summoner_name.lower())
+        return None
+
+    @staticmethod
+    def _score_riot_id(
+        player: Player, search_type: str, query_lower: str
+    ) -> int | None:
+        """Calculate distance for riot_id if applicable."""
+        if player.riot_id and (search_type in ["name", "riot_id", "all"]):
+            target = (
+                (f"{player.riot_id}#{player.tag_line}").lower()
+                if player.tag_line
+                else player.riot_id.lower()
+            )
+            return levenshtein_distance(query_lower, target)
+        return None
+
+    @staticmethod
+    def _score_tag_line(
+        player: Player, search_type: str, query_lower: str, tag_line: str | None
+    ) -> int | None:
+        """Calculate distance for tag_line if applicable."""
+        if player.tag_line and (search_type in ["tag", "riot_id"]):
+            tag_query = tag_line.lower() if tag_line else query_lower
+            return levenshtein_distance(tag_query, player.tag_line.lower())
+        return None
+
+    @staticmethod
     def _calculate_levenshtein_distances(
         player: Player,
         search_type: str,
@@ -325,25 +373,23 @@ class PlayerService:
         distances = []
 
         # Score summoner name
-        if player.summoner_name and (search_type in ["name", "all"]):
-            dist = levenshtein_distance(query_lower, player.summoner_name.lower())
-            distances.append(dist)
+        summoner_dist = PlayerService._score_summoner_name(
+            player, search_type, query_lower
+        )
+        if summoner_dist is not None:
+            distances.append(summoner_dist)
 
         # Score riot_id
-        if player.riot_id and (search_type in ["name", "riot_id", "all"]):
-            target = (
-                (f"{player.riot_id}#{player.tag_line}").lower()
-                if player.tag_line
-                else player.riot_id.lower()
-            )
-            dist = levenshtein_distance(query_lower, target)
-            distances.append(dist)
+        riot_id_dist = PlayerService._score_riot_id(player, search_type, query_lower)
+        if riot_id_dist is not None:
+            distances.append(riot_id_dist)
 
         # Score tag_line
-        if player.tag_line and (search_type in ["tag", "riot_id"]):
-            tag_query = tag_line.lower() if tag_line else query_lower
-            dist = levenshtein_distance(tag_query, player.tag_line.lower())
-            distances.append(dist)
+        tag_dist = PlayerService._score_tag_line(
+            player, search_type, query_lower, tag_line
+        )
+        if tag_dist is not None:
+            distances.append(tag_dist)
 
         return distances
 
@@ -382,6 +428,48 @@ class PlayerService:
 
         return 0.0
 
+    def _validate_search_query(
+        self, query: str, search_type: str, game_name: str | None, tag_line: str | None
+    ) -> bool:
+        """Validate search query and return False if invalid."""
+        if len(query.strip()) < 2:
+            logger.warning("Query too short", query=query)
+            return False
+
+        if search_type == "riot_id" and (not game_name or not tag_line):
+            logger.warning(
+                "Invalid Riot ID search: empty game_name or tag_line",
+                query=query,
+                search_type=search_type,
+            )
+            return False
+
+        return True
+
+    def _score_and_sort_players(
+        self,
+        players: list[Player],
+        search_type: str,
+        query_lower: str,
+        game_name: str | None,
+        tag_line: str | None,
+        limit: int,
+    ) -> list[dict]:
+        """Score players by relevance and return top matches."""
+        scored_players = [
+            {
+                "player": player,
+                "score": self._score_player_match(
+                    player, search_type, query_lower, game_name, tag_line
+                ),
+                "name": player.summoner_name or player.riot_id or "",
+            }
+            for player in players
+        ]
+
+        scored_players.sort(key=lambda x: (-x["score"], x["name"].lower()))
+        return scored_players[:limit]
+
     async def fuzzy_search_players(
         self, query: str, platform: str, limit: int = 10
     ) -> List[PlayerResponse]:
@@ -407,25 +495,14 @@ class PlayerService:
         Returns:
             List of PlayerResponse sorted by relevance
         """
-        # Validate input
-        query = query.strip()
-        if len(query) < 2:
-            logger.warning("Query too short", query=query)
-            return []
-
         # Validate platform using existing utility (moved from hardcoded list)
         validate_platform(platform)
 
         # Parse search query
         search_type, game_name, tag_line = self._parse_search_query(query)
 
-        # Validate Riot ID searches have both components
-        if search_type == "riot_id" and (not game_name or not tag_line):
-            logger.warning(
-                "Invalid Riot ID search: empty game_name or tag_line",
-                query=query,
-                search_type=search_type,
-            )
+        # Validate search query
+        if not self._validate_search_query(query, search_type, game_name, tag_line):
             return []
 
         # Build and execute database query
@@ -439,19 +516,9 @@ class PlayerService:
         players = result.scalars().all()
 
         # Score and sort results
-        scored_players = [
-            {
-                "player": player,
-                "score": self._score_player_match(
-                    player, search_type, query_lower, game_name, tag_line
-                ),
-                "name": player.summoner_name or player.riot_id or "",
-            }
-            for player in players
-        ]
-
-        scored_players.sort(key=lambda x: (-x["score"], x["name"].lower()))
-        top_players = scored_players[:limit]
+        top_players = self._score_and_sort_players(
+            players, search_type, query_lower, game_name, tag_line, limit
+        )
 
         logger.info(
             "Fuzzy search completed",

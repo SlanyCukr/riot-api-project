@@ -173,6 +173,13 @@ class PlayerAnalyzerJob(BaseJob):
         critical=False,
         log_context=lambda self, execution_summary: {},
     )
+    def _update_analysis_summary(self, execution_summary: dict, result) -> None:
+        """Update execution summary with analysis result."""
+        if result is not None:
+            execution_summary["players_analyzed"] += 1
+            if result.is_smurf:
+                execution_summary["smurfs_detected"] += 1
+
     async def _analyze_phase(self, execution_summary: dict) -> None:
         """Analyze players with sufficient match history."""
         # Exit early if services not initialized
@@ -194,10 +201,7 @@ class PlayerAnalyzerJob(BaseJob):
         for player in players:
             result = await self._analyze_single_player(player, execution_summary)
             # Error decorator handles failures, so we get None on error
-            if result is not None:
-                execution_summary["players_analyzed"] += 1
-                if result.is_smurf:
-                    execution_summary["smurfs_detected"] += 1
+            self._update_analysis_summary(execution_summary, result)
 
     @handle_riot_api_errors(
         operation="analyze player",

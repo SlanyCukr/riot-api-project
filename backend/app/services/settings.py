@@ -132,8 +132,8 @@ class SettingsService:
             updated_at=setting.updated_at,
         )
 
-    async def validate_riot_api_key(self, api_key: str) -> SettingValidationResponse:
-        """Validate a Riot API key by making a test API call."""
+    def _check_api_key_format(self, api_key: str) -> SettingValidationResponse | None:
+        """Check API key format. Returns error response if invalid, None if valid."""
         if not api_key or len(api_key) < 10:
             return SettingValidationResponse(
                 valid=False,
@@ -148,73 +148,77 @@ class SettingsService:
                 details="Riot API keys must start with 'RGAPI-'",
             )
 
+        return None
+
+    async def _test_api_key_with_client(
+        self, client: RiotAPIClient
+    ) -> SettingValidationResponse:
+        """Test API key by making request to Riot API."""
+        try:
+            test_url = client.endpoints.account_by_riot_id("Faker", "KR1")
+            logger.info("riot_api_key_validation_attempt", test_url=test_url)
+
+            response = await client._make_request(
+                test_url, method="GET", retry_on_failure=False
+            )
+
+            logger.info(
+                "riot_api_key_validated",
+                status="success",
+                response_type=type(response).__name__,
+            )
+            return SettingValidationResponse(
+                valid=True,
+                message="API key is valid",
+                details="Successfully validated with Riot API",
+            )
+
+        except AuthenticationError as e:
+            logger.warning(
+                "riot_api_key_validation_failed", error="401", details=str(e)
+            )
+            return SettingValidationResponse(
+                valid=False,
+                message="API key is invalid",
+                details="Received 401 Unauthorized from Riot API. The API key format is correct but the key itself is not recognized.",
+            )
+        except ForbiddenError as e:
+            logger.warning(
+                "riot_api_key_validation_failed", error="403", details=str(e)
+            )
+            return SettingValidationResponse(
+                valid=False,
+                message="API key has expired",
+                details="Received 403 Forbidden from Riot API. Development keys expire every 24 hours - please generate a new key at developer.riotgames.com",
+            )
+        except NotFoundError:
+            logger.info(
+                "riot_api_key_validated",
+                status="success",
+                note="404_account_not_found",
+            )
+            return SettingValidationResponse(
+                valid=True,
+                message="API key is valid",
+                details="Successfully validated with Riot API (test account not found, but authentication succeeded)",
+            )
+
+    async def validate_riot_api_key(self, api_key: str) -> SettingValidationResponse:
+        """Validate a Riot API key by making a test API call."""
+        # Check format first
+        format_error = self._check_api_key_format(api_key)
+        if format_error:
+            return format_error
+
         # Test the API key with a simple request
         try:
             client = RiotAPIClient(
-                api_key=api_key,
-                region=Region.EUROPE,
-                platform=Platform.EUN1,
+                api_key=api_key, region=Region.EUROPE, platform=Platform.EUN1
             )
             await client.start_session()
 
             try:
-                # Make a test request to verify the API key works
-                # Use account endpoint - it's more reliable and works with all API key types
-                # We use a well-known account - we expect 200 which means the key is valid
-                test_url = client.endpoints.account_by_riot_id("Faker", "KR1")
-                logger.info("riot_api_key_validation_attempt", test_url=test_url)
-
-                response = await client._make_request(
-                    test_url,
-                    method="GET",
-                    retry_on_failure=False,
-                )
-
-                # If we get here without exception, the API key is valid
-                logger.info(
-                    "riot_api_key_validated",
-                    status="success",
-                    response_type=type(response).__name__,
-                )
-                return SettingValidationResponse(
-                    valid=True,
-                    message="API key is valid",
-                    details="Successfully validated with Riot API",
-                )
-
-            except AuthenticationError as e:
-                # 401 - Invalid API key
-                logger.warning(
-                    "riot_api_key_validation_failed", error="401", details=str(e)
-                )
-                return SettingValidationResponse(
-                    valid=False,
-                    message="API key is invalid",
-                    details="Received 401 Unauthorized from Riot API. The API key format is correct but the key itself is not recognized.",
-                )
-            except ForbiddenError as e:
-                # 403 - API key expired or forbidden
-                logger.warning(
-                    "riot_api_key_validation_failed", error="403", details=str(e)
-                )
-                return SettingValidationResponse(
-                    valid=False,
-                    message="API key has expired",
-                    details="Received 403 Forbidden from Riot API. Development keys expire every 24 hours - please generate a new key at developer.riotgames.com",
-                )
-            except NotFoundError:
-                # 404 - Account not found. Key is still valid, but account doesn't exist
-                # This shouldn't happen with Faker account, but treat as valid anyway
-                logger.info(
-                    "riot_api_key_validated",
-                    status="success",
-                    note="404_account_not_found",
-                )
-                return SettingValidationResponse(
-                    valid=True,
-                    message="API key is valid",
-                    details="Successfully validated with Riot API (test account not found, but authentication succeeded)",
-                )
+                return await self._test_api_key_with_client(client)
             finally:
                 await client.close()
 

@@ -110,6 +110,16 @@ class JobService:
 
     # === Job Execution Operations ===
 
+    def _apply_execution_filters(
+        self, query, job_config_id: Optional[int], status: Optional[JobStatus]
+    ):
+        """Apply filters to a job execution query."""
+        if job_config_id:
+            query = query.where(JobExecution.job_config_id == job_config_id)
+        if status:
+            query = query.where(JobExecution.status == status)
+        return query
+
     async def list_job_executions(
         self,
         job_config_id: Optional[int] = None,
@@ -130,19 +140,11 @@ class JobService:
         """
         # Build base query
         query = select(JobExecution).order_by(desc(JobExecution.started_at))
-
-        if job_config_id:
-            query = query.where(JobExecution.job_config_id == job_config_id)
-
-        if status:
-            query = query.where(JobExecution.status == status)
+        query = self._apply_execution_filters(query, job_config_id, status)
 
         # Get total count
         count_query = select(func.count()).select_from(JobExecution)
-        if job_config_id:
-            count_query = count_query.where(JobExecution.job_config_id == job_config_id)
-        if status:
-            count_query = count_query.where(JobExecution.status == status)
+        count_query = self._apply_execution_filters(count_query, job_config_id, status)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0

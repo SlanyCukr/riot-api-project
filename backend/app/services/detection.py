@@ -273,6 +273,18 @@ class SmurfDetectionService:
         else:
             return False, "none"
 
+    @staticmethod
+    def _get_confidence_level(score: float) -> str:
+        """Determine confidence level based on score."""
+        if score >= 0.8:
+            return "very high confidence"
+        elif score >= 0.6:
+            return "high confidence"
+        elif score >= 0.4:
+            return "moderate confidence"
+        else:
+            return "low confidence"
+
     def _generate_reason(self, factors: List[DetectionFactor], score: float) -> str:
         """Generate human-readable reason for detection."""
         triggered_factors = [f for f in factors if f.meets_threshold]
@@ -284,15 +296,7 @@ class SmurfDetectionService:
         for factor in triggered_factors[:3]:  # Top 3 factors
             reasons.append(factor.description.split(":")[0])
 
-        if score >= 0.8:
-            confidence = "very high confidence"
-        elif score >= 0.6:
-            confidence = "high confidence"
-        elif score >= 0.4:
-            confidence = "moderate confidence"
-        else:
-            confidence = "low confidence"
-
+        confidence = self._get_confidence_level(score)
         return f"Smurf indicators detected: {', '.join(reasons)} ({confidence}, score: {score:.2f})"
 
     async def _get_player(self, puuid: str) -> Optional[Player]:

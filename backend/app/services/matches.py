@@ -281,6 +281,35 @@ class MatchService:
             logger.warning("Failed to fetch match", match_id=match_id, error=str(e))
             return False
 
+    def _validate_platform_code(self, platform: str, puuid: str) -> bool:
+        """Validate platform code. Returns True if valid, False if invalid."""
+        from ..riot_api.constants import Platform
+
+        try:
+            Platform(platform.lower())
+            return True
+        except ValueError:
+            logger.warning("Invalid platform", puuid=puuid, platform=platform)
+            return False
+
+    async def _fetch_new_match_ids_for_player(
+        self, riot_api_client: "RiotAPIClient", puuid: str, queue: int
+    ) -> list[str]:
+        """Fetch and filter to only new match IDs."""
+        all_match_ids = await self._fetch_match_ids_from_api(
+            riot_api_client, puuid, queue
+        )
+        if not all_match_ids:
+            logger.debug("No matches found for player", puuid=puuid)
+            return []
+
+        new_match_ids = await self._get_new_match_ids(all_match_ids)
+        if not new_match_ids:
+            logger.debug("All matches already in database", puuid=puuid)
+            return []
+
+        return new_match_ids
+
     async def fetch_and_store_matches_for_player(
         self,
         riot_api_client: "RiotAPIClient",
@@ -311,7 +340,6 @@ class MatchService:
             ForbiddenError: If API key is expired
             ValueError: If invalid platform provided
         """
-        from ..riot_api.constants import Platform
         from ..riot_api.errors import (
             RateLimitError,
             AuthenticationError,
@@ -320,24 +348,14 @@ class MatchService:
 
         try:
             # Validate platform
-            try:
-                Platform(platform.lower())
-            except ValueError:
-                logger.warning("Invalid platform", puuid=puuid, platform=platform)
+            if not self._validate_platform_code(platform, puuid):
                 return 0
 
-            # Fetch match IDs from API
-            all_match_ids = await self._fetch_match_ids_from_api(
+            # Fetch new match IDs
+            new_match_ids = await self._fetch_new_match_ids_for_player(
                 riot_api_client, puuid, queue
             )
-            if not all_match_ids:
-                logger.debug("No matches found for player", puuid=puuid)
-                return 0
-
-            # Filter to new matches only
-            new_match_ids = await self._get_new_match_ids(all_match_ids)
             if not new_match_ids:
-                logger.debug("All matches already in database", puuid=puuid)
                 return 0
 
             # Fetch requested count of new matches
@@ -354,9 +372,7 @@ class MatchService:
             )
             return fetched_count
 
-        except RateLimitError:
-            raise
-        except (AuthenticationError, ForbiddenError):
+        except (RateLimitError, AuthenticationError, ForbiddenError):
             raise
         except Exception as e:
             logger.error("Failed to fetch and store matches", puuid=puuid, error=str(e))
