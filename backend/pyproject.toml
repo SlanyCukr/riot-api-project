@@ -132,6 +132,8 @@ ignore_names = [
     # SQLAlchemy ORM fields accessed indirectly by transformers
     "riot_id_name",
     "riot_id_tagline",
+    # Utility functions for future use
+    "dual_mode_decorator",
 ]
 min_confidence = 60
 paths = ["app/"]

@@ -39,6 +39,9 @@
 - Add module docstrings to all files
 - Example: `"""Get player by Riot ID.\n\n:param game_name: Player's game name\n:returns: Player response\n"""`
 
+# Do
+- Use return-early strategy to reduce cognitive complexity whenever possible
+
 # Do Not
 
 - Don't call RiotAPIClient directly (use RiotDataManager)

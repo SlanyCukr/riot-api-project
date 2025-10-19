@@ -132,6 +132,73 @@ class RateLimiter:
             self.method_remaining[endpoint_key] = remaining
             self.method_reset_time[endpoint_key] = reset_time
 
+    def _parse_rate_headers(
+        self, limit_header: str, count_header: str
+    ) -> tuple[list, list] | None:
+        """
+        Parse rate limit header pair.
+
+        Returns:
+            Tuple of (limits, counts) if parsing succeeds, None otherwise
+        """
+        if not limit_header or not count_header:
+            return None
+
+        limits = parse_rate_limit_header(limit_header)
+        counts = parse_rate_count_header(count_header)
+
+        if not limits or not counts:
+            return None
+
+        return (limits, counts)
+
+    def _apply_rate_limit_update(
+        self,
+        limit: Dict,
+        count: Dict,
+        scope: str,
+        endpoint_key: str | None = None,
+    ) -> None:
+        """
+        Apply a single rate limit update to internal state.
+
+        Args:
+            limit: Parsed limit dict with 'requests' and 'window' keys
+            count: Parsed count dict with 'requests' key
+            scope: Either "app" or "method" for logging
+            endpoint_key: Endpoint key for method-scoped limits
+        """
+        limit_requests = limit["requests"]
+        used_requests = count["requests"]
+        window = limit["window"]
+
+        remaining = limit_requests - used_requests
+        reset_time = time.time() + window
+
+        # Update app-level limit
+        if scope == "app":
+            self._update_app_limit(remaining, reset_time)
+            logger.debug(
+                "Updated app rate limit",
+                limit=limit_requests,
+                used=used_requests,
+                remaining=remaining,
+                window=window,
+            )
+            return
+
+        # Update method-level limit
+        if endpoint_key:
+            self._update_method_limit(endpoint_key, remaining, reset_time)
+            logger.debug(
+                "Updated method rate limit",
+                endpoint=endpoint_key,
+                limit=limit_requests,
+                used=used_requests,
+                remaining=remaining,
+                window=window,
+            )
+
     def _process_rate_limit_pair(
         self,
         limit_header: str,
@@ -148,37 +215,13 @@ class RateLimiter:
             scope: Either "app" or "method" for logging
             endpoint_key: Endpoint key for method-scoped limits
         """
-        if not limit_header or not count_header:
+        parsed = self._parse_rate_headers(limit_header, count_header)
+        if not parsed:
             return
 
-        limits = parse_rate_limit_header(limit_header)
-        counts = parse_rate_count_header(count_header)
-
-        if not limits or not counts:
-            return
-
+        limits, counts = parsed
         for limit, count in zip(limits, counts):
-            limit_requests = limit["requests"]
-            used_requests = count["requests"]
-            window = limit["window"]
-
-            remaining = limit_requests - used_requests
-            reset_time = time.time() + window
-
-            # Update appropriate scope
-            if scope == "app":
-                self._update_app_limit(remaining, reset_time)
-            elif endpoint_key:  # method scope
-                self._update_method_limit(endpoint_key, remaining, reset_time)
-
-            logger.debug(
-                f"Updated {scope} rate limit",
-                endpoint=endpoint_key if scope == "method" else None,
-                limit=limit_requests,
-                used=used_requests,
-                remaining=remaining,
-                window=window,
-            )
+            self._apply_rate_limit_update(limit, count, scope, endpoint_key)
 
     def update_limits(
         self, headers: Dict[str, str], endpoint: str, method: str = "GET"
