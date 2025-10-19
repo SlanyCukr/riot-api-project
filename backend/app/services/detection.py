@@ -27,9 +27,9 @@ from .analyzers import (
     WinRateFactorAnalyzer,
     WinRateTrendFactorAnalyzer,
     AccountLevelFactorAnalyzer,
+    PerformanceFactorAnalyzer,
+    RankProgressionFactorAnalyzer,
 )
-from ..algorithms.performance import PerformanceAnalyzer
-from ..algorithms.rank_progression import RankProgressionAnalyzer
 
 logger = structlog.get_logger(__name__)
 
@@ -60,23 +60,9 @@ class SmurfDetectionService:
             "win_rate": WinRateFactorAnalyzer(),
             "win_rate_trend": WinRateTrendFactorAnalyzer(),
             "account_level": AccountLevelFactorAnalyzer(),
+            "performance_consistency": PerformanceFactorAnalyzer(),
+            "rank_progression": RankProgressionFactorAnalyzer(),
         }
-
-        # Initialize algorithm-level analyzers
-        self.rank_analyzer = RankProgressionAnalyzer(
-            tier_jump_threshold=self.thresholds.get("rank_tier_jump", 2),
-            rapid_progression_days=30,
-            min_games_for_analysis=self.analysis_config.get(
-                "min_matches_for_analysis", 10
-            ),
-        )
-        self.performance_analyzer = PerformanceAnalyzer(
-            high_kda_threshold=self.thresholds.get("high_kda", 3.5),
-            consistency_threshold=self.thresholds.get("performance_variance", 0.3),
-            min_games_for_analysis=self.analysis_config.get(
-                "min_matches_for_analysis", 10
-            ),
-        )
 
         logger.info(
             "SmurfDetectionService initialized",
@@ -209,131 +195,6 @@ class SmurfDetectionService:
             created_at=detection.created_at,
         )
 
-    async def _create_rank_progression_factor(self, puuid: str) -> DetectionFactor:
-        """Create rank progression detection factor."""
-        rank_result = await self.rank_analyzer.analyze(puuid, self.db)
-        rank_score = (
-            min(1.0, rank_result.progression_speed / 100)
-            if rank_result.progression_speed > 0
-            else 0.0
-        )
-        return DetectionFactor(
-            name="rank_progression",
-            value=rank_result.progression_speed,
-            meets_threshold=rank_result.meets_threshold,
-            weight=self.weights["rank_progression"],
-            description=rank_result.description,
-            score=rank_score,
-        )
-
-    async def _create_performance_consistency_factor(
-        self, recent_matches: List[Dict[str, Any]]
-    ) -> DetectionFactor:
-        """Create performance consistency detection factor."""
-        result = await self.performance_analyzer.analyze(recent_matches)
-        score = result.consistency_score if result.meets_threshold else 0.0
-        return DetectionFactor(
-            name="performance_consistency",
-            value=result.consistency_score,
-            meets_threshold=result.meets_threshold,
-            weight=self.weights["performance_consistency"],
-            description=result.description,
-            score=score,
-        )
-
-    def _create_performance_trends_factor(
-        self, recent_matches: List[Dict[str, Any]]
-    ) -> DetectionFactor:
-        """Create performance trends detection factor."""
-        if len(recent_matches) < 10:
-            return DetectionFactor(
-                name="performance_trends",
-                value=0.0,
-                meets_threshold=False,
-                weight=self.weights["performance_trends"],
-                description="Performance trends: insufficient data",
-                score=0.0,
-            )
-
-        result = self.performance_analyzer.analyze_performance_trends(recent_matches)
-        trend_score = result.get("trend_score", 0.0)
-        is_stable = result.get("is_suspiciously_stable", False)
-        overall_perf = result.get("overall_performance", 0.0)
-        final_score = max(trend_score, 0.8 if is_stable else 0.0)
-
-        return DetectionFactor(
-            name="performance_trends",
-            value=overall_perf,
-            meets_threshold=final_score > 0.6,
-            weight=self.weights["performance_trends"],
-            description=f"Performance trend: {result.get('trend', 'stable')} (score: {overall_perf:.2f})",
-            score=final_score,
-        )
-
-    def _create_role_performance_factor(
-        self, recent_matches: List[Dict[str, Any]]
-    ) -> DetectionFactor:
-        """Create role performance detection factor."""
-        result = self.performance_analyzer.analyze_role_performance(recent_matches)
-        versatility_score = result.get("role_versatility_score", 0)
-        high_perf_roles = result.get("consistent_high_performance", 0)
-        role_score = min(1.0, high_perf_roles / 3.0) if versatility_score >= 3 else 0.0
-
-        return DetectionFactor(
-            name="role_performance",
-            value=float(high_perf_roles),
-            meets_threshold=high_perf_roles >= 2,
-            weight=self.weights["role_performance"],
-            description=f"Role versatility: {high_perf_roles} roles with high performance",
-            score=role_score,
-        )
-
-    async def _create_rank_discrepancy_factor(
-        self, puuid: str, recent_matches: List[Dict[str, Any]]
-    ) -> DetectionFactor:
-        """Create rank discrepancy detection factor."""
-        current_rank = await self._get_current_rank(puuid)
-
-        if not current_rank:
-            return DetectionFactor(
-                name="rank_discrepancy",
-                value=0.0,
-                meets_threshold=False,
-                weight=self.weights["rank_discrepancy"],
-                description="Rank discrepancy: no rank data available",
-                score=0.0,
-            )
-
-        # Calculate performance metrics
-        total_kills = sum(m.get("kills", 0) for m in recent_matches)
-        total_deaths = sum(m.get("deaths", 0) for m in recent_matches)
-        total_assists = sum(m.get("assists", 0) for m in recent_matches)
-        wins = sum(1 for m in recent_matches if m.get("win", False))
-
-        avg_kda = self._calculate_kda(total_kills, total_deaths, total_assists)
-        win_rate = wins / len(recent_matches) if recent_matches else 0.0
-
-        result = self.rank_analyzer.analyze_rank_discrepancy(
-            current_rank, {"kda": avg_kda, "win_rate": win_rate}
-        )
-
-        discrepancy_score = result.get("discrepancy_score", 0.0)
-        is_suspicious = result.get("is_suspicious", False)
-
-        if current_rank.tier == "UNRANKED":
-            description = f"Player is unranked (KDA: {avg_kda:.2f}, WR: {win_rate:.1%}) - no tier comparison"
-        else:
-            description = f"Rank vs performance: {current_rank.tier} {current_rank.rank} (KDA: {avg_kda:.2f}, WR: {win_rate:.1%})"
-
-        return DetectionFactor(
-            name="rank_discrepancy",
-            value=discrepancy_score,
-            meets_threshold=is_suspicious,
-            weight=self.weights["rank_discrepancy"],
-            description=description,
-            score=min(1.0, discrepancy_score * 3),
-        )
-
     async def _analyze_detection_factors(
         self, puuid: str, recent_matches: List[Dict[str, Any]], player: Player
     ) -> List[DetectionFactor]:
@@ -380,17 +241,8 @@ class SmurfDetectionService:
             successful_analyzers=sum(1 for f in factors if f.score > 0),
         )
 
-        # Add specialized analyzer factors
-        factors.extend(
-            [
-                await self._create_rank_progression_factor(puuid),
-                await self._create_performance_consistency_factor(recent_matches),
-                self._create_performance_trends_factor(recent_matches),
-                self._create_role_performance_factor(recent_matches),
-                await self._create_rank_discrepancy_factor(puuid, recent_matches),
-                self._analyze_kda(recent_matches),
-            ]
-        )
+        # Add legacy KDA factor (to be migrated to factor analyzer)
+        factors.append(self._analyze_kda(recent_matches))
 
         return factors
 

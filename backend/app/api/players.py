@@ -318,6 +318,35 @@ async def get_tracked_players(player_service: PlayerServiceDep):
         )
 
 
+async def _process_riot_id_tracking(
+    player_service, riot_data_manager, riot_id: str, platform: str
+):
+    """Process tracking request with Riot ID."""
+    game_name, tag_line = validate_riot_id(riot_id)
+    return await player_service.add_and_track_player(
+        riot_data_manager=riot_data_manager,
+        game_name=game_name,
+        tag_line=tag_line,
+        platform=platform,
+    )
+
+
+async def _process_summoner_name_tracking(
+    player_service, summoner_name: str, platform: str
+):
+    """Process tracking request with summoner name."""
+    try:
+        player_response = await player_service.get_player_by_summoner_name(
+            summoner_name, platform
+        )
+        return await player_service.track_player(player_response.puuid)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Player '{summoner_name}' not found in database. Please use Riot ID (name#tag) format to add new players.",
+        )
+
+
 @router.post("/add-tracked", response_model=PlayerResponse)
 async def add_tracked_player(
     player_service: PlayerServiceDep,
@@ -353,34 +382,15 @@ async def add_tracked_player(
 
     try:
         if riot_id:
-            # Parse and validate Riot ID (name#tag)
-            game_name, tag_line = validate_riot_id(riot_id)
-
-            # Fetch and track player (this calls Riot API once)
-            player = await player_service.add_and_track_player(
-                riot_data_manager=riot_data_manager,
-                game_name=game_name,
-                tag_line=tag_line,
-                platform=platform,
+            player = await _process_riot_id_tracking(
+                player_service, riot_data_manager, riot_id, platform
             )
         else:
             if summoner_name is None:
                 raise HTTPException(status_code=400, detail="summoner_name is required")
-
-            # For summoner name, we need to fetch from Riot API
-            # Since summoner name alone doesn't work with Riot API v5,
-            # we'll try to find in database first, then error if not found
-            try:
-                player_response = await player_service.get_player_by_summoner_name(
-                    summoner_name, platform
-                )
-                # Track the found player
-                player = await player_service.track_player(player_response.puuid)
-            except ValueError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Player '{summoner_name}' not found in database. Please use Riot ID (name#tag) format to add new players.",
-                )
+            player = await _process_summoner_name_tracking(
+                player_service, summoner_name, platform
+            )
 
         return player
 

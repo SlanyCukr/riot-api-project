@@ -268,6 +268,74 @@ async def start_scheduler() -> AsyncIOScheduler:
         raise
 
 
+def _convert_job_type(job_config: JobConfiguration) -> Optional[JobType]:
+    """Convert job configuration type to JobType enum.
+
+    :param job_config: Job configuration to convert.
+    :returns: JobType enum, or None if invalid.
+    """
+    job_type = job_config.job_type
+    if isinstance(job_type, str):
+        try:
+            return JobType(job_type)
+        except ValueError:
+            logger.warning(
+                "Invalid job type, skipping",
+                job_type=job_config.job_type,
+                job_name=job_config.name,
+            )
+            return None
+    return job_type
+
+
+def _get_job_class(job_type: JobType, job_config: JobConfiguration, registry: Dict):
+    """Get job class from registry.
+
+    :param job_type: Type of job to get.
+    :param job_config: Job configuration for logging.
+    :param registry: Job registry mapping.
+    :returns: Job class, or None if not found.
+    """
+    job_class = registry.get(job_type)
+    if not job_class:
+        logger.warning(
+            "Unknown job type, skipping",
+            job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+            job_name=job_config.name,
+        )
+    return job_class
+
+
+def _schedule_job(
+    job_config: JobConfiguration, job_class: Type[BaseJob], interval_seconds: int
+):
+    """Schedule a single job with the scheduler.
+
+    :param job_config: Job configuration.
+    :param job_class: Job class to instantiate.
+    :param interval_seconds: Interval in seconds.
+    """
+    job_instance = job_class(job_config)
+    job_type = job_config.job_type
+
+    _scheduler.add_job(
+        job_instance.run,
+        trigger="interval",
+        seconds=interval_seconds,
+        id=f"job_{job_config.id}",
+        name=job_config.name,
+        replace_existing=True,
+    )
+
+    logger.info(
+        "Scheduled job",
+        job_id=job_config.id,
+        job_name=job_config.name,
+        job_type=job_type.value if isinstance(job_type, JobType) else str(job_type),
+        interval_seconds=interval_seconds,
+    )
+
+
 async def _load_and_schedule_jobs() -> None:
     """Load job configurations from database and schedule them.
 
@@ -295,53 +363,18 @@ async def _load_and_schedule_jobs() -> None:
         settings = get_global_settings()
 
         for job_config in job_configs:
-            job_type = job_config.job_type
-            if isinstance(job_type, str):
-                try:
-                    job_type = JobType(job_type)
-                except ValueError:
-                    logger.warning(
-                        "Invalid job type, skipping",
-                        job_type=job_config.job_type,
-                        job_name=job_config.name,
-                    )
-                    continue
-
-            job_class = registry.get(job_type)
-
-            if not job_class:
-                logger.warning(
-                    "Unknown job type, skipping",
-                    job_type=job_type.value
-                    if isinstance(job_type, JobType)
-                    else str(job_type),
-                    job_name=job_config.name,
-                )
+            job_type = _convert_job_type(job_config)
+            if not job_type:
                 continue
 
-            job_instance = job_class(job_config)
+            job_class = _get_job_class(job_type, job_config, registry)
+            if not job_class:
+                continue
+
             interval_seconds = _resolve_interval_seconds(
                 job_config, settings.job_interval_seconds
             )
-
-            _scheduler.add_job(
-                job_instance.run,
-                trigger="interval",
-                seconds=interval_seconds,
-                id=f"job_{job_config.id}",
-                name=job_config.name,
-                replace_existing=True,
-            )
-
-            logger.info(
-                "Scheduled job",
-                job_id=job_config.id,
-                job_name=job_config.name,
-                job_type=job_type.value
-                if isinstance(job_type, JobType)
-                else str(job_type),
-                interval_seconds=interval_seconds,
-            )
+            _schedule_job(job_config, job_class, interval_seconds)
 
         logger.info("Successfully loaded and scheduled jobs", count=len(job_configs))
 
