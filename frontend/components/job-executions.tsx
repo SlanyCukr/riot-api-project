@@ -236,8 +236,13 @@ export function JobExecutions({
                                 ? "secondary"
                                 : "outline"
                         }
+                        className={
+                          execution.status === "rate_limited"
+                            ? "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-800"
+                            : ""
+                        }
                       >
-                        {execution.status.toUpperCase()}
+                        {execution.status.toUpperCase().replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -327,8 +332,13 @@ export function JobExecutions({
                         ? "destructive"
                         : "secondary"
                   }
+                  className={
+                    selectedExecution.status === "rate_limited"
+                      ? "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-800"
+                      : ""
+                  }
                 >
-                  {selectedExecution.status.toUpperCase()}
+                  {selectedExecution.status.toUpperCase().replace("_", " ")}
                 </Badge>
               </div>
 
@@ -611,13 +621,13 @@ export function JobExecutions({
                           {selectedExecution.detailed_logs.logs.map(
                             (log: Record<string, unknown>, idx: number) => {
                               const logLevel =
-                                typeof log.log_level === "string"
-                                  ? log.log_level.toUpperCase()
+                                typeof log.level === "string"
+                                  ? log.level.toUpperCase()
                                   : "INFO";
 
                               // Extract extra fields (everything except the standard fields)
                               const standardFields = new Set([
-                                "log_level",
+                                "level",
                                 "timestamp",
                                 "event",
                               ]);

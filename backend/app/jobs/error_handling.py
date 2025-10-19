@@ -4,7 +4,7 @@ Provides decorators to handle common Riot API errors consistently
 across all job types, reducing code duplication and improving maintainability.
 
 Error Handling Strategy:
-- Rate limit errors: Always re-raise for retry logic
+- Rate limit errors: Convert to RateLimitSignal for graceful handling
 - Authentication errors: Always re-raise (critical)
 - General errors: Re-raise if critical=True, log and return None otherwise
 """
@@ -21,6 +21,29 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+class RateLimitSignal(Exception):
+    """Signal that a rate limit was hit during job execution.
+
+    This is NOT a failure - it signals that the job should stop gracefully
+    and save its progress with a RATE_LIMITED status.
+
+    :param retry_after: Seconds to wait before retrying (from Riot API)
+    :param message: Optional message describing the rate limit
+    """
+
+    def __init__(
+        self, retry_after: Optional[int] = None, message: str = "Rate limit hit"
+    ):
+        """Initialize rate limit signal.
+
+        :param retry_after: Seconds to wait before retrying
+        :param message: Description of rate limit condition
+        """
+        self.retry_after = retry_after
+        self.message = message
+        super().__init__(message)
+
+
 def handle_riot_api_errors(
     *,
     operation: str,
@@ -35,7 +58,7 @@ def handle_riot_api_errors(
                         Example: lambda self, player: {"puuid": player.puuid}
 
     Error handling logic:
-    - RateLimitError: Always re-raise (let caller handle retry)
+    - RateLimitError: Convert to RateLimitSignal for graceful job termination
     - AuthenticationError/ForbiddenError: Always re-raise (critical auth failures)
     - Other exceptions: Log error, re-raise if critical=True, otherwise return None
 
@@ -85,12 +108,16 @@ def _handle_error(
 ) -> None:
     """Handle exceptions with consistent logging and re-raise logic."""
     if isinstance(error, RateLimitError):
+        retry_after = getattr(error, "retry_after", None)
         logger.warning(
             f"Rate limit hit during {operation}",
-            retry_after=getattr(error, "retry_after", None),
+            retry_after=retry_after,
             **context,
         )
-        raise
+        # Convert to RateLimitSignal for graceful job termination
+        raise RateLimitSignal(
+            retry_after=retry_after, message=f"Rate limit hit during {operation}"
+        )
 
     if isinstance(error, (AuthenticationError, ForbiddenError)):
         logger.error(

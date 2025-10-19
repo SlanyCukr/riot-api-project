@@ -12,6 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+import sqlalchemy as sa
 
 from . import Base
 
@@ -107,6 +108,15 @@ class Player(Base):
         default=False,
         index=True,
         comment="Whether this player has been analyzed for smurf/boosted detection",
+    )
+
+    matches_exhausted: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.text("false"),
+        index=True,
+        comment="True when all available matches have been fetched from Riot API",
     )
 
     last_ban_check: Mapped[Optional[datetime]] = mapped_column(

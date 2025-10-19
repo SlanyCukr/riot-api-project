@@ -165,6 +165,7 @@ export const JobStatusSchema = z.enum([
   "running",
   "success",
   "failed",
+  "rate_limited",
 ]);
 
 // Job Configuration Schema

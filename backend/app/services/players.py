@@ -804,25 +804,39 @@ class PlayerService:
         from ..models.participants import MatchParticipant
 
         stmt = (
-            select(Player)
+            select(Player, func.count(MatchParticipant.match_id).label("match_count"))
             .join(
                 MatchParticipant, Player.puuid == MatchParticipant.puuid, isouter=True
             )
             .where(Player.is_tracked.is_(False))
             .where(Player.is_active.is_(True))
+            .where(Player.matches_exhausted.is_(False))
             .group_by(Player.puuid)
             .having(func.count(MatchParticipant.match_id) < target_matches)
             .limit(limit)
         )
 
         result = await self.db.execute(stmt)
-        players = list(result.scalars().all())
+        rows = result.all()
+        players = [row[0] for row in rows]
 
         logger.debug(
             "Found players needing matches",
             count=len(players),
             target_matches=target_matches,
         )
+
+        # Log detailed info for each player to diagnose stuck state
+        for row in rows:
+            player, match_count = row[0], row[1]
+            logger.debug(
+                "Player needing matches details",
+                puuid=player.puuid,
+                current_matches=match_count,
+                target_matches=target_matches,
+                is_analyzed=player.is_analyzed,
+                is_tracked=player.is_tracked,
+            )
 
         return players
 
@@ -845,7 +859,7 @@ class PlayerService:
         from ..models.participants import MatchParticipant
 
         stmt = (
-            select(Player)
+            select(Player, func.count(MatchParticipant.match_id).label("match_count"))
             .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
             .where(Player.is_tracked.is_(False))
             .where(Player.is_analyzed.is_(False))
@@ -856,13 +870,26 @@ class PlayerService:
         )
 
         result = await self.db.execute(stmt)
-        players = list(result.scalars().all())
+        rows = result.all()
+        players = [row[0] for row in rows]
 
         logger.debug(
             "Found players ready for analysis",
             count=len(players),
             min_matches=min_matches,
         )
+
+        # Log detailed info for each player to diagnose analysis readiness
+        for row in rows:
+            player, match_count = row[0], row[1]
+            logger.debug(
+                "Player ready for analysis details",
+                puuid=player.puuid,
+                current_matches=match_count,
+                min_matches=min_matches,
+                is_analyzed=player.is_analyzed,
+                is_tracked=player.is_tracked,
+            )
 
         return players
 

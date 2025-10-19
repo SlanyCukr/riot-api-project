@@ -132,6 +132,12 @@ class PlayerAnalyzerJob(BaseJob):
         logger.info("Fetching matches for players", count=len(players))
 
         for player in players:
+            logger.debug(
+                "Starting match fetch for player",
+                puuid=player.puuid,
+                platform=player.platform,
+            )
+
             matches_fetched = await self._fetch_player_matches(
                 player, execution_summary
             )
@@ -140,6 +146,17 @@ class PlayerAnalyzerJob(BaseJob):
                 execution_summary["players_processed"] += 1
                 execution_summary["matches_fetched"] += matches_fetched
                 self.increment_metric("records_created", matches_fetched)
+
+                logger.debug(
+                    "Completed match fetch for player",
+                    puuid=player.puuid,
+                    matches_fetched=matches_fetched,
+                )
+            else:
+                logger.debug(
+                    "No new matches fetched for player",
+                    puuid=player.puuid,
+                )
 
     @handle_riot_api_errors(
         operation="fetch matches for player",
@@ -163,8 +180,15 @@ class PlayerAnalyzerJob(BaseJob):
             platform=player.platform,
         )
 
-        # Return None if no matches were fetched (signals skip to caller)
+        # Mark player as exhausted if no new matches were fetched
         if matches_fetched == 0:
+            player.matches_exhausted = True
+            await self.safe_commit(
+                self.db,
+                "mark player matches exhausted",
+                on_success=lambda: self.increment_metric("records_updated"),
+            )
+            logger.info("Player marked as matches exhausted", puuid=player.puuid)
             return None
 
         return matches_fetched

@@ -35,6 +35,7 @@ class JobStatus(str, PyEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    RATE_LIMITED = "rate_limited"
 
 
 class JobConfiguration(Base):
