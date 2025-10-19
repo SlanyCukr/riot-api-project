@@ -6,7 +6,7 @@ factors including win rate, account level, rank progression, and performance
 consistency using modular factor analyzers.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
@@ -549,10 +549,10 @@ class SmurfDetectionService:
         detection: SmurfDetection,
         factor_name: str,
         score_attr: str,
-        threshold_check: callable,
+        threshold_check: Callable[..., Any],
         description_format: str,
         value_attr: str | None = None,
-        score_transform: callable | None = None,
+        score_transform: Callable[..., Any] | None = None,
     ) -> DetectionFactor | None:
         """
         Create a DetectionFactor from detection data using configuration.
