@@ -15,6 +15,7 @@ from ..schemas.matches import (
     MatchStatsResponse,
 )
 from ..riot_api.transformers import MatchTransformer
+from ..riot_api.errors import RiotAPIError
 from ..utils.statistics import safe_divide
 
 if TYPE_CHECKING:
@@ -341,12 +342,6 @@ class MatchService:
             ForbiddenError: If API key is expired
             ValueError: If invalid platform provided
         """
-        from ..riot_api.errors import (
-            RateLimitError,
-            AuthenticationError,
-            ForbiddenError,
-        )
-
         try:
             # Validate platform
             if not self._validate_platform_code(platform, puuid):
@@ -373,7 +368,8 @@ class MatchService:
             )
             return fetched_count
 
-        except (RateLimitError, AuthenticationError, ForbiddenError):
+        except RiotAPIError:
+            # Re-raise RiotAPI errors (rate limits, auth errors, etc.) to caller
             raise
         except Exception as e:
             logger.error("Failed to fetch and store matches", puuid=puuid, error=str(e))

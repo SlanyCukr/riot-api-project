@@ -13,7 +13,7 @@ from ...schemas.detection import DetectionFactor
 from ...utils.statistics import safe_divide
 
 if TYPE_CHECKING:
-    from ..models.players import Player
+    from ...models.players import Player
 
 logger = structlog.get_logger(__name__)
 

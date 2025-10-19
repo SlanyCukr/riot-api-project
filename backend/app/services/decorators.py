@@ -8,7 +8,7 @@ cross-cutting concerns in the service layer.
 import functools
 import inspect
 import structlog
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, ParamSpec, TypeVar
 
 from .exceptions import (
     DatabaseError,
@@ -19,13 +19,17 @@ from .exceptions import (
 
 logger = structlog.get_logger(__name__)
 
+# Type variables for generic decorator typing
+P = ParamSpec("P")
+R = TypeVar("R")
+
 
 def service_error_handler(
     service_name: str,
     reraise: bool = True,
     include_context: bool = True,
     default_error_type: Type[ServiceException] = ServiceException,
-):
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for handling service method errors with structured logging.
 
@@ -33,15 +37,10 @@ def service_error_handler(
     and optionally re-raises them as service-specific exceptions.
 
     :param service_name: Name of the service (e.g., "PlayerService")
-    :type service_name: str
     :param reraise: Whether to re-raise exceptions after logging
-    :type reraise: bool
     :param include_context: Whether to include method parameters in error context
-    :type include_context: bool
     :param default_error_type: Default exception type to wrap generic errors
-    :type default_error_type: Type[ServiceException]
     :returns: Decorated function with error handling
-    :rtype: Callable
 
     :example:
         @service_error_handler("PlayerService")
@@ -50,11 +49,11 @@ def service_error_handler(
             pass
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         operation_name = func.__name__
 
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs) -> Any:
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # Extract method signature for context
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
@@ -107,6 +106,7 @@ def service_error_handler(
                 )
                 if reraise:
                     raise
+                return None  # type: ignore[return-value]
 
             except ValueError as e:
                 # Input validation error
@@ -123,6 +123,7 @@ def service_error_handler(
                 )
                 if reraise:
                     raise validation_error
+                return None  # type: ignore[return-value]
 
             except (ConnectionError, TimeoutError) as e:
                 # External service connectivity issues
@@ -141,6 +142,7 @@ def service_error_handler(
                 )
                 if reraise:
                     raise external_error
+                return None  # type: ignore[return-value]
 
             except Exception as e:
                 # Generic database or unexpected error
@@ -179,9 +181,10 @@ def service_error_handler(
 
                 if reraise:
                     raise error
+                return None  # type: ignore[return-value]
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs) -> Any:
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # For synchronous methods (unlikely in this async codebase but included for completeness)
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
@@ -228,30 +231,28 @@ def service_error_handler(
 
                 if reraise:
                     raise
+                return None  # type: ignore[return-value]
 
         # Return appropriate wrapper based on whether function is async
         if inspect.iscoroutinefunction(func):
-            return async_wrapper
+            return async_wrapper  # type: ignore[return-value]
         else:
-            return sync_wrapper
+            return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
 
 def input_validation(
-    validate_non_empty: Optional[list] = None,
-    validate_positive: Optional[list] = None,
-    custom_validators: Optional[Dict[str, Callable]] = None,
-):
+    validate_non_empty: Optional[list[str]] = None,
+    validate_positive: Optional[list[str]] = None,
+    custom_validators: Optional[Dict[str, Callable[[Any], None]]] = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for input validation in service methods.
 
     :param validate_non_empty: List of parameter names that must not be empty
-    :type validate_non_empty: Optional[List[str]]
     :param validate_positive: List of parameter names that must be positive numbers
-    :type validate_positive: Optional[List[str]]
     :param custom_validators: Dictionary of parameter_name -> validator_function
-    :type custom_validators: Optional[Dict[str, Callable]]
 
     :example:
         @input_validation(
@@ -261,9 +262,9 @@ def input_validation(
         )
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs) -> Any:
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
@@ -295,7 +296,7 @@ def input_validation(
             return await func(*args, **kwargs)
 
         @functools.wraps(wrapper)
-        def sync_wrapper(*args, **kwargs) -> Any:
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # Synchronous version for completeness
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
@@ -329,8 +330,8 @@ def input_validation(
 
         # Return appropriate wrapper based on whether function is async
         if inspect.iscoroutinefunction(func):
-            return wrapper
+            return wrapper  # type: ignore[return-value]
         else:
-            return sync_wrapper
+            return sync_wrapper  # type: ignore[return-value]
 
     return decorator

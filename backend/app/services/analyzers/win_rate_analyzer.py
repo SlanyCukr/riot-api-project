@@ -12,7 +12,7 @@ from .base_analyzer import BaseFactorAnalyzer
 from ...schemas.detection import DetectionFactor
 
 if TYPE_CHECKING:
-    from ..models.players import Player
+    from ...models.players import Player
 
 logger = structlog.get_logger(__name__)
 

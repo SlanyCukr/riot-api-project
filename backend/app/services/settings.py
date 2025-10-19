@@ -14,7 +14,7 @@ from ..schemas.settings import (
 )
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.constants import Platform, Region
-from ..riot_api.errors import AuthenticationError, ForbiddenError, NotFoundError
+from ..riot_api.errors import RiotAPIError
 
 logger = structlog.get_logger(__name__)
 
@@ -173,35 +173,40 @@ class SettingsService:
                 details="Successfully validated with Riot API",
             )
 
-        except AuthenticationError as e:
-            logger.warning(
-                "riot_api_key_validation_failed", error="401", details=str(e)
-            )
-            return SettingValidationResponse(
-                valid=False,
-                message="API key is invalid",
-                details="Received 401 Unauthorized from Riot API. The API key format is correct but the key itself is not recognized.",
-            )
-        except ForbiddenError as e:
-            logger.warning(
-                "riot_api_key_validation_failed", error="403", details=str(e)
-            )
-            return SettingValidationResponse(
-                valid=False,
-                message="API key has expired",
-                details="Received 403 Forbidden from Riot API. Development keys expire every 24 hours - please generate a new key at developer.riotgames.com",
-            )
-        except NotFoundError:
-            logger.info(
-                "riot_api_key_validated",
-                status="success",
-                note="404_account_not_found",
-            )
-            return SettingValidationResponse(
-                valid=True,
-                message="API key is valid",
-                details="Successfully validated with Riot API (test account not found, but authentication succeeded)",
-            )
+        except RiotAPIError as e:
+            # Handle different status codes - all these exceptions are aliases to RiotAPIError
+            if e.status_code == 401:
+                logger.warning(
+                    "riot_api_key_validation_failed", error="401", details=str(e)
+                )
+                return SettingValidationResponse(
+                    valid=False,
+                    message="API key is invalid",
+                    details="Received 401 Unauthorized from Riot API. The API key format is correct but the key itself is not recognized.",
+                )
+            elif e.status_code == 403:
+                logger.warning(
+                    "riot_api_key_validation_failed", error="403", details=str(e)
+                )
+                return SettingValidationResponse(
+                    valid=False,
+                    message="API key has expired",
+                    details="Received 403 Forbidden from Riot API. Development keys expire every 24 hours - please generate a new key at developer.riotgames.com",
+                )
+            elif e.status_code == 404:
+                logger.info(
+                    "riot_api_key_validated",
+                    status="success",
+                    note="404_account_not_found",
+                )
+                return SettingValidationResponse(
+                    valid=True,
+                    message="API key is valid",
+                    details="Successfully validated with Riot API (test account not found, but authentication succeeded)",
+                )
+            else:
+                # Re-raise for other status codes
+                raise
 
     async def validate_riot_api_key(self, api_key: str) -> SettingValidationResponse:
         """Validate a Riot API key by making a test API call."""
