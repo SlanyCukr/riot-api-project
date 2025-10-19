@@ -46,7 +46,7 @@ repos:
       # Cyclomatic Complexity Check (Strict: B grade = complexity 6-10)
       - id: radon-cc
         name: Radon Cyclomatic Complexity
-        entry: bash -c 'docker compose exec -T backend uv run radon cc app/ --min B --show-complexity --no-assert || (echo "Code complexity too high! Refactor complex functions" && exit 1)'
+        entry: bash -c 'cd backend && uvx radon cc app/ --min B --show-complexity --no-assert || (echo "Code complexity too high! Refactor complex functions" && exit 1)'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -56,7 +56,7 @@ repos:
       # Maintainability Index Check (Stricter: A grade = MI >= 20)
       - id: radon-mi
         name: Radon Maintainability Index
-        entry: bash -c 'docker compose exec -T backend uv run radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
+        entry: bash -c 'cd backend && uvx radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -66,7 +66,7 @@ repos:
       # Radon Complexity Report (non-blocking, informational)
       - id: radon-report
         name: Radon Complexity Report (Info)
-        entry: bash -c 'echo "📊 Complexity Report:" && docker compose exec -T backend uv run radon cc app/ -a -s -n C || true'
+        entry: bash -c 'echo "📊 Complexity Report:" && cd backend && uvx radon cc app/ -a -s -n C || true'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
