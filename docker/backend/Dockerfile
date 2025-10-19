@@ -62,7 +62,8 @@ USER root
 
 # Install development dependencies with cache mount (skip project install until code is copied)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --dev --frozen --no-install-project
+    uv sync --dev --frozen --no-install-project && \
+    chown -R app:app /app/.venv
 
 USER app
 
@@ -94,7 +95,8 @@ USER root
 
 # Install production dependencies only with cache mount
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --no-install-project && \
+    chown -R app:app /app/.venv
 
 # Copy application code
 COPY --chown=app:app . .

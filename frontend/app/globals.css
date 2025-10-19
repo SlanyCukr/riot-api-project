@@ -116,7 +116,7 @@
   /* Dark mode submit button gradient */
   .dark button[type="submit"]:not(:disabled) {
     background: linear-gradient(105deg, #f2d777 0%, #cfa93a 10%, #9d7d22 90%);
-    color: #03005b; /* navy-darkest for contrast */
+    color: #03005b;
     cursor: pointer;
   }
 
@@ -148,5 +148,17 @@
   /* Ensure nav links have transparent background by default */
   aside nav a {
     background: transparent;
+  }
+
+  /* Disabled button styles */
+  button:disabled {
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    pointer-events: none !important;
+  }
+
+  button:disabled:hover {
+    transform: none !important;
+    opacity: 0.6 !important;
   }
 }

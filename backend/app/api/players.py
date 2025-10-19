@@ -112,7 +112,7 @@ async def get_player_suggestions(
     player_service: PlayerServiceDep,
     q: str = Query(
         ...,
-        min_length=3,
+        min_length=0,
         max_length=30,
         description="Search query (name, tag, or riot_id)",
     ),
@@ -136,7 +136,7 @@ async def get_player_suggestions(
     - "Name" → Search for summoner name
 
     Args:
-        q: Search string (3-100 characters)
+        q: Search string (0-100 characters)
         platform: Platform region (e.g., "eun1", "euw1", "na1") - required
         limit: Maximum number of suggestions to return (default: 5, max: 10)
 

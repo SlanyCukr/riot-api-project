@@ -141,7 +141,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
     queryFn: async () => {
       const result = await validatedGet(
         PlayerRankSchema.nullable(),
-        `/players/${player.puuid}/rank`,
+        `/players/${player.puuid}/rank`
       );
       if (!result.success) {
         return null;
@@ -156,6 +156,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
       <CardHeader>
         <div className="flex items-center space-x-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            {/* TODO [SPY-61]: Use actual player's icon, and until we have them, use some league icon as a placeholder */}
             <User className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
@@ -249,7 +250,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
             </div>
             <div>
               <p className="font-medium text-muted-foreground">
-                Account Created
+                Account Tracked Since
               </p>
               <p>{formatDate(player.created_at)}</p>
             </div>

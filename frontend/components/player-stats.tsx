@@ -40,7 +40,7 @@ export function PlayerStats({
       const result = await validatedGet(
         MatchStatsResponseSchema,
         `/matches/player/${puuid}/stats`,
-        { queue: queueFilter, limit },
+        { queue: queueFilter, limit }
       );
 
       if (!result.success) {
@@ -80,7 +80,7 @@ export function PlayerStats({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
+            <BarChart3 className="h-5 w-5 text-primary" />
             Player Statistics
           </CardTitle>
         </CardHeader>
@@ -119,12 +119,14 @@ function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
+            <BarChart3 className="h-5 w-5 text-primary" />
             Player Statistics
           </CardTitle>
           <Badge variant="secondary">
-            Based on {stats.total_matches}{" "}
-            {stats.total_matches === 1 ? "Game" : "Games"}
+            Based on last{" "}
+            {stats.total_matches === 1
+              ? "match"
+              : stats.total_matches + " matches"}
           </Badge>
         </div>
         {stats.total_matches < 20 && (
@@ -143,7 +145,9 @@ function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
                 <span className="text-sm font-medium">Win Rate</span>
               </div>
               <span
-                className={`text-2xl font-bold ${getWinRateColor(winRatePercent)}`}
+                className={`text-2xl font-bold ${getWinRateColor(
+                  winRatePercent
+                )}`}
               >
                 {winRatePercent.toFixed(1)}%
               </span>

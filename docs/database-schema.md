@@ -19,7 +19,9 @@ erDiagram
     PLAYERS ||--o{ MATCH_PARTICIPANTS : "participates in"
     PLAYERS ||--o{ PLAYER_RANKS : "has rank history"
     PLAYERS ||--o{ SMURF_DETECTIONS : "has detection results"
+    PLAYERS ||--o{ MATCHMAKING_ANALYSES : "has matchmaking insights"
     MATCHES ||--o{ MATCH_PARTICIPANTS : "contains"
+    JOB_CONFIGURATIONS ||--o{ JOB_EXECUTIONS : "executes"
 
     PLAYERS {
         string puuid PK "Riot PUUID"
@@ -32,6 +34,9 @@ erDiagram
         timestamp updated_at "Last update"
         timestamp last_seen "Last seen"
         bool is_active "Active flag"
+        bool is_tracked "Tracking flag"
+        bool is_analyzed "Analysis flag"
+        timestamp last_ban_check "Ban check"
         int profile_icon_id "Profile icon"
         string summoner_id "Summoner ID"
     }
@@ -59,6 +64,7 @@ erDiagram
         string match_id FK "Match ref"
         string puuid FK "Player ref"
         string summoner_name "Summoner name"
+        int summoner_level "Summoner level"
         int team_id "Team ID"
         int champion_id "Champion ID"
         string champion_name "Champion name"
@@ -78,6 +84,8 @@ erDiagram
         string individual_position "Position"
         string team_position "Team position"
         string role "Role"
+        string riot_id_name "Historical Riot ID"
+        string riot_id_tagline "Historical tagline"
         timestamp created_at "Record creation"
         timestamp updated_at "Last update"
     }
@@ -113,6 +121,11 @@ erDiagram
         decimal kda_score "KDA component"
         decimal account_level_score "Account level component"
         decimal rank_discrepancy_score "Rank discrepancy"
+        decimal rank_progression_score "Rank progression"
+        decimal win_rate_trend_score "Win rate trend"
+        decimal performance_consistency_score "Performance consistency"
+        decimal performance_trends_score "Performance trends"
+        decimal role_performance_score "Role performance"
         int games_analyzed "Games analyzed"
         string queue_type "Queue analyzed"
         int time_period_days "Analysis period"
@@ -131,57 +144,66 @@ erDiagram
         bool manually_verified "Manual verification"
         text notes "Additional notes"
     }
+
+    MATCHMAKING_ANALYSES {
+        int id PK "Auto-increment"
+        string puuid FK "Player ref"
+        decimal team_average_winrate "Team avg win rate"
+        decimal enemy_average_winrate "Enemy avg win rate"
+        int matches_analyzed "Matches analyzed"
+        decimal confidence_score "Confidence score"
+        bool sample_size_adequate "Sample sufficient"
+        string analysis_status "Analysis status"
+        string queue_type "Queue analyzed"
+        timestamp analysis_date "Analysis date"
+        timestamp created_at "Record creation"
+        timestamp updated_at "Last update"
+        text error_message "Error details"
+        jsonb analysis_metadata "Analysis details"
+        int api_requests_used "API requests"
+        int processing_time_ms "Processing time"
+    }
 ```
 
 ### Data Tracking & API Management
 
 ```mermaid
 ---
-title: Data Tracking & API Request Management
+title: Job Management & System Configuration
 ---
 erDiagram
-    DATA_TRACKING {
+    JOB_CONFIGURATIONS {
         int id PK "Auto-increment"
-        string data_type "Type of data"
-        string identifier "Data identifier"
-        timestamp last_fetched "Last API fetch"
-        timestamp last_updated "Last DB update"
-        int fetch_count "Fetch count"
-        int hit_count "DB hit count"
-        bool is_active "Active tracking"
-        timestamp last_hit "Last request"
+        string job_type "Job type"
+        string name "Configuration name"
+        string schedule "Schedule expression"
+        bool is_active "Active flag"
+        json config_json "Configuration JSON"
         timestamp created_at "Record creation"
         timestamp updated_at "Last update"
     }
 
-    API_REQUEST_QUEUE {
+    JOB_EXECUTIONS {
         int id PK "Auto-increment"
-        string data_type "Data type"
-        string identifier "Identifier"
-        string priority "Priority level"
-        timestamp scheduled_at "Scheduled time"
-        int retry_count "Retry count"
-        int max_retries "Max retries"
-        string status "Request status"
+        int job_config_id FK "Job config ref"
+        timestamp started_at "Start time"
+        timestamp completed_at "Completion time"
+        string status "Execution status"
+        int api_requests_made "API requests"
+        int records_created "Records created"
+        int records_updated "Records updated"
         text error_message "Error message"
-        timestamp last_error_at "Last error"
-        text request_data "Request params"
-        text response_data "Response data"
-        timestamp created_at "Queue time"
-        timestamp updated_at "Last update"
-        timestamp processed_at "Processing time"
+        json execution_log "Execution log"
+        json detailed_logs "Detailed logs"
     }
 
-    RATE_LIMIT_LOG {
-        int id PK "Auto-increment"
-        string limit_type "Limit type"
-        string endpoint "API endpoint"
-        int limit_count "Request limit"
-        int limit_window "Time window"
-        int current_usage "Current usage"
-        int retry_after "Retry-After"
-        text request_data "Request context"
-        timestamp created_at "Event time"
+    SYSTEM_SETTINGS {
+        string key PK "Setting key"
+        string value "Setting value"
+        string category "Setting category"
+        bool is_sensitive "Sensitive flag"
+        timestamp created_at "Record creation"
+        timestamp updated_at "Last update"
     }
 ```
 
@@ -202,6 +224,8 @@ erDiagram
 - Summoner name can change but is indexed for legacy lookups
 - Soft deletion via `is_active` flag
 - Last seen tracking for data freshness
+- Tracking flags for automated jobs (`is_tracked`, `is_analyzed`)
+- Ban status monitoring via `last_ban_check`
 
 **Indexes**:
 
@@ -212,9 +236,14 @@ erDiagram
 - `summoner_id` (indexed)
 - `last_seen` (indexed)
 - `is_active` (indexed)
+- `is_tracked` (indexed)
+- `is_analyzed` (indexed)
+- `last_ban_check` (indexed)
 - Composite: `(summoner_name, platform)`
 - Composite: `(riot_id, tag_line)`
 - Composite: `(last_seen, is_active)`
+- Composite: `(is_tracked, last_seen)`
+- Composite: `(is_analyzed, last_ban_check)`
 
 **Relationships**:
 
@@ -276,7 +305,8 @@ erDiagram
 - Comprehensive performance metrics (KDA, CS, gold, damage, vision)
 - Position and role tracking
 - Team identification (100=blue, 200=red)
-- Summoner name snapshot at match time
+- Summoner name and level snapshot at match time
+- Historical Riot ID preservation (riot_id_name, riot_id_tagline)
 
 **Indexes**:
 
@@ -294,6 +324,8 @@ erDiagram
 - Composite: `(kills, deaths)` - KDA analysis
 - Composite: `(individual_position, champion_id)` - role-based champion stats
 - Composite: `(team_id, win)` - team performance
+- Composite: `(champion_id, kda)` - champion performance analysis
+- Composite: `(individual_position, win)` - position win rates
 
 **Relationships**:
 
@@ -370,11 +402,23 @@ erDiagram
 
 **Key Features**:
 
-- Multi-component scoring system (win rate, KDA, account level, rank discrepancy)
+- Multi-component scoring system (9 different detection signals)
 - Weighted overall smurf score (0.0-1.0)
 - Detection thresholds and parameters
 - Historical analysis tracking
 - Manual verification and false positive reporting
+
+**Detection Signal Components**:
+
+- Win rate based scoring
+- KDA performance scoring
+- Account level analysis
+- Rank discrepancy detection
+- Rank progression tracking
+- Win rate trend analysis
+- Performance consistency metrics
+- Performance trends evaluation
+- Role performance analysis
 
 **Detection Signals** (Enum):
 
@@ -410,106 +454,155 @@ erDiagram
 
 ---
 
-### 6. data_tracking
+### 6. matchmaking_analyses
 
-**Purpose**: Monitor data freshness and optimize API usage patterns.
+**Purpose**: Store teammate vs opponent win rate analysis for matchmaking quality assessment.
 
 **Primary Key**: `id` (Integer, auto-increment)
 
+**Foreign Keys**:
+
+- `puuid` → `players.puuid` (CASCADE DELETE)
+
 **Key Features**:
 
-- Tracks when data was last fetched from Riot API
-- Monitors database hit rates vs API fetch rates
-- Identifies stale data for refresh
-- Unique constraint on (data_type, identifier)
+- Analyzes average win rates of teammates vs opponents from recent matches
+- Optimized API usage through database-first approach and participant de-duplication
+- Confidence scoring based on sample size and data quality
+- Permanent storage (no expiration) for historical tracking
+- Comprehensive metadata for performance analysis and debugging
 
-**Data Types**:
+**Analysis Process**:
 
-- `account` - Account/PUUID data
-- `summoner` - Summoner information
-- `match` - Match details
-- `rank` - Ranked data
-- `matchlist` - Match history lists
+1. Fetch player's recent matches for specified queue type
+2. Extract unique participants from all matches (excluding the player)
+3. Query existing database for participant win rates
+4. Make API calls only for missing participant data
+5. Calculate average win rates for teammates vs opponents
+6. Store results with confidence metrics and processing metadata
 
 **Indexes**:
 
 - `id` (primary key, automatic index)
-- `data_type` (indexed)
-- `identifier` (indexed)
-- Composite: `(data_type, last_fetched)` - freshness queries
-- Composite: `(is_active, last_hit)` - usage patterns
-- Unique constraint: `(data_type, identifier)`
+- `puuid` (foreign key, indexed)
+- `analysis_date` (indexed)
+- `analysis_status` (indexed)
+- `queue_type` (indexed)
+- `confidence_score` (indexed)
+- `team_average_winrate` (indexed)
+- `enemy_average_winrate` (indexed)
+- Composite: `(puuid, analysis_date)` - player's analysis history
+- Composite: `(analysis_status, analysis_date)` - processing status queries
+- Composite: `(queue_type, confidence_score)` - quality-based filtering
+- Composite: `(team_average_winrate, enemy_average_winrate)` - matchmaking quality
+
+**Relationships**:
+
+- Many-to-one with `players`
 
 ---
 
-### 7. api_request_queue
+### 7. job_configurations
 
-**Purpose**: Queue system for API requests during rate limit periods.
+**Purpose**: Store job scheduling and configuration settings for automated tasks.
 
 **Primary Key**: `id` (Integer, auto-increment)
 
 **Key Features**:
 
-- Priority-based request scheduling
-- Retry logic with configurable max retries
-- Status tracking (pending, processing, completed, failed, cancelled)
-- Error logging and context preservation
+- Job type enumeration (tracked_player_updater, player_analyzer, matchmaking_analyzer)
+- Schedule configuration using cron expressions or intervals
+- JSON configuration storage for job-specific parameters
+- Active/inactive status management
+- Historical execution tracking via relationships
 
-**Priority Levels**:
+**Job Types** (Enum):
 
-- `urgent` - User-facing requests
-- `high` - Important background tasks
-- `normal` - Standard operations
-- `low` - Bulk operations
-
-**Status Values**:
-
-- `pending` - Waiting to be processed
-- `processing` - Currently being processed
-- `completed` - Successfully completed
-- `failed` - Failed after retries
-- `cancelled` - Manually cancelled
+- `tracked_player_updater` - Updates tracked player data
+- `player_analyzer` - Analyzes players for smurf detection
+- `matchmaking_analyzer` - Performs matchmaking analysis for tracked players
 
 **Indexes**:
 
 - `id` (primary key, automatic index)
-- `data_type` (indexed)
-- `identifier` (indexed)
-- `priority` (indexed)
-- `scheduled_at` (indexed)
+- `job_type` (indexed)
+- `name` (indexed, unique)
+- `is_active` (indexed)
+- Composite: `(job_type, is_active)` - active jobs by type
+- Unique constraint: `(name)`
+
+**Relationships**:
+
+- One-to-many with `job_executions`
+
+---
+
+### 8. job_executions
+
+**Purpose**: Track job execution history, metrics, and detailed logs.
+
+**Primary Key**: `id` (Integer, auto-increment)
+
+**Foreign Keys**:
+
+- `job_config_id` → `job_configurations.id` (CASCADE DELETE)
+
+**Key Features**:
+
+- Execution timing tracking (start, completion, duration)
+- Status monitoring (pending, running, success, failed)
+- Performance metrics (API requests, records created/updated)
+- Detailed execution logs in JSON format
+- Error message capture for debugging
+
+**Status Values** (Enum):
+
+- `pending` - Waiting to run
+- `running` - Currently executing
+- `success` - Completed successfully
+- `failed` - Failed with errors
+
+**Indexes**:
+
+- `id` (primary key, automatic index)
+- `job_config_id` (foreign key, indexed)
+- `started_at` (indexed)
+- `completed_at` (indexed)
 - `status` (indexed)
-- `created_at` (indexed)
-- Composite: `(status, priority, scheduled_at)` - queue processing
-- Composite: `(scheduled_at, status)` - time-based processing
+- Composite: `(job_config_id, started_at)` - job execution history
+- Composite: `(status, started_at)` - status-based queries
+
+**Relationships**:
+
+- Many-to-one with `job_configurations`
 
 ---
 
-### 8. rate_limit_log
+### 9. system_settings
 
-**Purpose**: Log rate limit events for analysis and optimization.
+**Purpose**: Store runtime configuration and system settings.
 
-**Primary Key**: `id` (Integer, auto-increment)
+**Primary Key**: `key` (String, 128 characters)
 
 **Key Features**:
 
-- Records when rate limits are hit
-- Tracks which endpoints cause rate limits
-- Stores retry-after durations
-- Helps optimize request strategies
+- Key-value configuration storage
+- Category grouping for organization
+- Sensitive data masking support
+- Automatic timestamp tracking
+- Runtime configuration management
 
-**Limit Types**:
+**Setting Categories**:
 
-- `app` - Application-wide rate limit
-- `method` - Method-specific rate limit
-- `service` - Service-level rate limit
+- `riot_api` - Riot API configuration
+- `jobs` - Job scheduling settings
+- `app` - Application configuration
 
 **Indexes**:
 
-- `id` (primary key, automatic index)
-- `limit_type` (indexed)
-- `endpoint` (indexed)
-- `created_at` (indexed)
-- Composite: `(limit_type, created_at)` - temporal analysis
+- `key` (primary key, automatic index)
+- `category` (indexed)
+- Unique constraint: `(key)`
 
 ---
 
@@ -543,7 +636,18 @@ docker compose exec backend uv run python -m app.init_db drop
 All table definitions are in SQLAlchemy models:
 
 - Location: `backend/app/models/`
-- Models: `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `DataTracking`, `APIRequestQueue`, `RateLimitLog`
+- Models: `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `MatchmakingAnalysis`, `JobConfiguration`, `JobExecution`, `SystemSetting`
+
+**Model Files**:
+
+- `players.py` - Player model with tracking and analysis flags
+- `matches.py` - Match metadata and processing flags
+- `participants.py` - Match participant performance and historical data
+- `ranks.py` - Player rank tracking with tier enums
+- `smurf_detection.py` - Enhanced detection with 9 scoring components
+- `matchmaking_analysis.py` - Teammate vs opponent win rate analysis
+- `job_tracking.py` - Job configuration and execution tracking
+- `settings.py` - System settings with sensitive data masking
 
 ---
 

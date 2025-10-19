@@ -206,7 +206,7 @@ class PlayerService:
         # Fix #3: Add Input Validation (Major)
         # Validate and normalize input
         query = query.strip()
-        if len(query) < 2:
+        if len(query) < 1:
             logger.warning("Query too short", query=query)
             return []
 
