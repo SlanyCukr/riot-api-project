@@ -44,20 +44,35 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   } = useQuery({
     queryKey: ["matchHistory", puuid, queueFilter, displayCount],
     queryFn: async () => {
-      const result = await validatedGet(
-        MatchListResponseSchema,
-        `/matches/player/${puuid}`,
-        {
-          queue: queueFilter,
-          start: 0,
-          count: displayCount,
-        },
-      );
-
-      return result;
+      try {
+        const result = await validatedGet(
+          MatchListResponseSchema,
+          `/matches/player/${puuid}`,
+          {
+            queue: queueFilter,
+            start: 0,
+            count: displayCount,
+          }
+        );
+        return result;
+      } catch (err) {
+        // Handle network errors gracefully
+        console.debug("Match history fetch error:", err);
+        throw err;
+      }
     },
     enabled: !!puuid,
-    retry: 2,
+    retry: (failureCount, error) => {
+      // Don't retry on network errors, but allow retries on other errors
+      if (
+        error instanceof Error &&
+        (error.message.includes("Network Error") ||
+          error.message.includes("ERR_NETWORK"))
+      ) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -97,7 +112,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
           loadMore();
         }
       },
-      { threshold: 0.1, rootMargin: "100px" },
+      { threshold: 0.1, rootMargin: "100px" }
     );
 
     const currentRef = loadMoreRef.current;
@@ -142,7 +157,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <History className="h-5 w-5 text-primary" />
             Match History
           </CardTitle>
         </CardHeader>
@@ -156,31 +171,35 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   }
 
   if (error || (response && !response.success)) {
-    const errorObj =
-      error instanceof Error
-        ? error
-        : response && !response.success
-          ? response.error
-          : null;
+    let errorMessage = "Failed to load matches";
 
-    const errorMessage = errorObj
-      ? typeof errorObj === "object" && "message" in errorObj
-        ? errorObj.message
-        : String(errorObj)
-      : "Failed to load matches";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (response && !response.success && response.error) {
+      errorMessage =
+        typeof response.error === "object" && "message" in response.error
+          ? response.error.message
+          : String(response.error);
+    }
+
+    // Handle specific network error messages
+    if (
+      errorMessage.includes("Network Error") ||
+      errorMessage.includes("ERR_NETWORK")
+    ) {
+      errorMessage =
+        "Network connection failed. Please check your internet connection.";
+    }
 
     const isNotFound =
       errorMessage.toLowerCase().includes("not found") ||
-      (typeof errorObj === "object" &&
-        errorObj &&
-        "status" in errorObj &&
-        errorObj.status === 404);
+      (error instanceof Error && error.message.includes("404"));
 
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <History className="h-5 w-5 text-primary" />
             Match History
           </CardTitle>
         </CardHeader>
@@ -201,7 +220,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
                   <p>{errorMessage}</p>
                   <Button
                     onClick={() => refetch()}
-                    variant="outline"
+                    type="submit"
                     size="sm"
                     className="mt-2"
                   >
@@ -221,7 +240,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <History className="h-5 w-5 text-primary" />
             Match History
           </CardTitle>
         </CardHeader>
@@ -246,7 +265,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <History className="h-5 w-5 text-primary" />
             Match History
           </CardTitle>
           <Badge variant="secondary">{totalMatches} matches in database</Badge>

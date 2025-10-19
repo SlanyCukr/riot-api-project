@@ -42,7 +42,24 @@ import {
 
 // Constants for autocomplete behavior
 const SUGGESTION_DEBOUNCE_MS = 300;
-const MIN_SEARCH_LENGTH = 3;
+const MIN_SEARCH_LENGTH = 0;
+
+// Server to flag mapping
+const SERVER_FLAGS: Record<string, string> = {
+  euw1: "🇪🇺",
+  eun1: "🇪🇺",
+  na1: "🇺🇸",
+  kr: "🇰🇷",
+  tr1: "🇹🇷",
+  br1: "🇧🇷",
+  la1: "🇲🇽",
+  la2: "🇦🇷",
+  oc1: "🇦🇺",
+  ru: "🇷🇺",
+  jp1: "🇯🇵",
+  tw2: "🇹🇼",
+  vn2: "🇻🇳",
+};
 
 interface PlayerSearchProps {
   onPlayerFound: (player: Player) => void;
@@ -79,10 +96,14 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   }, [searchValue]);
 
   // Fetch suggestions when debounced value changes
-  const { data: suggestionsResult, isLoading: suggestionsLoading } = useQuery({
+  const {
+    data: suggestionsResult,
+    isLoading: suggestionsLoading,
+    error: suggestionsError,
+  } = useQuery({
     queryKey: ["player-suggestions", debouncedSearchValue, platform],
     queryFn: async () => {
-      if (debouncedSearchValue.length < MIN_SEARCH_LENGTH) {
+      if (debouncedSearchValue.length <= MIN_SEARCH_LENGTH) {
         return { success: true as const, data: [] };
       }
 
@@ -94,7 +115,9 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
       return result;
     },
-    enabled: debouncedSearchValue.length >= MIN_SEARCH_LENGTH,
+    enabled: debouncedSearchValue.length > MIN_SEARCH_LENGTH,
+    retry: 1,
+    retryDelay: 500,
   });
 
   const suggestions = useMemo(() => {
@@ -103,7 +126,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
   // Show suggestions when there are results and input is focused
   useEffect(() => {
-    if (suggestions.length > 0 && searchValue.length >= MIN_SEARCH_LENGTH) {
+    if (suggestions.length > 0 && searchValue.length > MIN_SEARCH_LENGTH) {
       setShowSuggestions(true);
       setSelectedIndex(-1);
     } else {
@@ -122,7 +145,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
         platform: form.getValues("platform"),
       });
     },
-    [form, onPlayerFound],
+    [form, onPlayerFound]
   );
 
   // Handle keyboard navigation
@@ -134,7 +157,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
         case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((prev) =>
-            prev < suggestions.length - 1 ? prev + 1 : prev,
+            prev < suggestions.length - 1 ? prev + 1 : prev
           );
           break;
         case "ArrowUp":
@@ -154,7 +177,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
           break;
       }
     },
-    [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion],
+    [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]
   );
 
   const { mutate, isPending, error } = useMutation({
@@ -170,7 +193,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       const result = await validatedGet(
         z.array(PlayerSchema),
         "/players/search",
-        params,
+        params
       );
 
       if (!result.success) {
@@ -230,11 +253,14 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
     },
   });
 
+  // Check if search input has at least 3 characters
+  const isSearchDisabled = searchValue.length < 3;
+
   const onSubmit = useCallback(
     (data: PlayerSearchForm) => {
       mutate(data);
     },
-    [mutate],
+    [mutate]
   );
 
   return (
@@ -248,148 +274,233 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="searchValue"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Player Name</FormLabel>
-                  <FormControl>
-                    <Popover
-                      open={showSuggestions}
-                      onOpenChange={setShowSuggestions}
-                    >
-                      <PopoverTrigger asChild>
-                        <div className="relative">
-                          <Input
-                            {...field}
-                            ref={inputRef}
-                            placeholder="Player#TAG or SummonerName"
-                            disabled={isPending}
-                            onKeyDown={handleKeyDown}
-                            onFocus={() => {
-                              if (
-                                suggestions.length > 0 &&
-                                searchValue.length >= MIN_SEARCH_LENGTH
-                              ) {
-                                setShowSuggestions(true);
-                              }
-                            }}
-                            onBlur={() => {
-                              setShowSuggestions(false);
-                            }}
-                            autoComplete="off"
-                          />
-                          {suggestionsLoading &&
-                            searchValue.length >= MIN_SEARCH_LENGTH && (
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                <Loader2
-                                  className="h-4 w-4 animate-spin text-muted-foreground"
-                                  aria-label="Loading suggestions"
-                                  role="status"
-                                />
-                              </div>
-                            )}
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-[var(--radix-popover-trigger-width)] p-0"
-                        align="start"
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                      >
-                        <div className="max-h-[300px] overflow-y-auto">
-                          {suggestions.length === 0 ? (
-                            <div className="p-4 text-center text-sm text-muted-foreground">
-                              No players found
-                            </div>
-                          ) : (
-                            <div className="py-1">
-                              {suggestions.map((suggestion, index) => (
-                                <button
-                                  key={suggestion.puuid}
-                                  type="button"
-                                  className={`w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${
-                                    index === selectedIndex
-                                      ? "bg-accent text-accent-foreground"
-                                      : ""
-                                  }`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    handleSelectSuggestion(suggestion);
-                                  }}
-                                  onMouseEnter={() => setSelectedIndex(index)}
-                                >
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">
-                                      {suggestion.riot_id && suggestion.tag_line
-                                        ? `${suggestion.riot_id}#${suggestion.tag_line}`
-                                        : suggestion.summoner_name}
-                                    </span>
-                                    {suggestion.riot_id &&
-                                      suggestion.tag_line &&
-                                      suggestion.summoner_name && (
-                                        <span className="text-xs text-muted-foreground">
-                                          {suggestion.summoner_name}
-                                        </span>
-                                      )}
+            {/* Player Name and Server on the same row */}
+            <div className="grid grid-cols-12 gap-4">
+              {/* Player Name - 3/4 width */}
+              <div className="col-span-12 lg:col-span-9">
+                <FormField
+                  control={form.control}
+                  name="searchValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Player Name</FormLabel>
+                      <FormControl>
+                        <Popover
+                          open={showSuggestions}
+                          onOpenChange={setShowSuggestions}
+                        >
+                          <PopoverTrigger asChild>
+                            <div className="relative">
+                              <Input
+                                {...field}
+                                ref={inputRef}
+                                placeholder="Player#TAG or SummonerName"
+                                disabled={isPending}
+                                onKeyDown={handleKeyDown}
+                                onFocus={() => {
+                                  if (
+                                    suggestions.length > 0 &&
+                                    searchValue.length > MIN_SEARCH_LENGTH
+                                  ) {
+                                    setShowSuggestions(true);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setShowSuggestions(false);
+                                }}
+                                autoComplete="off"
+                              />
+                              {suggestionsLoading &&
+                                searchValue.length > MIN_SEARCH_LENGTH && (
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <Loader2
+                                      className="h-4 w-4 animate-spin text-muted-foreground"
+                                      aria-label="Loading suggestions"
+                                      role="status"
+                                    />
                                   </div>
-                                </button>
-                              ))}
+                                )}
                             </div>
-                          )}
+                          </PopoverTrigger>
+                          <PopoverContent
+                            className="w-[var(--radix-popover-trigger-width)] p-0"
+                            align="start"
+                            onOpenAutoFocus={(e: Event) => e.preventDefault()}
+                          >
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {suggestions.length === 0 ? (
+                                <div className="p-4 text-center text-sm text-muted-foreground">
+                                  No players found
+                                </div>
+                              ) : (
+                                <div className="py-1">
+                                  {suggestions.map((suggestion, index) => (
+                                    <button
+                                      key={suggestion.puuid}
+                                      type="button"
+                                      className={`w-full px-4 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${
+                                        index === selectedIndex
+                                          ? "bg-accent text-accent-foreground"
+                                          : ""
+                                      }`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleSelectSuggestion(suggestion);
+                                      }}
+                                      onMouseEnter={() =>
+                                        setSelectedIndex(index)
+                                      }
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">
+                                          {suggestion.riot_id &&
+                                          suggestion.tag_line
+                                            ? `${suggestion.riot_id}#${suggestion.tag_line}`
+                                            : suggestion.summoner_name}
+                                        </span>
+                                        {suggestion.riot_id &&
+                                          suggestion.tag_line &&
+                                          suggestion.summoner_name && (
+                                            <span className="text-xs text-muted-foreground">
+                                              {suggestion.summoner_name}
+                                            </span>
+                                          )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Enter Riot ID (Name#TAG) or summoner name
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Server - 1/4 width */}
+              <div className="col-span-12 lg:col-span-3">
+                <FormField
+                  control={form.control}
+                  name="platform"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Server</FormLabel>
+                      <FormControl>
+                        <div className="flex flex-col space-y-2">
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            disabled={isPending}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select server" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="euw1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.euw1}</span>
+                                  <span>EUW</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="eun1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.eun1}</span>
+                                  <span>EUNE</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="na1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.na1}</span>
+                                  <span>NA</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="kr">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.kr}</span>
+                                  <span>KR</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="tr1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.tr1}</span>
+                                  <span>TR</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="br1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.br1}</span>
+                                  <span>BR</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="la1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.la1}</span>
+                                  <span>LAN</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="la2">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.la2}</span>
+                                  <span>LAS</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="oc1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.oc1}</span>
+                                  <span>OCE</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="ru">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.ru}</span>
+                                  <span>RU</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="jp1">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.jp1}</span>
+                                  <span>JP</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="tw2">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.tw2}</span>
+                                  <span>TW</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="vn2">
+                                <span className="flex items-center space-x-2">
+                                  <span>{SERVER_FLAGS.vn2}</span>
+                                  <span>VN</span>
+                                </span>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Select server
+                          </p>
                         </div>
-                      </PopoverContent>
-                    </Popover>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Enter Riot ID (Name#TAG) or summoner name
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
-            <FormField
-              control={form.control}
-              name="platform"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Platform</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isPending}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a platform" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="eun1">EU Nordic & East</SelectItem>
-                      <SelectItem value="euw1">EU West</SelectItem>
-                      <SelectItem value="na1">North America</SelectItem>
-                      <SelectItem value="kr">Korea</SelectItem>
-                      <SelectItem value="br1">Brazil</SelectItem>
-                      <SelectItem value="la1">Latin America North</SelectItem>
-                      <SelectItem value="la2">Latin America South</SelectItem>
-                      <SelectItem value="oc1">Oceania</SelectItem>
-                      <SelectItem value="ru">Russia</SelectItem>
-                      <SelectItem value="tr1">Turkey</SelectItem>
-                      <SelectItem value="jp1">Japan</SelectItem>
-                      <SelectItem value="ph2">Philippines</SelectItem>
-                      <SelectItem value="sg2">Singapore</SelectItem>
-                      <SelectItem value="th2">Thailand</SelectItem>
-                      <SelectItem value="tw2">Taiwan</SelectItem>
-                      <SelectItem value="vn2">Vietnam</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button
+              type="submit"
+              className={`w-full ${
+                isSearchDisabled ? "cursor-default opacity-70" : ""
+              }`}
+              disabled={isPending || isSearchDisabled}
+            >
               {isPending ? (
                 <>
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
@@ -416,6 +527,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                         This player hasn&apos;t been tracked yet. Would you like
                         to add them?
                       </p>
+                      {/* TODO [SPY-62]: Add option just to see search results once, without necessity to track the player */}
                       <Button
                         onClick={() => trackMutation.mutate()}
                         disabled={trackMutation.isPending}
@@ -444,8 +556,8 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                       error.message === "PLAYER_NOT_FOUND"
                         ? "Player not found in database."
                         : error instanceof Error && error.message
-                          ? error.message
-                          : "Failed to search for player. Please check your input and try again."}
+                        ? error.message
+                        : "Failed to search for player. Please check your input and try again."}
                     </AlertDescription>
                   </Alert>
                 )}
