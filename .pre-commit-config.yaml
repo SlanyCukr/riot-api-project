@@ -44,28 +44,15 @@ repos:
   - repo: local
     hooks:
       # Cyclomatic Complexity Check (blocks complexity >= 8)
-      # Allows: A-grade (1-5) and simple B-grade (6-7). Blocks: complexity >= 8
-      # Run 'pre-commit run radon-cc-strict --all-files --hook-stage manual' to track progress toward A-only
+      # Allows: A-grade (1-5) and simple B-grade (6-7)
       - id: radon-cc
         name: Radon Cyclomatic Complexity (max 7)
-        entry: .pre-commit-hooks/check-complexity.sh
+        entry: bash -c 'cd backend && OUT=$(uvx radon cc app/ --min B --show-complexity --no-assert 2>&1); if echo "$OUT" | grep -qE " - (B \([89]|B \(10\)|[C-F] \()"; then echo "$OUT"; echo "ERROR - Complexity >= 8 found"; exit 1; fi; echo "OK - All complexity <= 7"'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
         pass_filenames: false
         verbose: true
-
-      # Strict Complexity Check (Manual - Long-term goal: Only A-grade allowed)
-      # Currently 26 B-grade functions (6-7). Run manually: pre-commit run radon-cc-strict --all-files --hook-stage manual
-      - id: radon-cc-strict
-        name: Radon Strict (A-grade only goal)
-        entry: .pre-commit-hooks/check-complexity-strict.sh
-        language: system
-        files: ^backend/.*\.py$
-        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
-        pass_filenames: false
-        verbose: true
-        stages: [manual]
 
       # Maintainability Index Check (Stricter: A grade = MI >= 20)
       - id: radon-mi
