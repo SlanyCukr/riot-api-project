@@ -26,6 +26,7 @@ class WinRateFactorAnalyzer(BaseFactorAnalyzer):
     """
 
     def __init__(self):
+        """Initialize the win rate analyzer."""
         super().__init__("win_rate")
 
     async def analyze(

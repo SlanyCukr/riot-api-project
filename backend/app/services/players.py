@@ -538,6 +538,7 @@ class PlayerService:
     ) -> List[PlayerResponse]:
         """
         Get recent opponents for a player with their details from database only.
+
         Only returns players that exist in our database with summoner_name populated.
         Does NOT make any Riot API calls.
 
@@ -600,6 +601,7 @@ class PlayerService:
     ) -> PlayerResponse:
         """
         Fetch player from Riot API and immediately track them.
+
         Combines get_player + track_player in one transaction.
 
         Args:

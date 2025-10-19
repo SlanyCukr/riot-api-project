@@ -30,6 +30,7 @@ class PlayerAnalyzerJob(BaseJob):
     """Job that analyzes discovered players for smurf/boosted status."""
 
     def __init__(self, job_config: JobConfiguration):
+        """Initialize the player analyzer job."""
         super().__init__(job_config)
         self.settings = get_global_settings()
 

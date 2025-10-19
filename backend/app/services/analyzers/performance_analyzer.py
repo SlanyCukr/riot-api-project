@@ -27,6 +27,7 @@ class PerformanceFactorAnalyzer(BaseFactorAnalyzer):
     """
 
     def __init__(self):
+        """Initialize the performance analyzer."""
         super().__init__("performance_consistency")
 
     async def analyze(

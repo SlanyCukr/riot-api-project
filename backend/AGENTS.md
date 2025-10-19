@@ -51,3 +51,6 @@
 - Don't use `create_all()` or manual SQL (use Alembic - see MIGRATIONS.md)
 - Don't write complex functions (keep cyclomatic complexity <20, aim for <10)
 - Don't use f-strings in log messages (use context: `logger.info("msg", key=value)`)
+- Don't skip pre-commit checks (`git commit --no-verify` is forbidden)
+- Don't ignore pydocstyle warnings (all public functions need docstrings)
+- Don't ignore pyright type errors (fix them incrementally - see plan above)

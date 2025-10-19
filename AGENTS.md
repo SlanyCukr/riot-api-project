@@ -59,6 +59,7 @@ See `backend/MIGRATIONS.md` for details.
 - ❌ Don't commit API keys or secrets
 - ❌ Don't modify Riot API rate limiting
 - ❌ Don't touch legacy code without explicit request
+- ❌ Don't skip pre-commit hooks (always run checks before committing)
 
 # Detailed Documentation
 

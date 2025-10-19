@@ -27,6 +27,7 @@ class BaseFactorAnalyzer(ABC):
     """
 
     def __init__(self, factor_name: str):
+        """Initialize the analyzer with factor name and weight."""
         self.factor_name = factor_name
         self.weight = DETECTION_WEIGHTS.get(factor_name, 0.1)
         self.logger = structlog.get_logger(f"{__name__}.{factor_name}")

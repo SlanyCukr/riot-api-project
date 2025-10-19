@@ -27,6 +27,7 @@ class WinRateTrendFactorAnalyzer(BaseFactorAnalyzer):
     """
 
     def __init__(self):
+        """Initialize the win rate trend analyzer."""
         super().__init__("win_rate_trend")
 
     def _calculate_trend_metrics(self, improvement: float) -> tuple[float, str, bool]:

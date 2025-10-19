@@ -42,6 +42,7 @@ class MatchService:
     ) -> MatchListResponse:
         """
         Get match history for a player from database only.
+
         Never calls Riot API - returns whatever matches are available in database.
         Supports pagination for infinite scroll.
 
@@ -320,8 +321,8 @@ class MatchService:
     ) -> int:
         """
         Fetch match history from Riot API and store new matches for a player.
-        Used by background jobs only.
 
+        Used by background jobs only.
         This method checks the database before fetching to avoid duplicate API calls.
 
         Args:

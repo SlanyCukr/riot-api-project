@@ -42,6 +42,7 @@ class RankProgressionFactorAnalyzer(BaseFactorAnalyzer):
     }
 
     def __init__(self):
+        """Initialize the rank progression analyzer."""
         super().__init__("rank_progression")
 
     async def analyze(
