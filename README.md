@@ -5,6 +5,7 @@ A League of Legends player analysis platform that identifies potential smurf acc
 ## 🎯 What It Does
 
 - **🔍 Player Analysis**: Analyzes 9 factors to detect likely smurf accounts
+- **⚖️ Matchmaking Analysis**: Analyzes average win rates of teammates vs opponents
 - **📊 Player Analytics**: Match history, performance stats, and rank tracking
 - **⚡ Real-time Monitoring**: Automated background jobs for continuous updates
 - **🌍 Multi-Region Support**: Works on all major Riot API regions
@@ -64,6 +65,7 @@ Analyzes players using 9 weighted factors:
 ### Web Interface
 
 - **Player Analysis**: Search players and run analysis
+- **Matchmaking Analysis**: Analyze matchmaking fairness for tracked players
 - **Tracked Players**: Monitor players automatically
 - **Background Jobs**: View system status and job history
 
@@ -128,6 +130,8 @@ Monitor jobs at: http://localhost:3000/jobs
 - `GET /api/v1/matches/player/{puuid}` - Get match history
 - `POST /api/v1/player-analysis/analyze` - Run player analysis
 - `GET /api/v1/player-analysis/player/{puuid}/latest` - Get latest analysis
+- `POST /api/v1/matchmaking-analysis/start` - Start matchmaking analysis
+- `GET /api/v1/matchmaking-analysis/{puuid}/latest` - Get latest matchmaking analysis
 
 **Full API docs**: http://localhost:8000/docs
 

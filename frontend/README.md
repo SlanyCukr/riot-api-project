@@ -1,6 +1,6 @@
 # Frontend - Riot API Web Application
 
-Next.js 15 frontend for the Riot API Match History & Player Analysis application. Provides an intuitive interface for analyzing League of Legends player data.
+Next.js 15 frontend for the Riot API Match History & Player Analysis application. Provides an intuitive interface for analyzing League of Legends player data and matchmaking fairness.
 
 ## Tech Stack
 
@@ -27,6 +27,7 @@ frontend/
 │   ├── player-card.tsx        # Player information display
 │   ├── match-history.tsx      # Match history table
 │   ├── player-analysis.tsx    # Player analysis results
+│   ├── matchmaking-analysis.tsx  # Matchmaking analysis component
 │   └── providers.tsx          # Client providers (TanStack Query)
 ├── lib/
 │   ├── utils.ts               # Utility functions (cn helper)
@@ -106,6 +107,13 @@ npm run lint     # Run ESLint
 - Confidence score visualization
 - Detection factors breakdown
 - Historical detection results
+
+### Matchmaking Analysis
+
+- Teammate vs opponent win rate analysis
+- Real-time progress tracking
+- Asynchronous analysis execution
+- Results visualization and comparison
 
 ### Encounter Tracking
 

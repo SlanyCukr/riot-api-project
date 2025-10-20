@@ -15,7 +15,7 @@
 - `models/` - SQLAlchemy ORM models
 - `schemas/` - Pydantic request/response models
 - `algorithms/` - Player analysis algorithms
-- `jobs/` - Background job system
+- `jobs/` - Background job system (player updates, analysis, matchmaking)
 
 # Commands
 
@@ -40,6 +40,7 @@
 - Example: `"""Get player by Riot ID.\n\n:param game_name: Player's game name\n:returns: Player response\n"""`
 
 # Do
+
 - Use return-early strategy to reduce cognitive complexity whenever possible
 
 # Do Not

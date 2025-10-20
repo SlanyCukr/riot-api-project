@@ -17,7 +17,7 @@
 - `backend/app/models/`: SQLAlchemy ORM models
 - `backend/app/schemas/`: Pydantic validation schemas
 - `backend/app/algorithms/`: Player analysis algorithms
-- `backend/app/jobs/`: Background jobs
+- `backend/app/jobs/`: Background jobs (player updates, analysis, matchmaking)
 - `frontend/app/`: Next.js pages
 - `frontend/components/`: React components
 - `frontend/lib/`: Utilities and API client

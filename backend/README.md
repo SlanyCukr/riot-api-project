@@ -9,6 +9,7 @@ Backend service for Riot API player's performance and match history analysis.
 - In-memory Riot API response caching with TTL controls
 - Riot API integration
 - Player analysis algorithms
+- Matchmaking analysis system
 - Match history tracking
 
 ## Development

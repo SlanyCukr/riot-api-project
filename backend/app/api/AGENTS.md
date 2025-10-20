@@ -10,6 +10,7 @@
 - `players.py` - Player search, tracking, rank endpoints
 - `matches.py` - Match history, stats, encounters
 - `detection.py` - Player analysis endpoints
+- `matchmaking_analysis.py` - Matchmaking analysis endpoints
 - `jobs.py` - Job management and execution endpoints
 - `settings.py` - Runtime settings management
 - `dependencies.py` - FastAPI dependency factories

@@ -10,6 +10,7 @@
 - `players.py` - Player CRUD and tracking logic
 - `matches.py` - Match retrieval and statistics
 - `detection.py` - Player analysis orchestration
+- `matchmaking_analysis.py` - Matchmaking analysis orchestration
 - `jobs.py` - Job configuration management
 - `settings.py` - Runtime settings operations
 

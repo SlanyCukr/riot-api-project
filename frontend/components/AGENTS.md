@@ -10,6 +10,7 @@
 
 - `ui/` - shadcn/ui primitives (DO NOT edit manually)
 - `player-analysis.tsx` - Player analysis
+- `matchmaking-analysis.tsx` - Matchmaking analysis
 - `player-search.tsx` - Player search form
 - `player-card.tsx` - Player info display
 - `player-stats.tsx` - Match statistics
