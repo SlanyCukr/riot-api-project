@@ -334,3 +334,45 @@ export const SettingTestResponseSchema = z.object({
 export type Setting = z.infer<typeof SettingSchema>;
 export type SettingUpdate = z.infer<typeof SettingUpdateSchema>;
 export type SettingTestResponse = z.infer<typeof SettingTestResponseSchema>;
+
+// ===== MATCHMAKING ANALYSIS SCHEMAS =====
+export const MatchmakingAnalysisResultsSchema = z.object({
+  team_avg_winrate: z.number().min(0).max(1),
+  enemy_avg_winrate: z.number().min(0).max(1),
+  matches_analyzed: z.number().int().min(0),
+});
+
+export const MatchmakingAnalysisResponseSchema = z.object({
+  id: z.number(),
+  puuid: z.string(),
+  status: z.string(),
+  progress: z.number(),
+  total_requests: z.number(),
+  estimated_minutes_remaining: z.number(),
+  results: MatchmakingAnalysisResultsSchema.nullable().optional(),
+  error_message: z.string().nullable().optional(),
+  created_at: z.string(),
+  started_at: z.string().nullable().optional(),
+  completed_at: z.string().nullable().optional(),
+  updated_at: z.string(),
+});
+
+export const MatchmakingAnalysisStatusResponseSchema = z.object({
+  id: z.number(),
+  status: z.string(),
+  progress: z.number(),
+  total_requests: z.number(),
+  estimated_minutes_remaining: z.number(),
+  results: MatchmakingAnalysisResultsSchema.nullable().optional(),
+  error_message: z.string().nullable().optional(),
+});
+
+export type MatchmakingAnalysisResults = z.infer<
+  typeof MatchmakingAnalysisResultsSchema
+>;
+export type MatchmakingAnalysisResponse = z.infer<
+  typeof MatchmakingAnalysisResponseSchema
+>;
+export type MatchmakingAnalysisStatusResponse = z.infer<
+  typeof MatchmakingAnalysisStatusResponseSchema
+>;

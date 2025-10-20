@@ -432,7 +432,7 @@ class PlayerService:
         self, query: str, search_type: str, game_name: str | None, tag_line: str | None
     ) -> bool:
         """Validate search query and return False if invalid."""
-        if len(query.strip()) < 2:
+        if len(query.strip()) < 1:
             logger.warning("Query too short", query=query)
             return False
 
@@ -1090,9 +1090,9 @@ class PlayerService:
             inactive=solo_entry.inactive,
             fresh_blood=solo_entry.fresh_blood,
             hot_streak=solo_entry.hot_streak,
-            league_id=solo_entry.league_id
-            if hasattr(solo_entry, "league_id")
-            else None,
+            league_id=(
+                solo_entry.league_id if hasattr(solo_entry, "league_id") else None
+            ),
             is_current=True,
         )
 

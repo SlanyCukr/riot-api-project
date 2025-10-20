@@ -42,7 +42,7 @@ import {
 
 // Constants for autocomplete behavior
 const SUGGESTION_DEBOUNCE_MS = 300;
-const MIN_SEARCH_LENGTH = 0;
+const MIN_SEARCH_LENGTH = 1;
 
 // Server to flag mapping
 const SERVER_FLAGS: Record<string, string> = {
@@ -103,7 +103,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   } = useQuery({
     queryKey: ["player-suggestions", debouncedSearchValue, platform],
     queryFn: async () => {
-      if (debouncedSearchValue.length <= MIN_SEARCH_LENGTH) {
+      if (debouncedSearchValue.length < MIN_SEARCH_LENGTH) {
         return { success: true as const, data: [] };
       }
 
@@ -115,7 +115,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
       return result;
     },
-    enabled: debouncedSearchValue.length > MIN_SEARCH_LENGTH,
+    enabled: debouncedSearchValue.length >= MIN_SEARCH_LENGTH,
     retry: 1,
     retryDelay: 500,
   });
@@ -126,7 +126,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
 
   // Show suggestions when there are results and input is focused
   useEffect(() => {
-    if (suggestions.length > 0 && searchValue.length > MIN_SEARCH_LENGTH) {
+    if (suggestions.length > 0 && searchValue.length >= MIN_SEARCH_LENGTH) {
       setShowSuggestions(true);
       setSelectedIndex(-1);
     } else {
@@ -300,7 +300,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                                 onFocus={() => {
                                   if (
                                     suggestions.length > 0 &&
-                                    searchValue.length > MIN_SEARCH_LENGTH
+                                    searchValue.length >= MIN_SEARCH_LENGTH
                                   ) {
                                     setShowSuggestions(true);
                                   }
@@ -311,7 +311,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                                 autoComplete="off"
                               />
                               {suggestionsLoading &&
-                                searchValue.length > MIN_SEARCH_LENGTH && (
+                                searchValue.length >= MIN_SEARCH_LENGTH && (
                                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                     <Loader2
                                       className="h-4 w-4 animate-spin text-muted-foreground"

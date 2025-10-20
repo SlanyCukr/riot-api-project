@@ -114,13 +114,47 @@
   }
 
   /* Dark mode submit button gradient */
-  .dark button[type="submit"]:not(:disabled) {
+  .dark button[type="submit"] {
     background: linear-gradient(105deg, #f2d777 0%, #cfa93a 10%, #9d7d22 90%);
     color: #03005b;
     cursor: pointer;
   }
 
-  .dark button[type="submit"]:not(:disabled):hover {
+  .dark button[type="submit"]:hover {
+    opacity: 0.9;
+  }
+
+  /* Matchmaking analysis start button (gold gradient) */
+  .dark .matchmaking-start-btn {
+    background: linear-gradient(
+      105deg,
+      #f2d777 0%,
+      #cfa93a 10%,
+      #9d7d22 90%
+    ) !important;
+    color: #03005b !important;
+    cursor: pointer;
+    border: none;
+  }
+
+  .dark .matchmaking-start-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  /* Matchmaking analysis cancel button (red gradient) */
+  .dark .matchmaking-cancel-btn {
+    background: linear-gradient(
+      105deg,
+      #ff6b6b 0%,
+      #ee5a6f 10%,
+      #c92a2a 90%
+    ) !important;
+    color: #ffffff !important;
+    cursor: pointer;
+    border: none;
+  }
+
+  .dark .matchmaking-cancel-btn:hover:not(:disabled) {
     opacity: 0.9;
   }
 
@@ -153,8 +187,9 @@
   /* Disabled button styles */
   button:disabled {
     cursor: not-allowed !important;
-    opacity: 0.6 !important;
-    pointer-events: none !important;
+    opacity: 0.5 !important;
+    /* This should be done via JS instead, as it disabled the not-allowed cursor */
+    /* pointer-events: none !important; */
   }
 
   button:disabled:hover {

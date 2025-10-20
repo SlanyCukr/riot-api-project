@@ -1,6 +1,13 @@
 import axios, { AxiosError } from "axios";
 import { z } from "zod";
-import { Player, PlayerSchema } from "./schemas";
+import {
+  Player,
+  PlayerSchema,
+  MatchmakingAnalysisResponseSchema,
+  MatchmakingAnalysisStatusResponseSchema,
+  MatchmakingAnalysisResponse,
+  MatchmakingAnalysisStatusResponse,
+} from "./schemas";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,7 +41,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  },
+  }
 );
 
 // Response interceptor for error handling
@@ -47,7 +54,7 @@ api.interceptors.response.use(
       console.error("API Error:", error.response?.data || error.message);
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 // Helper to format errors
@@ -99,7 +106,7 @@ function formatError(error: unknown): ApiError {
 export async function validatedGet<T>(
   schema: z.ZodType<T>,
   url: string,
-  params?: Record<string, unknown>,
+  params?: Record<string, unknown>
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.get(url, { params });
@@ -113,7 +120,7 @@ export async function validatedGet<T>(
       console.error("Validation errors:", parsed.error.issues);
       console.error(
         "Formatted issues:",
-        JSON.stringify(parsed.error.format(), null, 2),
+        JSON.stringify(parsed.error.format(), null, 2)
       );
 
       return {
@@ -138,7 +145,7 @@ export async function validatedGet<T>(
 export async function validatedPost<T>(
   schema: z.ZodType<T>,
   url: string,
-  data?: unknown,
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.post(url, data);
@@ -152,7 +159,7 @@ export async function validatedPost<T>(
       console.error("Validation errors:", parsed.error.issues);
       console.error(
         "Formatted issues:",
-        JSON.stringify(parsed.error.format(), null, 2),
+        JSON.stringify(parsed.error.format(), null, 2)
       );
 
       return {
@@ -177,7 +184,7 @@ export async function validatedPost<T>(
 export async function validatedPut<T>(
   schema: z.ZodType<T>,
   url: string,
-  data?: unknown,
+  data?: unknown
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.put(url, data);
@@ -191,7 +198,7 @@ export async function validatedPut<T>(
       console.error("Validation errors:", parsed.error.issues);
       console.error(
         "Formatted issues:",
-        JSON.stringify(parsed.error.format(), null, 2),
+        JSON.stringify(parsed.error.format(), null, 2)
       );
 
       return {
@@ -215,7 +222,7 @@ export async function validatedPut<T>(
 // Generic validated DELETE request
 export async function validatedDelete<T>(
   schema: z.ZodType<T>,
-  url: string,
+  url: string
 ): Promise<ApiResponse<T>> {
   try {
     const response = await api.delete(url);
@@ -229,7 +236,7 @@ export async function validatedDelete<T>(
       console.error("Validation errors:", parsed.error.issues);
       console.error(
         "Formatted issues:",
-        JSON.stringify(parsed.error.format(), null, 2),
+        JSON.stringify(parsed.error.format(), null, 2)
       );
 
       return {
@@ -250,9 +257,16 @@ export async function validatedDelete<T>(
   }
 }
 
+// Player API Functions
+export async function getPlayerByPuuid(
+  puuid: string
+): Promise<ApiResponse<Player>> {
+  return validatedGet(PlayerSchema, `/players/${puuid}`);
+}
+
 // Player Tracking API Functions
 export async function trackPlayer(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ message: string }>> {
   try {
     const response = await api.post(`/players/${puuid}/track`);
@@ -269,7 +283,7 @@ export async function trackPlayer(
 }
 
 export async function untrackPlayer(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ message: string }>> {
   try {
     const response = await api.delete(`/players/${puuid}/track`);
@@ -286,7 +300,7 @@ export async function untrackPlayer(
 }
 
 export async function getTrackingStatus(
-  puuid: string,
+  puuid: string
 ): Promise<ApiResponse<{ is_tracked: boolean }>> {
   try {
     const response = await api.get(`/players/${puuid}/tracking-status`);
@@ -326,7 +340,7 @@ export interface AddTrackedPlayerParams {
 }
 
 export async function addTrackedPlayer(
-  params: AddTrackedPlayerParams,
+  params: AddTrackedPlayerParams
 ): Promise<ApiResponse<unknown>> {
   try {
     const response = await api.post(`/players/add-tracked`, null, { params });
@@ -349,7 +363,7 @@ export interface SearchSuggestionsParams {
 }
 
 export async function searchPlayerSuggestions(
-  params: SearchSuggestionsParams,
+  params: SearchSuggestionsParams
 ): Promise<ApiResponse<Player[]>> {
   const PlayerArraySchema = z.array(PlayerSchema);
   return validatedGet(PlayerArraySchema, "/players/suggestions", {
@@ -357,6 +371,60 @@ export async function searchPlayerSuggestions(
     platform: params.platform,
     ...(params.limit !== undefined && { limit: params.limit }),
   });
+}
+
+// Matchmaking Analysis API Functions
+export async function startMatchmakingAnalysis(
+  puuid: string
+): Promise<ApiResponse<MatchmakingAnalysisResponse>> {
+  return validatedPost(
+    MatchmakingAnalysisResponseSchema,
+    "/matchmaking-analysis/start",
+    {
+      puuid,
+    }
+  );
+}
+
+export async function getMatchmakingAnalysisStatus(
+  analysisId: number
+): Promise<ApiResponse<MatchmakingAnalysisStatusResponse>> {
+  return validatedGet(
+    MatchmakingAnalysisStatusResponseSchema,
+    `/matchmaking-analysis/${analysisId}`
+  );
+}
+
+export async function getLatestMatchmakingAnalysis(
+  puuid: string
+): Promise<ApiResponse<MatchmakingAnalysisResponse>> {
+  return validatedGet(
+    MatchmakingAnalysisResponseSchema,
+    `/matchmaking-analysis/player/${puuid}`
+  );
+}
+
+export async function cancelMatchmakingAnalysis(
+  analysisId: number
+): Promise<ApiResponse<{ message: string }>> {
+  try {
+    const response = await api.post(
+      `/matchmaking-analysis/${analysisId}/cancel`,
+      {},
+      {
+        timeout: 5000, // 5 second timeout for cancellation
+      }
+    );
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: formatError(error),
+    };
+  }
 }
 
 export default api;

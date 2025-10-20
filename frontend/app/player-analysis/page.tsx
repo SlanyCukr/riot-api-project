@@ -20,6 +20,9 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 
+// TODO [SPY-68]: Add PUUID to URL after a player is selected (same as the redirect from Tracked Players),
+// so the player's data stays loaded until user goes to another page, and i.e. refresh won't force
+// you to search for player again
 export default function PlayerAnalysisPage() {
   const searchParams = useSearchParams();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
@@ -114,7 +117,9 @@ export default function PlayerAnalysisPage() {
                 <Tabs defaultValue="smurf" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="smurf">Player Analysis</TabsTrigger>
-                    <TabsTrigger value="opponents">Recent Opponents</TabsTrigger>
+                    <TabsTrigger value="opponents">
+                      Recent Opponents
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="smurf" className="mt-6">
                     <Suspense fallback={<PlayerAnalysisSkeleton />}>

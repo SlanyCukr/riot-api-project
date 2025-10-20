@@ -26,6 +26,15 @@ interface MatchHistoryProps {
   queueFilter?: number;
 }
 
+// TODO: [SPY-64]
+// 1. Show less matches on initial load (10/15/20).
+// 2. Make the component scrollable, so the user scrolls through the component, rather than through
+// whole page. This ensures that other components will be shown on the page, as well as the sidebar
+// footer, which currently dissappears when the MatchHistoy is shown, and scrolling down pushes it
+// down as well, making it impossible to see it for th user.
+// 3. Ensure the sidebar footer is shown even if this component goes off the page, this is probably
+// more of a sidebar problem, but as it's closely related to this, and will be most likely quick
+// fix, we can do it in one ticket
 export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
   const PAGE_SIZE = 50;
   const loadMoreRef = useRef<HTMLDivElement>(null);

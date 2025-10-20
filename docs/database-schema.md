@@ -146,22 +146,18 @@ erDiagram
     }
 
     MATCHMAKING_ANALYSES {
-        int id PK "Auto-increment"
+        bigint id PK "Auto-increment"
         string puuid FK "Player ref"
-        decimal team_average_winrate "Team avg win rate"
-        decimal enemy_average_winrate "Enemy avg win rate"
-        int matches_analyzed "Matches analyzed"
-        decimal confidence_score "Confidence score"
-        bool sample_size_adequate "Sample sufficient"
-        string analysis_status "Analysis status"
-        string queue_type "Queue analyzed"
-        timestamp analysis_date "Analysis date"
-        timestamp created_at "Record creation"
-        timestamp updated_at "Last update"
+        string status "Analysis status"
+        bigint progress "Requests completed"
+        bigint total_requests "Total requests"
+        bigint estimated_minutes_remaining "Time remaining"
+        jsonb results "Analysis results"
         text error_message "Error details"
-        jsonb analysis_metadata "Analysis details"
-        int api_requests_used "API requests"
-        int processing_time_ms "Processing time"
+        timestamp created_at "Record creation"
+        timestamp started_at "Analysis start"
+        timestamp completed_at "Analysis completion"
+        timestamp updated_at "Last update"
     }
 ```
 
@@ -456,9 +452,9 @@ erDiagram
 
 ### 6. matchmaking_analyses
 
-**Purpose**: Store teammate vs opponent win rate analysis for matchmaking quality assessment.
+**Purpose**: Track matchmaking analysis progress and store teammate vs opponent win rate results.
 
-**Primary Key**: `id` (Integer, auto-increment)
+**Primary Key**: `id` (BigInt, auto-increment)
 
 **Foreign Keys**:
 
@@ -466,35 +462,34 @@ erDiagram
 
 **Key Features**:
 
-- Analyzes average win rates of teammates vs opponents from recent matches
-- Optimized API usage through database-first approach and participant de-duplication
-- Confidence scoring based on sample size and data quality
-- Permanent storage (no expiration) for historical tracking
-- Comprehensive metadata for performance analysis and debugging
+- Real-time progress tracking for long-running analyses
+- Asynchronous analysis execution with status monitoring
+- Time estimation for completion
+- JSON-based results storage for flexibility
+- Error capture for failed analyses
+- Support for cancellation and retry
 
-**Analysis Process**:
+**Analysis Status** (Enum):
 
-1. Fetch player's recent matches for specified queue type
-2. Extract unique participants from all matches (excluding the player)
-3. Query existing database for participant win rates
-4. Make API calls only for missing participant data
-5. Calculate average win rates for teammates vs opponents
-6. Store results with confidence metrics and processing metadata
+- `pending` - Analysis queued but not started
+- `in_progress` - Currently executing
+- `completed` - Successfully finished with results
+- `failed` - Failed with error message
+- `cancelled` - Manually cancelled by user
+
+**Results Structure** (JSON):
+
+- `team_avg_winrate` - Average win rate of teammates (0.0-1.0)
+- `enemy_avg_winrate` - Average win rate of opponents (0.0-1.0)
+- `matches_analyzed` - Number of matches included in analysis
 
 **Indexes**:
 
 - `id` (primary key, automatic index)
 - `puuid` (foreign key, indexed)
-- `analysis_date` (indexed)
-- `analysis_status` (indexed)
-- `queue_type` (indexed)
-- `confidence_score` (indexed)
-- `team_average_winrate` (indexed)
-- `enemy_average_winrate` (indexed)
-- Composite: `(puuid, analysis_date)` - player's analysis history
-- Composite: `(analysis_status, analysis_date)` - processing status queries
-- Composite: `(queue_type, confidence_score)` - quality-based filtering
-- Composite: `(team_average_winrate, enemy_average_winrate)` - matchmaking quality
+- `status` (indexed)
+- `created_at` (indexed)
+- Composite: `(puuid, status)` - player's active analyses
 
 **Relationships**:
 

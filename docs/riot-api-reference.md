@@ -24,18 +24,21 @@ Quick reference for Riot Games API endpoints used in this project. This document
 ### API Key Types
 
 **Development Keys:**
+
 - Automatically generated when you create a Developer Portal account at https://developer.riotgames.com/
 - **Expire every 24 hours** - must be regenerated daily
 - Against developer policies to use in production
 - Rate limits: 20 requests/second, 100 requests/2 minutes
 
 **Personal Keys:**
+
 - For products intended for developer or small private community
 - Do not expire
 - Can be registered without verification
 - Won't be approved for rate limit increases
 
 **Production Keys:**
+
 - For products intended for large communities or public use
 - Do not expire
 - Much higher rate limits
@@ -52,6 +55,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 Alternative: Pass as query parameter (not recommended):
+
 ```
 ?api_key=RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
@@ -75,6 +79,7 @@ Alternative: Pass as query parameter (not recommended):
 ### Rate Limit Headers
 
 Response headers communicate rate limit status:
+
 - `X-App-Rate-Limit`: Application rate limit configuration
 - `X-App-Rate-Limit-Count`: Current application rate limit usage
 - `X-Method-Rate-Limit`: Method rate limit configuration
@@ -90,6 +95,7 @@ When you receive a `429 Rate Limit Exceeded` response:
 3. **Respect rate limits**: Applications that routinely violate may have access disabled
 
 Example 429 Response:
+
 ```json
 {
   "status": {
@@ -109,35 +115,35 @@ Example 429 Response:
 
 Used for Account-v1 and Match-v5 APIs:
 
-| Region | Host | Coverage |
-|--------|------|----------|
-| AMERICAS | `americas.api.riotgames.com` | North & South America |
-| EUROPE | `europe.api.riotgames.com` | Europe, Russia, Turkey, Middle East |
-| ASIA | `asia.api.riotgames.com` | Korea, Japan |
-| SEA | `sea.api.riotgames.com` | Southeast Asia, Oceania, Taiwan |
+| Region   | Host                         | Coverage                            |
+| -------- | ---------------------------- | ----------------------------------- |
+| AMERICAS | `americas.api.riotgames.com` | North & South America               |
+| EUROPE   | `europe.api.riotgames.com`   | Europe, Russia, Turkey, Middle East |
+| ASIA     | `asia.api.riotgames.com`     | Korea, Japan                        |
+| SEA      | `sea.api.riotgames.com`      | Southeast Asia, Oceania, Taiwan     |
 
 ### Platform Routing Values
 
 Used for Summoner-v4, League-v4, and Spectator-v4 APIs:
 
-| Platform | Host | Server Name |
-|----------|------|-------------|
-| EUN1 | `eun1.api.riotgames.com` | Europe Nordic & East |
-| EUW1 | `euw1.api.riotgames.com` | Europe West |
-| NA1 | `na1.api.riotgames.com` | North America |
-| KR | `kr.api.riotgames.com` | Korea |
-| BR1 | `br1.api.riotgames.com` | Brazil |
-| LA1 | `la1.api.riotgames.com` | Latin America North |
-| LA2 | `la2.api.riotgames.com` | Latin America South |
-| OC1 | `oc1.api.riotgames.com` | Oceania |
-| RU | `ru.api.riotgames.com` | Russia |
-| TR1 | `tr1.api.riotgames.com` | Turkey |
-| JP1 | `jp1.api.riotgames.com` | Japan |
-| PH2 | `ph2.api.riotgames.com` | Philippines |
-| SG2 | `sg2.api.riotgames.com` | Singapore |
-| TH2 | `th2.api.riotgames.com` | Thailand |
-| TW2 | `tw2.api.riotgames.com` | Taiwan |
-| VN2 | `vn2.api.riotgames.com` | Vietnam |
+| Platform | Host                     | Server Name          |
+| -------- | ------------------------ | -------------------- |
+| EUN1     | `eun1.api.riotgames.com` | Europe Nordic & East |
+| EUW1     | `euw1.api.riotgames.com` | Europe West          |
+| NA1      | `na1.api.riotgames.com`  | North America        |
+| KR       | `kr.api.riotgames.com`   | Korea                |
+| BR1      | `br1.api.riotgames.com`  | Brazil               |
+| LA1      | `la1.api.riotgames.com`  | Latin America North  |
+| LA2      | `la2.api.riotgames.com`  | Latin America South  |
+| OC1      | `oc1.api.riotgames.com`  | Oceania              |
+| RU       | `ru.api.riotgames.com`   | Russia               |
+| TR1      | `tr1.api.riotgames.com`  | Turkey               |
+| JP1      | `jp1.api.riotgames.com`  | Japan                |
+| PH2      | `ph2.api.riotgames.com`  | Philippines          |
+| SG2      | `sg2.api.riotgames.com`  | Singapore            |
+| TH2      | `th2.api.riotgames.com`  | Thailand             |
+| TW2      | `tw2.api.riotgames.com`  | Taiwan               |
+| VN2      | `vn2.api.riotgames.com`  | Vietnam              |
 
 ### When to Use Each Type
 
@@ -164,10 +170,12 @@ Host: {region}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `gameName` (string): In-game name (before the #)
 - `tagLine` (string): Tag line (after the #)
 
 **Example Request:**
+
 ```bash
 GET /riot/account/v1/accounts/by-riot-id/smile/6578
 Host: europe.api.riotgames.com
@@ -175,6 +183,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response:**
+
 ```json
 {
   "puuid": "jUr1OkZKAS4AW6amrpxOmfYin3w9P-jiVuI7UtNmyrJRL9Z5B0R_Qzs6h7pEwCThABtBODsoyhcDbQ",
@@ -191,9 +200,11 @@ Host: {region}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `puuid` (string): Player Universally Unique Identifier
 
 **Example Request:**
+
 ```bash
 GET /riot/account/v1/accounts/by-puuid/jUr1OkZKAS4AW6amrpxOmfYin3w9P-jiVuI7UtNmyrJRL9Z5B0R_Qzs6h7pEwCThABtBODsoyhcDbQ
 Host: europe.api.riotgames.com
@@ -216,9 +227,11 @@ Host: {platform}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `encryptedPUUID` (string): Player UUID from Account-v1
 
 **Example Request:**
+
 ```bash
 GET /lol/summoner/v4/summoners/by-puuid/jUr1OkZKAS4AW6amrpxOmfYin3w9P-jiVuI7UtNmyrJRL9Z5B0R_Qzs6h7pEwCThABtBODsoyhcDbQ
 Host: eun1.api.riotgames.com
@@ -226,6 +239,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response:**
+
 ```json
 {
   "id": "encrypted_summoner_id_here",
@@ -263,9 +277,11 @@ Host: {region}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `puuid` (string): Player UUID
 
 **Query Parameters:**
+
 - `start` (int, optional): Starting index (default: 0)
 - `count` (int, optional): Number of match IDs to return (default: 20, max: 100)
 - `startTime` (long, optional): Epoch timestamp in seconds (only matches after this time)
@@ -274,6 +290,7 @@ Host: {region}.api.riotgames.com
 - `type` (string, optional): Match type filter (e.g., "ranked", "normal", "tourney", "tutorial")
 
 **Example Request:**
+
 ```bash
 GET /lol/match/v5/matches/by-puuid/jUr1OkZKAS4AW6amrpxOmfYin3w9P-jiVuI7UtNmyrJRL9Z5B0R_Qzs6h7pEwCThABtBODsoyhcDbQ/ids?start=0&count=20
 Host: europe.api.riotgames.com
@@ -281,12 +298,9 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response:**
+
 ```json
-[
-  "EUW1_6234567890",
-  "EUW1_6234567889",
-  "EUW1_6234567888"
-]
+["EUW1_6234567890", "EUW1_6234567889", "EUW1_6234567888"]
 ```
 
 #### Get Match by ID
@@ -297,9 +311,11 @@ Host: {region}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `matchId` (string): Match identifier (format: `{platform}_{gameId}`)
 
 **Example Request:**
+
 ```bash
 GET /lol/match/v5/matches/EUW1_6234567890
 Host: europe.api.riotgames.com
@@ -307,6 +323,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response:**
+
 ```json
 {
   "metadata": {
@@ -381,6 +398,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Important**:
+
 - Player's PUUID index in `metadata.participants` matches their index in `info.participants`
 - `gameDuration` is in seconds
 - Timestamps are in milliseconds (epoch)
@@ -399,9 +417,11 @@ Host: {platform}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `encryptedSummonerId` (string): Encrypted summoner ID from Summoner-v4
 
 **Example Request:**
+
 ```bash
 GET /lol/league/v4/entries/by-summoner/encrypted_summoner_id_here
 Host: eun1.api.riotgames.com
@@ -409,6 +429,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response:**
+
 ```json
 [
   {
@@ -445,20 +466,24 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Important**:
+
 - Returns **array** of queue types (Solo/Duo, Flex, etc.)
 - Empty array `[]` if player is unranked or hasn't finished placements
 - Can be empty after rank resets
 - `miniSeries` field present only when in promotional series
 
 **Queue Types:**
+
 - `RANKED_SOLO_5x5`: Ranked Solo/Duo queue
 - `RANKED_FLEX_SR`: Ranked Flex 5v5 queue
 - `RANKED_FLEX_TT`: Ranked Flex 3v3 queue (deprecated)
 
 **Tiers:**
+
 - `IRON`, `BRONZE`, `SILVER`, `GOLD`, `PLATINUM`, `EMERALD`, `DIAMOND`, `MASTER`, `GRANDMASTER`, `CHALLENGER`
 
 **Ranks (within tier):**
+
 - `I`, `II`, `III`, `IV` (I is highest, IV is lowest)
 - Not applicable for MASTER, GRANDMASTER, CHALLENGER tiers
 
@@ -476,9 +501,11 @@ Host: {platform}.api.riotgames.com
 ```
 
 **Path Parameters:**
+
 - `encryptedSummonerId` (string): Encrypted summoner ID from Summoner-v4
 
 **Example Request:**
+
 ```bash
 GET /lol/spectator/v4/active-games/by-summoner/encrypted_summoner_id_here
 Host: eun1.api.riotgames.com
@@ -486,6 +513,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response (Summoner in game):**
+
 ```json
 {
   "gameId": 6234567890,
@@ -517,6 +545,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Example Response (Summoner not in game):**
+
 ```json
 {
   "status": {
@@ -527,6 +556,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Important**:
+
 - Returns 404 if summoner is not currently in a game
 - `gameLength` is in seconds since game start
 - `gameStartTime` is epoch timestamp in milliseconds
@@ -539,13 +569,14 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ```typescript
 {
-  puuid: string;          // Player Universally Unique Identifier (globally unique)
-  gameName: string;       // In-game name (before #)
-  tagLine: string;        // Tag line (after #)
+  puuid: string; // Player Universally Unique Identifier (globally unique)
+  gameName: string; // In-game name (before #)
+  tagLine: string; // Tag line (after #)
 }
 ```
 
 **Key Points:**
+
 - PUUID is globally unique and doesn't change with region transfers
 - Recommended as primary player identifier
 - `gameName` + `tagLine` form the Riot ID (e.g., "smile#6578")
@@ -556,17 +587,18 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ```typescript
 {
-  id: string;                  // Encrypted summoner ID (platform-specific)
-  accountId: string;           // Encrypted account ID (deprecated)
-  puuid: string;               // Player UUID (same as AccountDTO.puuid)
-  name: string;                // Summoner name (STALE since Nov 2023)
-  profileIconId: number;       // Profile icon ID
-  revisionDate: number;        // Date summoner was last modified (epoch ms)
-  summonerLevel: number;       // Summoner level
+  id: string; // Encrypted summoner ID (platform-specific)
+  accountId: string; // Encrypted account ID (deprecated)
+  puuid: string; // Player UUID (same as AccountDTO.puuid)
+  name: string; // Summoner name (STALE since Nov 2023)
+  profileIconId: number; // Profile icon ID
+  revisionDate: number; // Date summoner was last modified (epoch ms)
+  summonerLevel: number; // Summoner level
 }
 ```
 
 **Key Points:**
+
 - `id` (encrypted summoner ID) needed for League-v4 and Spectator-v4
 - `name` field contains **stale data** - use Account-v1 for current Riot ID
 - `revisionDate` is last modified timestamp in milliseconds
@@ -604,6 +636,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Important**:
+
 - `metadata.participants` index matches `info.participants` index
 - `gameDuration` is in **seconds**
 - All timestamps are in **milliseconds**
@@ -615,30 +648,31 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ```typescript
 {
-  puuid: string;                  // Player UUID
-  summonerName: string;           // Summoner name (may be stale)
-  summonerId: string;             // Encrypted summoner ID
-  championName: string;           // Champion name (e.g., "Yasuo")
-  championId: number;             // Champion ID
-  teamId: number;                 // Team ID (100 = blue, 200 = red)
-  teamPosition: string;           // Position (e.g., "MIDDLE", "JUNGLE", "TOP", "BOTTOM", "UTILITY")
-  individualPosition: string;     // Individual position (may differ from teamPosition)
-  win: boolean;                   // True if won
-  kills: number;                  // Total kills
-  deaths: number;                 // Total deaths
-  assists: number;                // Total assists
-  champLevel: number;             // Final champion level
-  goldEarned: number;             // Total gold earned
-  totalMinionsKilled: number;     // CS from minions
-  neutralMinionsKilled: number;   // CS from jungle monsters
-  visionScore: number;            // Vision score
-  challenges: object;             // Challenges data (dynamic)
-  perks: object;                  // Runes/perks data
+  puuid: string; // Player UUID
+  summonerName: string; // Summoner name (may be stale)
+  summonerId: string; // Encrypted summoner ID
+  championName: string; // Champion name (e.g., "Yasuo")
+  championId: number; // Champion ID
+  teamId: number; // Team ID (100 = blue, 200 = red)
+  teamPosition: string; // Position (e.g., "MIDDLE", "JUNGLE", "TOP", "BOTTOM", "UTILITY")
+  individualPosition: string; // Individual position (may differ from teamPosition)
+  win: boolean; // True if won
+  kills: number; // Total kills
+  deaths: number; // Total deaths
+  assists: number; // Total assists
+  champLevel: number; // Final champion level
+  goldEarned: number; // Total gold earned
+  totalMinionsKilled: number; // CS from minions
+  neutralMinionsKilled: number; // CS from jungle monsters
+  visionScore: number; // Vision score
+  challenges: object; // Challenges data (dynamic)
+  perks: object; // Runes/perks data
   // ... many more fields available
 }
 ```
 
 **Key Points:**
+
 - `teamId`: 100 (blue side), 200 (red side)
 - Positions: `TOP`, `JUNGLE`, `MIDDLE`, `BOTTOM`, `UTILITY`
 - Total CS = `totalMinionsKilled` + `neutralMinionsKilled`
@@ -673,6 +707,7 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 **Key Points:**
+
 - Returned as **array** - player can have multiple queue types
 - Empty array if unranked or no placements completed
 - `miniSeries` only present when in promotional series (e.g., Gold II → Gold I)
@@ -684,20 +719,40 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ```typescript
 {
-  teamId: number;          // Team ID (100 = blue, 200 = red)
-  win: boolean;            // True if won
-  bans: Array<{            // Champion bans
-    championId: number;    // Banned champion ID
-    pickTurn: number;      // Ban order
+  teamId: number; // Team ID (100 = blue, 200 = red)
+  win: boolean; // True if won
+  bans: Array<{
+    // Champion bans
+    championId: number; // Banned champion ID
+    pickTurn: number; // Ban order
   }>;
-  objectives: {            // Team objectives
-    baron: { first: boolean; kills: number };
-    champion: { first: boolean; kills: number };
-    dragon: { first: boolean; kills: number };
-    inhibitor: { first: boolean; kills: number };
-    riftHerald: { first: boolean; kills: number };
-    tower: { first: boolean; kills: number };
-  };
+  objectives: {
+    // Team objectives
+    baron: {
+      first: boolean;
+      kills: number;
+    }
+    champion: {
+      first: boolean;
+      kills: number;
+    }
+    dragon: {
+      first: boolean;
+      kills: number;
+    }
+    inhibitor: {
+      first: boolean;
+      kills: number;
+    }
+    riftHerald: {
+      first: boolean;
+      kills: number;
+    }
+    tower: {
+      first: boolean;
+      kills: number;
+    }
+  }
 }
 ```
 
@@ -707,17 +762,17 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ### Common HTTP Status Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 200 | OK | Success |
-| 400 | Bad Request | Check request parameters |
-| 401 | Unauthorized | Check API key validity |
-| 403 | Forbidden | API key doesn't have access (e.g., dev key on deprecated endpoint) |
-| 404 | Data Not Found | Resource doesn't exist (e.g., player not found, not in active game) |
-| 429 | Rate Limit Exceeded | Respect `Retry-After` header, implement backoff |
-| 500 | Internal Server Error | Riot API issue, retry with exponential backoff |
-| 502 | Bad Gateway | Service temporarily unavailable |
-| 503 | Service Unavailable | Service temporarily down, retry later |
+| Code | Meaning               | Action                                                              |
+| ---- | --------------------- | ------------------------------------------------------------------- |
+| 200  | OK                    | Success                                                             |
+| 400  | Bad Request           | Check request parameters                                            |
+| 401  | Unauthorized          | Check API key validity                                              |
+| 403  | Forbidden             | API key doesn't have access (e.g., dev key on deprecated endpoint)  |
+| 404  | Data Not Found        | Resource doesn't exist (e.g., player not found, not in active game) |
+| 429  | Rate Limit Exceeded   | Respect `Retry-After` header, implement backoff                     |
+| 500  | Internal Server Error | Riot API issue, retry with exponential backoff                      |
+| 502  | Bad Gateway           | Service temporarily unavailable                                     |
+| 503  | Service Unavailable   | Service temporarily down, retry later                               |
 
 ### Error Response Format
 
@@ -733,20 +788,24 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ### Handling Specific Errors
 
 **403 Forbidden on Summoner-v4 by-name:**
+
 - Endpoint is deprecated
 - Development keys may not have access
 - **Solution**: Use Account-v1 `by-riot-id` to get PUUID, then Summoner-v4 `by-puuid`
 
 **404 on Active Game:**
+
 - Player is not currently in a game
 - **Normal behavior** - handle gracefully
 
 **429 Rate Limit:**
+
 - Check `Retry-After` header for wait duration
 - Implement exponential backoff
 - Consider request queuing and throttling
 
 **Empty Array from League Entries:**
+
 - Player is unranked or hasn't completed placements
 - **Normal behavior** - display as "Unranked"
 
@@ -757,11 +816,13 @@ X-Riot-Token: RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ### 1. Use PUUID as Primary Identifier
 
 **Why:**
+
 - PUUIDs are globally unique and persistent across region transfers
 - Summoner names are deprecated and contain stale data
 - Riot is transitioning to Riot ID system
 
 **Implementation:**
+
 ```
 User Input: "smile#6578"
   ↓
@@ -775,12 +836,14 @@ All future lookups: Use PUUID
 ### 2. Implement Robust Caching
 
 **What to Cache:**
+
 - **Account/Summoner data**: TTL 24 hours (rarely changes)
 - **Match data**: TTL indefinitely (matches don't change after completion)
 - **League entries**: TTL 1-6 hours (changes as players play ranked)
 - **Active game data**: TTL 30-60 seconds (live game state)
 
 **Cache Key Strategy:**
+
 ```
 account:{puuid}
 summoner:{platform}:{puuid}
@@ -794,6 +857,7 @@ league:{platform}:{summonerId}
 **Implementation Strategies:**
 
 **Request Queue:**
+
 ```python
 # Maintain request queue per region
 queue = {
@@ -806,6 +870,7 @@ await queue["europe"].add_request(lambda: api_call())
 ```
 
 **Exponential Backoff on 429:**
+
 ```python
 async def retry_with_backoff(func, max_retries=3):
     for attempt in range(max_retries):
@@ -820,12 +885,14 @@ async def retry_with_backoff(func, max_retries=3):
 ### 4. Handle Errors Gracefully
 
 **User-Facing Messages:**
+
 - `404 on Account`: "Player not found. Check spelling and tagline."
 - `404 on Active Game`: "Player is not currently in a game."
 - `429 Rate Limit`: "Too many requests. Please try again in a moment."
 - `5xx Errors`: "Riot API is experiencing issues. Please try again later."
 
 **Logging:**
+
 ```python
 logger.error(
     "API request failed",
@@ -842,6 +909,7 @@ logger.error(
 ### 5. Batch Operations Efficiently
 
 **Match History Fetching:**
+
 ```python
 # Get match IDs (1 request)
 match_ids = await get_match_ids(puuid, count=20)
@@ -854,10 +922,12 @@ for match_id in match_ids:
 ```
 
 **Don't:**
+
 - Fetch all 100 matches at once without need
 - Make parallel requests without rate limiting
 
 **Do:**
+
 - Fetch incrementally (20-50 at a time)
 - Implement request throttling
 - Cache aggressively
@@ -865,6 +935,7 @@ for match_id in match_ids:
 ### 6. Regional Routing Best Practices
 
 **Correct Routing:**
+
 ```python
 # Account lookup: Use regional routing
 account = await get_account_by_riot_id("smile", "6578", region="europe")
@@ -880,6 +951,7 @@ league = await get_league_entries(summoner_id, platform="eun1")
 ```
 
 **Platform to Region Mapping:**
+
 ```python
 PLATFORM_TO_REGION = {
     "eun1": "europe", "euw1": "europe", "tr1": "europe", "ru": "europe",
@@ -892,11 +964,13 @@ PLATFORM_TO_REGION = {
 ### 7. Data Consistency
 
 **Stale Data Awareness:**
+
 - `SummonerDTO.name` is stale as of Nov 2023 - don't display to users
 - Always fetch fresh Riot ID from Account-v1 when displaying player names
 - Cache invalidation after profile updates
 
 **PUUID Consistency:**
+
 - PUUIDs in `MatchDTO.metadata.participants` match index in `MatchDTO.info.participants`
 - Use PUUID to correlate data across endpoints
 
@@ -904,23 +978,24 @@ PLATFORM_TO_REGION = {
 
 Common queue IDs used in filtering:
 
-| Queue ID | Description |
-|----------|-------------|
-| 0 | Custom games |
-| 400 | Normal Draft Pick |
-| 420 | Ranked Solo/Duo |
-| 430 | Normal Blind Pick |
-| 440 | Ranked Flex |
-| 450 | ARAM |
-| 700 | Clash |
-| 720 | ARAM Clash |
-| 830 | Co-op vs AI Intro |
-| 840 | Co-op vs AI Beginner |
-| 850 | Co-op vs AI Intermediate |
+| Queue ID | Description              |
+| -------- | ------------------------ |
+| 0        | Custom games             |
+| 400      | Normal Draft Pick        |
+| 420      | Ranked Solo/Duo          |
+| 430      | Normal Blind Pick        |
+| 440      | Ranked Flex              |
+| 450      | ARAM                     |
+| 700      | Clash                    |
+| 720      | ARAM Clash               |
+| 830      | Co-op vs AI Intro        |
+| 840      | Co-op vs AI Beginner     |
+| 850      | Co-op vs AI Intermediate |
 
 ### 9. Development Key Management
 
 **Daily Rotation:**
+
 ```bash
 # Development keys expire every 24 hours
 # Automate key rotation or implement alerts
@@ -933,6 +1008,7 @@ docker-compose restart backend
 ```
 
 **Security:**
+
 - Never commit API keys to version control
 - Use environment variables
 - Rotate keys if accidentally exposed
@@ -941,6 +1017,7 @@ docker-compose restart backend
 ### 10. Error Recovery Patterns
 
 **Circuit Breaker:**
+
 ```python
 # Stop making requests after consecutive failures
 if consecutive_failures > 5:
@@ -949,6 +1026,7 @@ if consecutive_failures > 5:
 ```
 
 **Graceful Degradation:**
+
 ```python
 try:
     live_data = await fetch_from_riot_api()

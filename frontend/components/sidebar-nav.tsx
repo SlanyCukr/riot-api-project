@@ -14,8 +14,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: "Home", path: "/" },
   { name: "Player Analysis", path: "/player-analysis" },
-  { name: "Tracked Players", path: "/tracked-players" },
   { name: "Matchmaking Analysis", path: "/matchmaking-analysis" },
+  { name: "Tracked Players", path: "/tracked-players" },
   { name: "Jobs", path: "/jobs" },
   { name: "Settings", path: "/settings" },
 ];
