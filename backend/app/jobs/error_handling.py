@@ -148,6 +148,9 @@ def _create_async_wrapper(
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
         try:
             return await func(*args, **kwargs)
+        except RateLimitSignal:
+            # Always let RateLimitSignal propagate - it's not an error!
+            raise
         except Exception as error:
             _handle_error(error, operation, critical, context)
             return None  # For non-critical errors that don't re-raise
@@ -165,6 +168,9 @@ def _create_sync_wrapper(
         context = _extract_log_context(log_context, args, kwargs, func.__name__)
         try:
             return func(*args, **kwargs)
+        except RateLimitSignal:
+            # Always let RateLimitSignal propagate - it's not an error!
+            raise
         except Exception as error:
             _handle_error(error, operation, critical, context)
             return None  # For non-critical errors that don't re-raise

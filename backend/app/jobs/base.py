@@ -165,7 +165,12 @@ class BaseJob(ABC):
                 detailed_logs = {"logs": self._strip_redundant_fields(logs)}
 
             update_stmt = self._build_completion_update_statement(
-                JobExecution, completed_at, success, error_message, detailed_logs
+                JobExecution,
+                completed_at,
+                success,
+                error_message,
+                detailed_logs,
+                status,
             )
 
             await self._execute_completion_update(db, update_stmt)
@@ -383,17 +388,30 @@ class BaseJob(ABC):
         )
 
     def _build_completion_update_statement(
-        self, job_execution_model, completed_at, success, error_message, detailed_logs
+        self,
+        job_execution_model,
+        completed_at,
+        success,
+        error_message,
+        detailed_logs,
+        status=None,
     ):
         """Build SQLAlchemy update statement for job completion."""
         from sqlalchemy import update
+
+        # Use explicit status if provided, otherwise derive from success
+        final_status = (
+            status
+            if status is not None
+            else (JobStatus.SUCCESS if success else JobStatus.FAILED)
+        )
 
         return (
             update(job_execution_model)
             .where(job_execution_model.id == self.job_execution.id)
             .values(
                 completed_at=completed_at,
-                status=JobStatus.SUCCESS if success else JobStatus.FAILED,
+                status=final_status,
                 api_requests_made=self.metrics["api_requests_made"],
                 records_created=self.metrics["records_created"],
                 records_updated=self.metrics["records_updated"],

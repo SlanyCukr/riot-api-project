@@ -209,14 +209,20 @@ async def trigger_job(
 
         # Trigger the job execution in background
         from ..jobs.tracked_player_updater import TrackedPlayerUpdaterJob
-        from ..jobs.player_analyzer import PlayerAnalyzerJob
+        from ..jobs.match_fetcher import MatchFetcherJob
+        from ..jobs.smurf_analyzer import SmurfAnalyzerJob
+        from ..jobs.ban_checker import BanCheckerJob
         from ..models.job_tracking import JobType
 
         # Instantiate the appropriate job class
         if job.job_type == JobType.TRACKED_PLAYER_UPDATER:
-            job_instance = TrackedPlayerUpdaterJob(job)
-        elif job.job_type == JobType.PLAYER_ANALYZER:
-            job_instance = PlayerAnalyzerJob(job)
+            job_instance = TrackedPlayerUpdaterJob(job.id)
+        elif job.job_type == JobType.MATCH_FETCHER:
+            job_instance = MatchFetcherJob(job.id)
+        elif job.job_type == JobType.SMURF_ANALYZER:
+            job_instance = SmurfAnalyzerJob(job.id)
+        elif job.job_type == JobType.BAN_CHECKER:
+            job_instance = BanCheckerJob(job.id)
         else:
             raise HTTPException(
                 status_code=400,

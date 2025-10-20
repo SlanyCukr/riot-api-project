@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
@@ -42,6 +43,12 @@ class Settings(BaseSettings):
             origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
         ]
 
+    @property
+    def environment(self) -> str:
+        """Get current environment from ENVIRONMENT variable."""
+        env = os.getenv("ENVIRONMENT", "").lower()
+        return env if env in ["dev", "production"] else "dev"  # Safe default
+
     # Database Connection Pool Settings
     db_pool_size: int = Field(default=10)
     db_max_overflow: int = Field(default=20)
@@ -50,18 +57,6 @@ class Settings(BaseSettings):
 
     # Job Scheduler Configuration
     job_scheduler_enabled: bool = Field(default=False)
-    job_interval_seconds: int = Field(default=120)
-    job_timeout_seconds: int = Field(default=600)  # 10 minutes for job execution
-
-    # Tracked Player Updater Job Configuration
-    max_tracked_players: int = Field(
-        default=20,
-        description="Maximum number of tracked players to update per job run",
-    )
-    max_new_matches_per_player: int = Field(
-        default=50,
-        description="Maximum number of new matches to fetch per player per job run",
-    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

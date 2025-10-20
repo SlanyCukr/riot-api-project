@@ -25,7 +25,9 @@ class JobType(str, PyEnum):
     """Enumeration of job types."""
 
     TRACKED_PLAYER_UPDATER = "tracked_player_updater"
-    PLAYER_ANALYZER = "player_analyzer"
+    MATCH_FETCHER = "match_fetcher"
+    SMURF_ANALYZER = "smurf_analyzer"
+    BAN_CHECKER = "ban_checker"
 
 
 class JobStatus(str, PyEnum):

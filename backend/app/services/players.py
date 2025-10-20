@@ -849,6 +849,10 @@ class PlayerService:
         This is used by the player analyzer job to find players ready for
         player analysis.
 
+        Note: We check the smurf_detections table directly instead of using
+        the is_analyzed flag, as the flag can be unreliable (set to True
+        even when analysis fails to create a detection record).
+
         Args:
             limit: Maximum number of players to return
             min_matches: Minimum number of matches required for analysis
@@ -857,13 +861,15 @@ class PlayerService:
             List of Player objects ready for analysis
         """
         from ..models.participants import MatchParticipant
+        from ..models.smurf_detection import SmurfDetection
 
         stmt = (
             select(Player, func.count(MatchParticipant.match_id).label("match_count"))
             .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
+            .outerjoin(SmurfDetection, Player.puuid == SmurfDetection.puuid)
             .where(Player.is_tracked.is_(False))
-            .where(Player.is_analyzed.is_(False))
             .where(Player.is_active.is_(True))
+            .where(SmurfDetection.puuid.is_(None))
             .group_by(Player.puuid)
             .having(func.count(MatchParticipant.match_id) >= min_matches)
             .limit(limit)
