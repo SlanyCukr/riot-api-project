@@ -20,9 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Add RATE_LIMITED value to JobStatus enum
-    # Note: Must match enum name (uppercase), not value
-    op.execute("ALTER TYPE app.job_status_enum ADD VALUE IF NOT EXISTS 'RATE_LIMITED'")
+    # Add rate_limited value to JobStatus enum
+    # Note: Must match enum value (lowercase), not the Python enum name
+    op.execute("ALTER TYPE app.job_status_enum ADD VALUE IF NOT EXISTS 'rate_limited'")
 
 
 def downgrade() -> None:

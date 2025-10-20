@@ -44,7 +44,7 @@ class Settings(BaseSettings):
         ]
 
     @property
-    def environment(self) -> str:
+    def environment(self) -> str:  # noqa: vulture
         """Get current environment from ENVIRONMENT variable."""
         env = os.getenv("ENVIRONMENT", "").lower()
         return env if env in ["dev", "production"] else "dev"  # Safe default

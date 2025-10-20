@@ -31,79 +31,43 @@ def upgrade() -> None:
     # Update Tracked Player Updater
     if env == "dev":
         # Development settings (conservative)
-        op.execute(f"""
+        op.execute(  # nosec B608
+            f"""
             UPDATE job_configurations
             SET schedule = 'interval:600',
                 config_json = '{
-            json.dumps(
-                {
-                    "interval_seconds": 600,
-                    "timeout_seconds": 300,
-                    "max_tracked_players": 3,
-                    "max_new_matches_per_player": 5,
-                }
-            )
-        }'::jsonb
+                json.dumps(
+                    {
+                        "interval_seconds": 600,
+                        "timeout_seconds": 300,
+                        "max_tracked_players": 3,
+                        "max_new_matches_per_player": 5,
+                    }
+                )
+            }'::jsonb
             WHERE job_type = 'TRACKED_PLAYER_UPDATER'
-        """)
-
-        # Update Player Analyzer
-        op.execute(f"""
-            UPDATE job_configurations
-            SET schedule = 'interval:900',
-                config_json = '{
-            json.dumps(
-                {
-                    "interval_seconds": 900,
-                    "timeout_seconds": 300,
-                    "discovered_players_per_run": 8,
-                    "matches_per_player_per_run": 10,
-                    "target_matches_per_player": 50,
-                    "unanalyzed_players_per_run": 20,
-                    "ban_check_days": 7,
-                }
-            )
-        }'::jsonb
-            WHERE job_type = 'PLAYER_ANALYZER'
-        """)
+        """
+        )
 
     else:  # production
         # Production settings (full performance)
-        op.execute(f"""
+        op.execute(  # nosec B608
+            f"""
             UPDATE job_configurations
             SET schedule = 'interval:120',
                 config_json = '{
-            json.dumps(
-                {
-                    "interval_seconds": 120,
-                    "timeout_seconds": 90,
-                    "max_tracked_players": 10,
-                    "max_new_matches_per_player": 50,
-                }
-            )
-        }'::jsonb
+                json.dumps(
+                    {
+                        "interval_seconds": 120,
+                        "timeout_seconds": 90,
+                        "max_tracked_players": 10,
+                        "max_new_matches_per_player": 50,
+                    }
+                )
+            }'::jsonb
             WHERE job_type = 'TRACKED_PLAYER_UPDATER'
-        """)
-
-        # Update Player Analyzer
-        op.execute(f"""
-            UPDATE job_configurations
-            SET schedule = 'interval:300',
-                config_json = '{
-            json.dumps(
-                {
-                    "interval_seconds": 300,
-                    "timeout_seconds": 90,
-                    "discovered_players_per_run": 15,
-                    "matches_per_player_per_run": 20,
-                    "target_matches_per_player": 100,
-                    "unanalyzed_players_per_run": 50,
-                    "ban_check_days": 3,
-                }
-            )
-        }'::jsonb
-            WHERE job_type = 'PLAYER_ANALYZER'
-        """)
+        """
+        )
 
 
 def downgrade() -> None:
