@@ -4,6 +4,7 @@
 - TanStack Query v5 + Zod v4
 - react-hook-form + Axios + next-themes
 - sonner + lucide-react
+- Autocomplete/suggestions with debouncing
 
 # Project Structure
 - `app/` - Pages & routing
@@ -27,6 +28,9 @@
 - Follow shadcn/ui patterns, never create custom UI primitives
 - Use TanStack Query for all data fetching
 - Handle both success and error states in `ApiResponse<T>`
+- Implement debouncing for search inputs (use useEffect + setTimeout)
+- Use keyboard navigation for autocomplete (ArrowUp/Down, Enter, Escape)
+- Track selection state for keyboard and mouse interactions
 
 # Do Not
 - Edit `components/ui/` files manually (use shadcn CLI)
