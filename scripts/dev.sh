@@ -15,10 +15,14 @@
 #   --build        Force rebuild of containers (uses Docker Bake)
 #   --down         Stop all services first
 #   --clean        Run docker-cleanup.sh before starting
-#   --reset-db     Wipe database and recreate from SQLAlchemy models (WARNING: deletes all data)
 #   --no-watch     Start without watch mode
 #   --detach, -d   Run in detached mode (background)
 #   --help, -h     Show this help message
+#
+# Database Management:
+#   Use Alembic for all database changes:
+#     docker compose exec backend uv run alembic upgrade head    # Apply migrations
+#     docker compose exec backend uv run alembic revision --autogenerate -m "description"
 #
 # Examples:
 #   ./scripts/dev.sh                    # Start all services with watch mode
@@ -53,7 +57,6 @@ docker_compose_cmd() {
 FORCE_BUILD=false
 STOP_FIRST=false
 CLEAN_FIRST=false
-RESET_DB=false
 USE_WATCH=true
 DETACHED=false
 SERVICES=()
@@ -75,10 +78,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --clean)
             CLEAN_FIRST=true
-            shift
-            ;;
-        --reset-db)
-            RESET_DB=true
             shift
             ;;
         --no-watch)
@@ -155,38 +154,6 @@ if [ ! -f "$PROJECT_ROOT/.env" ]; then
     echo -e "${RED}❌ Error: .env file not found${NC}"
     echo -e "${YELLOW}   Please copy .env.example to .env and configure it${NC}"
     exit 1
-fi
-
-# Reset database if requested
-if [ "$RESET_DB" = true ]; then
-    echo -e "${RED}⚠️  WARNING: This will DELETE ALL DATA in the database!${NC}"
-    read -p "Are you sure you want to reset the database? (yes/no): " -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-        echo -e "${YELLOW}Database reset cancelled. Continuing without reset...${NC}"
-        echo ""
-    else
-        echo -e "${YELLOW}🗑️  Resetting database...${NC}"
-
-        # Stop services to ensure clean reset
-        docker_compose_cmd down -v
-
-        # Start postgres to run reset
-        docker_compose_cmd up -d postgres
-        echo "Waiting for postgres to be ready..."
-        sleep 5
-
-        # Start backend to run reset (entrypoint will recreate tables)
-        docker_compose_cmd up -d backend
-        echo "Waiting for database reset to complete..."
-        sleep 10
-
-        # Stop backend after reset
-        docker_compose_cmd stop backend
-
-        echo -e "${GREEN}✅ Database reset complete${NC}"
-        echo ""
-    fi
 fi
 
 # Start services

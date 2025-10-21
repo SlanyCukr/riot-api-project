@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Job Scheduler Configuration
     job_scheduler_enabled: bool = Field(default=False)
 
+    # Player Tracking Configuration
+    max_tracked_players: int = Field(default=100)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,

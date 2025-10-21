@@ -21,6 +21,7 @@ class Player(Base):
     """Player model storing Riot API player data."""
 
     __tablename__ = "players"
+    __table_args__ = {"schema": "app"}
 
     # Primary key - PUUID is the unique identifier from Riot API
     # Note: Riot PUUID is a base64-encoded string, not a standard UUID

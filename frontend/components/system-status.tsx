@@ -50,7 +50,7 @@ export function SystemStatus({ status }: SystemStatusProps) {
 
   const isHealthy = status.scheduler_running && status.running_executions === 0;
   const hasRunningJobs = status.running_executions > 0;
-  const lastExecutionFailed = status.last_execution?.status === "failed";
+  const lastExecutionFailed = status.last_execution?.status === "FAILED";
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -159,15 +159,15 @@ export function SystemStatus({ status }: SystemStatusProps) {
                   </p>
                   <Badge
                     variant={
-                      status.last_execution.status === "success"
+                      status.last_execution.status === "SUCCESS"
                         ? "default"
-                        : status.last_execution.status === "failed"
+                        : status.last_execution.status === "FAILED"
                           ? "destructive"
                           : "secondary"
                     }
                     className="mt-2"
                   >
-                    {status.last_execution.status.toUpperCase()}
+                    {status.last_execution.status}
                   </Badge>
                 </>
               ) : (

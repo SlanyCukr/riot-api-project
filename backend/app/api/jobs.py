@@ -3,7 +3,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 
-from ..models.job_tracking import JobStatus
+from ..models.job_tracking import JobStatus, JobType
 from ..schemas.jobs import (
     JobConfigurationUpdate,
     JobConfigurationResponse,
@@ -12,11 +12,41 @@ from ..schemas.jobs import (
     JobTriggerResponse,
 )
 from ..api.dependencies import JobServiceDep
+from ..jobs.tracked_player_updater import TrackedPlayerUpdaterJob
+from ..jobs.match_fetcher import MatchFetcherJob
+from ..jobs.smurf_analyzer import SmurfAnalyzerJob
+from ..jobs.ban_checker import BanCheckerJob
 import structlog
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+def _create_job_instance(job):
+    """Create a job instance based on job type.
+
+    Args:
+        job: Job configuration (JobConfiguration or JobConfigurationResponse)
+
+    Returns:
+        Job instance based on job type
+    """
+    job_type_mapping = {
+        JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,
+        JobType.MATCH_FETCHER: MatchFetcherJob,
+        JobType.SMURF_ANALYZER: SmurfAnalyzerJob,
+        JobType.BAN_CHECKER: BanCheckerJob,
+    }
+
+    job_class = job_type_mapping.get(job.job_type)
+    if not job_class:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown job type: {job.job_type}",
+        )
+
+    return job_class(job.id)
 
 
 # === Job Configuration Endpoints ===
@@ -207,29 +237,8 @@ async def trigger_job(
                 detail=f"Job '{job.name}' is not active and cannot be triggered",
             )
 
-        # Trigger the job execution in background
-        from ..jobs.tracked_player_updater import TrackedPlayerUpdaterJob
-        from ..jobs.match_fetcher import MatchFetcherJob
-        from ..jobs.smurf_analyzer import SmurfAnalyzerJob
-        from ..jobs.ban_checker import BanCheckerJob
-        from ..models.job_tracking import JobType
-
-        # Instantiate the appropriate job class
-        if job.job_type == JobType.TRACKED_PLAYER_UPDATER:
-            job_instance = TrackedPlayerUpdaterJob(job.id)
-        elif job.job_type == JobType.MATCH_FETCHER:
-            job_instance = MatchFetcherJob(job.id)
-        elif job.job_type == JobType.SMURF_ANALYZER:
-            job_instance = SmurfAnalyzerJob(job.id)
-        elif job.job_type == JobType.BAN_CHECKER:
-            job_instance = BanCheckerJob(job.id)
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown job type: {job.job_type}",
-            )
-
-        # Add job execution to background tasks
+        # Create and trigger the job instance
+        job_instance = _create_job_instance(job)
         background_tasks.add_task(job_instance.run)
 
         logger.info(

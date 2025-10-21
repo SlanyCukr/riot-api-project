@@ -96,11 +96,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
   }, [searchValue]);
 
   // Fetch suggestions when debounced value changes
-  const {
-    data: suggestionsResult,
-    isLoading: suggestionsLoading,
-    error: suggestionsError,
-  } = useQuery({
+  const { data: suggestionsResult, isLoading: suggestionsLoading } = useQuery({
     queryKey: ["player-suggestions", debouncedSearchValue, platform],
     queryFn: async () => {
       if (debouncedSearchValue.length < MIN_SEARCH_LENGTH) {
@@ -145,7 +141,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
         platform: form.getValues("platform"),
       });
     },
-    [form, onPlayerFound]
+    [form, onPlayerFound],
   );
 
   // Handle keyboard navigation
@@ -157,7 +153,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
         case "ArrowDown":
           e.preventDefault();
           setSelectedIndex((prev) =>
-            prev < suggestions.length - 1 ? prev + 1 : prev
+            prev < suggestions.length - 1 ? prev + 1 : prev,
           );
           break;
         case "ArrowUp":
@@ -177,7 +173,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
           break;
       }
     },
-    [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion]
+    [showSuggestions, suggestions, selectedIndex, handleSelectSuggestion],
   );
 
   const { mutate, isPending, error } = useMutation({
@@ -193,7 +189,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
       const result = await validatedGet(
         z.array(PlayerSchema),
         "/players/search",
-        params
+        params,
       );
 
       if (!result.success) {
@@ -260,7 +256,7 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
     (data: PlayerSearchForm) => {
       mutate(data);
     },
-    [mutate]
+    [mutate],
   );
 
   return (
@@ -556,8 +552,8 @@ export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
                       error.message === "PLAYER_NOT_FOUND"
                         ? "Player not found in database."
                         : error instanceof Error && error.message
-                        ? error.message
-                        : "Failed to search for player. Please check your input and try again."}
+                          ? error.message
+                          : "Failed to search for player. Please check your input and try again."}
                     </AlertDescription>
                   </Alert>
                 )}

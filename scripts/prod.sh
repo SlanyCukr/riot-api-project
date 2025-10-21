@@ -15,10 +15,14 @@
 #   --build            Force rebuild of containers (uses Docker Bake)
 #   --no-cache         Build without using cache (useful for deployments)
 #   --down             Stop all services first
-#   --reset-db         Wipe database and run migrations (WARNING: deletes all data)
 #   --logs, -f         Follow logs after starting
 #   --detach, -d       Run in detached mode (default for production)
 #   --help, -h         Show this help message
+#
+# Database Management:
+#   Use Alembic for all database changes:
+#     docker compose exec backend uv run alembic upgrade head    # Apply migrations
+#     docker compose exec backend uv run alembic revision --autogenerate -m "description"
 #
 # Examples:
 #   ./scripts/prod.sh                      # Start all services in production mode
@@ -46,7 +50,6 @@ COMPOSE_PROD_FILE="$PROJECT_ROOT/docker/docker-compose.prod.yml"
 FORCE_BUILD=false
 NO_CACHE=false
 STOP_FIRST=false
-RESET_DB=false
 FOLLOW_LOGS=false
 DETACHED=true
 SERVICES=()
@@ -68,10 +71,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --down)
             STOP_FIRST=true
-            shift
-            ;;
-        --reset-db)
-            RESET_DB=true
             shift
             ;;
         --logs|-f)
@@ -213,38 +212,6 @@ fi
 
 echo -e "${GREEN}✅ Environment validated${NC}"
 echo ""
-
-# Reset database if requested
-if [ "$RESET_DB" = true ]; then
-    echo -e "${RED}⚠️  WARNING: This will DELETE ALL DATA in the production database!${NC}"
-    read -p "Are you sure you want to reset the production database? (yes/no): " -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-        echo -e "${YELLOW}Database reset cancelled. Continuing without reset...${NC}"
-        echo ""
-    else
-        echo -e "${YELLOW}🗑️  Resetting production database...${NC}"
-
-        # Stop services to ensure clean reset
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" down -v
-
-        # Start postgres to run reset
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d postgres
-        echo "Waiting for postgres to be ready..."
-        sleep 5
-
-        # Start backend to run migrations (entrypoint will run alembic upgrade head)
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" up -d backend
-        echo "Waiting for migrations to complete..."
-        sleep 10
-
-        # Stop backend after migrations
-        docker compose --env-file "$PROJECT_ROOT/.env" -f "$COMPOSE_FILE" -f "$COMPOSE_PROD_FILE" stop backend
-
-        echo -e "${GREEN}✅ Database reset complete${NC}"
-        echo ""
-    fi
-fi
 
 # Start services
 cd "$PROJECT_ROOT"

@@ -100,11 +100,6 @@ class SmurfAnalyzerJob(BaseJob):
         self._log_execution_summary(execution_summary)
         logger.info("Smurf analyzer completed", **execution_summary)
 
-    @handle_riot_api_errors(
-        operation="analyze players",
-        critical=False,
-        log_context=lambda self, execution_summary, result: {},
-    )
     def _update_analysis_summary(self, execution_summary: dict, result) -> None:
         """Update execution summary with analysis result."""
         if result is not None:

@@ -155,19 +155,19 @@ export type DetectionRequest = z.infer<typeof DetectionRequestSchema>;
 
 // Job Type Enum (must match backend enum values)
 export const JobTypeSchema = z.enum([
-  "tracked_player_updater",
-  "match_fetcher",
-  "smurf_analyzer",
-  "ban_checker",
+  "TRACKED_PLAYER_UPDATER",
+  "MATCH_FETCHER",
+  "SMURF_ANALYZER",
+  "BAN_CHECKER",
 ]);
 
 // Job Status Enum (must match backend enum values)
 export const JobStatusSchema = z.enum([
-  "pending",
-  "running",
-  "success",
-  "failed",
-  "rate_limited",
+  "PENDING",
+  "RUNNING",
+  "SUCCESS",
+  "FAILED",
+  "RATE_LIMITED",
 ]);
 
 // Job Configuration Schema

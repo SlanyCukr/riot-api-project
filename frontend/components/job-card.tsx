@@ -261,15 +261,15 @@ export function JobCard({ job }: JobCardProps) {
               <div className="flex items-center gap-2">
                 <Badge
                   variant={
-                    lastExecution.status === "success"
+                    lastExecution.status === "SUCCESS"
                       ? "default"
-                      : lastExecution.status === "failed"
+                      : lastExecution.status === "FAILED"
                         ? "destructive"
                         : "secondary"
                   }
                   className="text-xs"
                 >
-                  {lastExecution.status.toUpperCase()}
+                  {lastExecution.status}
                 </Badge>
                 <span className="text-muted-foreground">
                   {formatRelativeTime(lastExecution.started_at)}

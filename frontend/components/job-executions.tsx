@@ -228,21 +228,21 @@ export function JobExecutions({
                     <TableCell>
                       <Badge
                         variant={
-                          execution.status === "success"
+                          execution.status === "SUCCESS"
                             ? "default"
-                            : execution.status === "failed"
+                            : execution.status === "FAILED"
                               ? "destructive"
-                              : execution.status === "running"
+                              : execution.status === "RUNNING"
                                 ? "secondary"
                                 : "outline"
                         }
                         className={
-                          execution.status === "rate_limited"
+                          execution.status === "RATE_LIMITED"
                             ? "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-800"
                             : ""
                         }
                       >
-                        {execution.status.toUpperCase().replace("_", " ")}
+                        {execution.status.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -326,19 +326,19 @@ export function JobExecutions({
                 <span className="font-medium">Status</span>
                 <Badge
                   variant={
-                    selectedExecution.status === "success"
+                    selectedExecution.status === "SUCCESS"
                       ? "default"
-                      : selectedExecution.status === "failed"
+                      : selectedExecution.status === "FAILED"
                         ? "destructive"
                         : "secondary"
                   }
                   className={
-                    selectedExecution.status === "rate_limited"
+                    selectedExecution.status === "RATE_LIMITED"
                       ? "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-800"
                       : ""
                   }
                 >
-                  {selectedExecution.status.toUpperCase().replace("_", " ")}
+                  {selectedExecution.status.replace("_", " ")}
                 </Badge>
               </div>
 

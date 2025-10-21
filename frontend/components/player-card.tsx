@@ -141,7 +141,7 @@ export function PlayerCard({ player }: PlayerCardProps) {
     queryFn: async () => {
       const result = await validatedGet(
         PlayerRankSchema.nullable(),
-        `/players/${player.puuid}/rank`
+        `/players/${player.puuid}/rank`,
       );
       if (!result.success) {
         return null;

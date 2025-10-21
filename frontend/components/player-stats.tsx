@@ -40,7 +40,7 @@ export function PlayerStats({
       const result = await validatedGet(
         MatchStatsResponseSchema,
         `/matches/player/${puuid}/stats`,
-        { queue: queueFilter, limit }
+        { queue: queueFilter, limit },
       );
 
       if (!result.success) {
@@ -146,7 +146,7 @@ function PlayerStatsDisplay({ stats }: { stats: MatchStatsResponse }) {
               </div>
               <span
                 className={`text-2xl font-bold ${getWinRateColor(
-                  winRatePercent
+                  winRatePercent,
                 )}`}
               >
                 {winRatePercent.toFixed(1)}%
