@@ -1,8 +1,8 @@
-"""seed initial job configurations
+"""002_seed_initial_job_configurations
 
-Revision ID: 67d72b54c74e
-Revises: 7b7f0cdbbb1e
-Create Date: 2025-10-21 08:21:08.900969
+Revision ID: ed197c195294
+Revises: 3cf0af6dff87
+Create Date: 2025-10-21 11:51:43.519769
 
 """
 
@@ -14,8 +14,8 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision: str = "67d72b54c74e"
-down_revision: Union[str, Sequence[str], None] = "7b7f0cdbbb1e"
+revision: str = "ed197c195294"
+down_revision: Union[str, Sequence[str], None] = "3cf0af6dff87"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

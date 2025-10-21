@@ -6,9 +6,7 @@ from enum import Enum
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     DateTime as SQLDateTime,
-    Numeric as SQLDecimal,
     String,
     Text,
     Index,
@@ -46,7 +44,7 @@ class MatchmakingAnalysis(Base):
     # Foreign key to player
     puuid: Mapped[str] = mapped_column(
         String(78),
-        ForeignKey("players.puuid", ondelete="CASCADE"),
+        ForeignKey("app.players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Player PUUID this analysis is for",
@@ -129,6 +127,7 @@ class MatchmakingAnalysis(Base):
     __table_args__ = (
         Index("ix_matchmaking_analyses_puuid_status", "puuid", "status"),
         Index("ix_matchmaking_analyses_created_at", "created_at"),
+        {"schema": "app"},
     )
 
     def __repr__(self) -> str:

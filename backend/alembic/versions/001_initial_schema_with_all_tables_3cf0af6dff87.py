@@ -1,8 +1,8 @@
-"""initial schema with uppercase enums
+"""001_initial_schema_with_all_tables
 
-Revision ID: 7b7f0cdbbb1e
+Revision ID: 3cf0af6dff87
 Revises:
-Create Date: 2025-10-21 08:17:59.967274
+Create Date: 2025-10-21 11:51:12.831756
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "7b7f0cdbbb1e"
+revision: str = "3cf0af6dff87"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -938,6 +938,119 @@ def upgrade() -> None:
         schema="app",
     )
     op.create_table(
+        "matchmaking_analyses",
+        sa.Column(
+            "id",
+            sa.BigInteger(),
+            nullable=False,
+            comment="Auto-incrementing primary key",
+        ),
+        sa.Column(
+            "puuid",
+            sa.String(length=78),
+            nullable=False,
+            comment="Player PUUID this analysis is for",
+        ),
+        sa.Column(
+            "status",
+            sa.String(length=20),
+            nullable=False,
+            comment="Current status of the analysis",
+        ),
+        sa.Column(
+            "progress",
+            sa.BigInteger(),
+            nullable=False,
+            comment="Number of API requests completed",
+        ),
+        sa.Column(
+            "total_requests",
+            sa.BigInteger(),
+            nullable=False,
+            comment="Estimated total API requests needed",
+        ),
+        sa.Column(
+            "estimated_minutes_remaining",
+            sa.BigInteger(),
+            nullable=False,
+            comment="Estimated minutes remaining for completion",
+        ),
+        sa.Column(
+            "results",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=True,
+            comment="Analysis results as JSON (team/enemy winrates)",
+        ),
+        sa.Column(
+            "error_message",
+            sa.Text(),
+            nullable=True,
+            comment="Error message if analysis failed",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+            comment="When this analysis was created",
+        ),
+        sa.Column(
+            "started_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            comment="When this analysis was started",
+        ),
+        sa.Column(
+            "completed_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            comment="When this analysis was completed",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+            comment="When this analysis record was last updated",
+        ),
+        sa.ForeignKeyConstraint(
+            ["puuid"],
+            ["app.players.puuid"],
+            name=op.f("fk_matchmaking_analyses_puuid_players"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_matchmaking_analyses")),
+        schema="app",
+    )
+    op.create_index(
+        op.f("ix_app_matchmaking_analyses_puuid"),
+        "matchmaking_analyses",
+        ["puuid"],
+        unique=False,
+        schema="app",
+    )
+    op.create_index(
+        op.f("ix_app_matchmaking_analyses_status"),
+        "matchmaking_analyses",
+        ["status"],
+        unique=False,
+        schema="app",
+    )
+    op.create_index(
+        "ix_matchmaking_analyses_created_at",
+        "matchmaking_analyses",
+        ["created_at"],
+        unique=False,
+        schema="app",
+    )
+    op.create_index(
+        "ix_matchmaking_analyses_puuid_status",
+        "matchmaking_analyses",
+        ["puuid", "status"],
+        unique=False,
+        schema="app",
+    )
+    op.create_table(
         "player_ranks",
         sa.Column(
             "id", sa.Integer(), nullable=False, comment="Auto-incrementing primary key"
@@ -1513,6 +1626,27 @@ def downgrade() -> None:
     op.drop_index("idx_ranks_puuid_queue", table_name="player_ranks", schema="app")
     op.drop_index("idx_ranks_puuid_current", table_name="player_ranks", schema="app")
     op.drop_table("player_ranks", schema="app")
+    op.drop_index(
+        "ix_matchmaking_analyses_puuid_status",
+        table_name="matchmaking_analyses",
+        schema="app",
+    )
+    op.drop_index(
+        "ix_matchmaking_analyses_created_at",
+        table_name="matchmaking_analyses",
+        schema="app",
+    )
+    op.drop_index(
+        op.f("ix_app_matchmaking_analyses_status"),
+        table_name="matchmaking_analyses",
+        schema="app",
+    )
+    op.drop_index(
+        op.f("ix_app_matchmaking_analyses_puuid"),
+        table_name="matchmaking_analyses",
+        schema="app",
+    )
+    op.drop_table("matchmaking_analyses", schema="app")
     op.drop_index(
         op.f("ix_app_match_participants_team_position"),
         table_name="match_participants",
