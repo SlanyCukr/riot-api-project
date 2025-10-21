@@ -70,7 +70,7 @@ export function AddTrackedPlayer() {
 
       // Show success toast
       toast.success(
-        `Successfully added ${player.summoner_name} to tracked players!`
+        `Successfully added ${player.summoner_name} to tracked players!`,
       );
 
       // Reset form

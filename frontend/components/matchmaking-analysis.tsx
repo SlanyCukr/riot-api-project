@@ -47,7 +47,6 @@ export function MatchmakingAnalysis({ puuid }: MatchmakingAnalysisProps) {
     data: latestAnalysis,
     isLoading,
     refetch,
-    error,
   } = useQuery({
     queryKey: ["matchmaking-analysis", puuid],
     queryFn: async () => {
@@ -123,7 +122,10 @@ export function MatchmakingAnalysis({ puuid }: MatchmakingAnalysisProps) {
         latestAnalysis.status === "pending" ||
         latestAnalysis.status === "in_progress"
       ) {
-        setIsStartingNewAnalysis(false);
+        // Use setTimeout to avoid synchronous setState in effect
+        setTimeout(() => {
+          setIsStartingNewAnalysis(false);
+        }, 0);
       }
     }
   }, [isStartingNewAnalysis, latestAnalysis]); // Start analysis mutation
@@ -214,7 +216,7 @@ export function MatchmakingAnalysis({ puuid }: MatchmakingAnalysisProps) {
   const progressPercentage =
     currentStatus && currentStatus.total_requests > 0
       ? Math.round(
-          (currentStatus.progress / currentStatus.total_requests) * 100
+          (currentStatus.progress / currentStatus.total_requests) * 100,
         )
       : 0;
 

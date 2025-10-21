@@ -96,8 +96,8 @@ export function MatchmakingAnalysisResults({
                     isFavorable
                       ? "text-green-600 dark:text-green-400"
                       : isUnfavorable
-                      ? "text-red-600 dark:text-red-400"
-                      : ""
+                        ? "text-red-600 dark:text-red-400"
+                        : ""
                   }
                 >
                   {(team_avg_winrate * 100).toFixed(1)}%
@@ -117,8 +117,8 @@ export function MatchmakingAnalysisResults({
                     isUnfavorable
                       ? "text-green-600 dark:text-green-400"
                       : isFavorable
-                      ? "text-red-600 dark:text-red-400"
-                      : ""
+                        ? "text-red-600 dark:text-red-400"
+                        : ""
                   }
                 >
                   {(enemy_avg_winrate * 100).toFixed(1)}%

@@ -27,7 +27,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
     queryFn: async () => {
       const result = await validatedGet(
         TrackedPlayersSchema,
-        "/players/tracked/list"
+        "/players/tracked/list",
       );
 
       if (!result.success) {
@@ -53,7 +53,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
       toast.success(
         `Successfully removed ${
           player?.summoner_name || "player"
-        } from tracked players`
+        } from tracked players`,
       );
     },
     onError: (error: Error) => {
@@ -64,7 +64,7 @@ export function TrackedPlayersList({ onViewPlayer }: TrackedPlayersListProps) {
   const handleUntrack = (player: Player) => {
     if (
       window.confirm(
-        `Are you sure you want to stop tracking ${player.summoner_name}?`
+        `Are you sure you want to stop tracking ${player.summoner_name}?`,
       )
     ) {
       untrackMutation.mutate(player.puuid);

@@ -100,7 +100,14 @@ repos:
     hooks:
       - id: frontend-lint
         name: Frontend ESLint
-        entry: bash -c 'cd frontend && [ -d node_modules ] && npm run lint -- --max-warnings 0 || (echo "❌ Frontend linting failed! Fix errors before committing." && exit 1)'
+        entry: >
+          bash -c 'cd frontend &&
+          if [ ! -d node_modules ]; then
+          echo "❌ ERROR: Frontend dependencies not installed! Run: cd frontend && npm install";
+          exit 1;
+          fi &&
+          npm run lint -- --max-warnings 0 ||
+          (echo "❌ Frontend linting failed! Fix errors before committing." && exit 1)'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         exclude: ^frontend/node_modules/
@@ -122,7 +129,14 @@ repos:
     hooks:
       - id: frontend-typecheck
         name: TypeScript Type Check
-        entry: bash -c 'cd frontend && [ -d node_modules ] && npx tsc --noEmit || (echo "❌ TypeScript type checking failed! Fix type errors before committing." && exit 1)'
+        entry: >
+          bash -c 'cd frontend &&
+          if [ ! -d node_modules ]; then
+          echo "❌ ERROR: Frontend dependencies not installed! Run: cd frontend && npm install";
+          exit 1;
+          fi &&
+          npx tsc --noEmit ||
+          (echo "❌ TypeScript type checking failed! Fix type errors before committing." && exit 1)'
         language: system
         files: ^frontend/.*\.(ts|tsx)$
         exclude: ^frontend/node_modules/

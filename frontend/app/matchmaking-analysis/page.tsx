@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Player } from "@/lib/schemas";
@@ -22,32 +22,28 @@ function MatchmakingAnalysisContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
+  const hasLoadedFromUrl = useRef(false);
 
   // On mount, check if there's a puuid in the URL and fetch player data
   useEffect(() => {
     const puuidFromUrl = searchParams.get("puuid");
-    if (puuidFromUrl && !selectedPlayer && !isLoadingFromUrl) {
-      setIsLoadingFromUrl(true);
-      getPlayerByPuuid(puuidFromUrl)
-        .then((result) => {
-          if (result.success) {
-            setSelectedPlayer(result.data);
-            // Invalidate the MatchmakingAnalysisResults query to ensure it fetches fresh data
-            queryClient.invalidateQueries({
-              queryKey: ["matchmaking-analysis-results", puuidFromUrl],
-            });
-          } else {
-            console.error("Failed to load player from URL:", result.error);
-            // Clear invalid puuid from URL
-            router.push("/matchmaking-analysis", { scroll: false });
-          }
-        })
-        .finally(() => {
-          setIsLoadingFromUrl(false);
-        });
+    if (puuidFromUrl && !selectedPlayer && !hasLoadedFromUrl.current) {
+      hasLoadedFromUrl.current = true;
+      getPlayerByPuuid(puuidFromUrl).then((result) => {
+        if (result.success) {
+          setSelectedPlayer(result.data);
+          // Invalidate the MatchmakingAnalysisResults query to ensure it fetches fresh data
+          queryClient.invalidateQueries({
+            queryKey: ["matchmaking-analysis-results", puuidFromUrl],
+          });
+        } else {
+          console.error("Failed to load player from URL:", result.error);
+          // Clear invalid puuid from URL
+          router.push("/matchmaking-analysis", { scroll: false });
+        }
+      });
     }
-  }, [searchParams, selectedPlayer, isLoadingFromUrl, router, queryClient]);
+  }, [searchParams, selectedPlayer, router, queryClient]);
 
   const handlePlayerFound = (player: Player) => {
     setSelectedPlayer(player);
@@ -55,12 +51,6 @@ function MatchmakingAnalysisContent() {
     router.push(`/matchmaking-analysis?puuid=${player.puuid}`, {
       scroll: false,
     });
-  };
-
-  // Function to clear player selection (e.g., when navigating back)
-  const handleClearPlayer = () => {
-    setSelectedPlayer(null);
-    router.push("/matchmaking-analysis", { scroll: false });
   };
 
   return (
