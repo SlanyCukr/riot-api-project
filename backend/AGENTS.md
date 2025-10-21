@@ -15,7 +15,10 @@
 - `models/` - SQLAlchemy ORM models
 - `schemas/` - Pydantic request/response models
 - `algorithms/` - Player analysis algorithms
-- `jobs/` - Background job system (player updates, analysis, matchmaking)
+- `jobs/` - Background job system
+  - **4 job types**: TRACKED_PLAYER_UPDATER, MATCH_FETCHER, SMURF_ANALYZER, BAN_CHECKER
+  - Specialized jobs for API-heavy vs database-only work
+  - Graceful rate limit handling with RATE_LIMITED status
 
 # Commands
 

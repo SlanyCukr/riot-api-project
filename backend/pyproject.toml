@@ -57,7 +57,7 @@ profile = "black"
 multi_line_output = 3
 
 [tool.bandit]
-exclude_dirs = ["tests", "tools"]
+exclude_dirs = ["tests", "tools", "alembic"]
 skips = ["B101", "B601", "B104", "B311"]
 
 [tool.pyright]
@@ -119,6 +119,7 @@ exclude = [
     "app/tests/",  # Test fixtures and mocks often appear unused
     "app/riot_api/constants.py",  # Enum definitions used as constants
     "app/riot_api/models.py",  # Pydantic DTO fields from Riot API
+    "app/config.py",  # Pydantic Settings properties may appear unused but are accessed by framework
 ]
 ignore_decorators = ["@app.route", "@router.*", "@app.*", "@abstractmethod"]
 ignore_names = [

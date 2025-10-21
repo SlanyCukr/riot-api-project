@@ -37,6 +37,28 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Exclude objects marked with info={'skip_autogenerate': True}.
+
+    This prevents Alembic from managing tables owned by external libraries
+    like APScheduler, which handle their own schema lifecycle.
+
+    Args:
+        object: The schema object (Table, Index, etc.)
+        name: Name of the object
+        type_: Type of object ('table', 'column', 'index', etc.)
+        reflected: Whether object was reflected from the database
+        compare_to: The metadata object being compared to (if any)
+
+    Returns:
+        False to exclude the object from autogenerate, True to include it.
+    """
+    if type_ == "table" and object.info.get("skip_autogenerate", False):
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -55,6 +77,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -70,6 +93,8 @@ def do_run_migrations(connection: Connection) -> None:
         compare_server_default=True,
         # Use naming conventions for consistent constraint names
         render_as_batch=False,
+        # Exclude objects marked with skip_autogenerate
+        include_object=include_object,
     )
 
     with context.begin_transaction():

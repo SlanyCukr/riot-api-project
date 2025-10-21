@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .base import BaseJob
 from .error_handling import handle_riot_api_errors
 from ..models.players import Player
-from ..models.job_tracking import JobConfiguration
 from ..riot_api.client import RiotAPIClient
 from ..riot_api.data_manager import RiotDataManager
 from ..riot_api.errors import NotFoundError
@@ -34,27 +33,46 @@ class TrackedPlayerUpdaterJob(BaseJob):
     4. Logs progress and metrics
     """
 
-    def __init__(self, job_config: JobConfiguration):
+    def __init__(self, job_config_id: int):
         """Initialize tracked player updater job.
 
-        :param job_config: Job configuration from database.
-        :type job_config: JobConfiguration
+        :param job_config_id: ID of job configuration from database.
+        :type job_config_id: int
         """
-        super().__init__(job_config)
+        super().__init__(job_config_id)
         self.settings = get_global_settings()
-
-        # Extract configuration (use settings defaults for consistency across environments)
-        config = job_config.config_json or {}
-        self.max_new_matches_per_player = config.get(
-            "max_new_matches_per_player", self.settings.max_new_matches_per_player
-        )
-        self.max_tracked_players = config.get(
-            "max_tracked_players", self.settings.max_tracked_players
-        )
 
         # Initialize Riot API client (will be created in execute)
         self.api_client: Optional[RiotAPIClient] = None
         self.data_manager: Optional[RiotDataManager] = None
+
+    def _load_configuration(self) -> None:
+        """Load job configuration from database.
+
+        :raises ValueError: If required configuration is missing.
+        """
+        if not self.job_config:
+            raise ValueError("Job configuration not loaded")
+
+        config = self.job_config.config_json or {}
+
+        # Required configuration - fail hard if missing
+        self.max_new_matches_per_player = config.get("max_new_matches_per_player")
+        self.max_tracked_players = config.get("max_tracked_players")
+
+        if self.max_new_matches_per_player is None:
+            raise ValueError("Missing required config: 'max_new_matches_per_player'")
+        if self.max_tracked_players is None:
+            raise ValueError("Missing required config: 'max_tracked_players'")
+
+    def _record_api_request(self, metric: str, count: int) -> None:
+        """Track API request counts for job metrics.
+
+        :param metric: Name of the metric being recorded.
+        :param count: Number of requests made.
+        """
+        if metric == "requests_made":
+            self.increment_metric("api_requests_made", count)
 
     @asynccontextmanager
     async def _riot_resources(self, db: AsyncSession):
@@ -72,6 +90,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
             api_key=api_key,
             region=self.settings.riot_region,
             platform=self.settings.riot_platform,
+            request_callback=self._record_api_request,
         )
         self.data_manager = RiotDataManager(db, self.api_client)
         try:
@@ -88,6 +107,9 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :param db: Database session for job execution.
         :type db: AsyncSession
         """
+        # Load configuration from database
+        self._load_configuration()
+
         logger.info(
             "Starting tracked player updater job",
             job_id=self.job_config.id,

@@ -230,11 +230,22 @@ class MatchService:
             match_list = await riot_api_client.get_match_list_by_puuid(
                 puuid=puuid, queue=queue, start=0, count=100
             )
-            return (
+            match_ids = (
                 list(match_list.match_ids)
                 if match_list and match_list.match_ids
                 else []
             )
+
+            logger.debug(
+                "Fetched match IDs from Riot API",
+                puuid=puuid,
+                queue=queue,
+                api_returned_count=len(match_ids),
+                start=0,
+                requested_count=100,
+            )
+
+            return match_ids
         except (RateLimitError, NotFoundError) as e:
             logger.warning(
                 "Failed to fetch match list",
@@ -306,6 +317,16 @@ class MatchService:
             return []
 
         new_match_ids = await self._get_new_match_ids(all_match_ids)
+        already_in_db = len(all_match_ids) - len(new_match_ids)
+
+        logger.debug(
+            "Match ID filtering results",
+            puuid=puuid,
+            total_from_api=len(all_match_ids),
+            already_in_database=already_in_db,
+            new_matches=len(new_match_ids),
+        )
+
         if not new_match_ids:
             logger.debug("All matches already in database", puuid=puuid)
             return []

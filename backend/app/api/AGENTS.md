@@ -15,6 +15,33 @@
 - `settings.py` - Runtime settings management
 - `dependencies.py` - FastAPI dependency factories
 
+# API Endpoints
+
+## Jobs API (`/api/v1/jobs`)
+
+**Key endpoints:**
+- `GET /jobs/` - List all job configurations
+- `PUT /jobs/{job_id}` - Update job configuration
+- `GET /jobs/{job_id}/executions` - Get execution history for specific job
+- `GET /jobs/executions/all` - Get execution history for all jobs
+- `POST /jobs/{job_id}/trigger` - Manually trigger a job
+- `GET /jobs/status/overview` - Get job system status
+
+**Job statuses:**
+- `PENDING` - Job created but not started
+- `RUNNING` - Job actively executing
+- `SUCCESS` - Job completed successfully
+- `FAILED` - Job encountered an error
+- `RATE_LIMITED` - Job hit API rate limit (not a failure, will retry)
+
+**Job types:**
+- `TRACKED_PLAYER_UPDATER` - Fetch matches for tracked players
+- `MATCH_FETCHER` - Fetch matches for discovered players
+- `SMURF_ANALYZER` - Analyze players for smurf behavior (no API calls)
+- `BAN_CHECKER` - Check ban status for flagged players
+
+See `backend/app/jobs/AGENTS.md` for detailed job documentation.
+
 # Commands
 
 - GET `/docs` - Interactive API documentation

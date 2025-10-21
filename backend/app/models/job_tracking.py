@@ -7,13 +7,13 @@ from typing import Any, Dict, Optional
 from sqlalchemy import (
     Boolean,
     DateTime as SQLDateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -24,23 +24,27 @@ from . import Base
 class JobType(str, PyEnum):
     """Enumeration of job types."""
 
-    TRACKED_PLAYER_UPDATER = "tracked_player_updater"
-    PLAYER_ANALYZER = "player_analyzer"
+    TRACKED_PLAYER_UPDATER = "TRACKED_PLAYER_UPDATER"
+    MATCH_FETCHER = "MATCH_FETCHER"
+    SMURF_ANALYZER = "SMURF_ANALYZER"
+    BAN_CHECKER = "BAN_CHECKER"
 
 
 class JobStatus(str, PyEnum):
     """Enumeration of job execution statuses."""
 
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    RATE_LIMITED = "RATE_LIMITED"
 
 
 class JobConfiguration(Base):
     """Job configuration model storing job scheduling and settings."""
 
     __tablename__ = "job_configurations"
+    __table_args__ = {"schema": "app"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -52,7 +56,7 @@ class JobConfiguration(Base):
 
     # Job identification
     job_type: Mapped[JobType] = mapped_column(
-        Enum(JobType, name="job_type_enum", create_type=True),
+        ENUM(JobType, name="job_type_enum", create_type=False, schema="app"),
         nullable=False,
         index=True,
         comment="Type of job (tracked_player_updater, player_analyzer)",
@@ -121,6 +125,7 @@ class JobExecution(Base):
     """Job execution model storing job run history and metrics."""
 
     __tablename__ = "job_executions"
+    __table_args__ = {"schema": "app"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -133,7 +138,7 @@ class JobExecution(Base):
     # Foreign key to job configuration
     job_config_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("job_configurations.id", ondelete="CASCADE"),
+        ForeignKey("app.job_configurations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the job configuration",
@@ -157,7 +162,7 @@ class JobExecution(Base):
 
     # Execution status
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus, name="job_status_enum", create_type=True),
+        ENUM(JobStatus, name="job_status_enum", create_type=False, schema="app"),
         nullable=False,
         default=JobStatus.PENDING,
         index=True,

@@ -24,6 +24,7 @@ class SmurfDetection(Base):
     """Smurf detection model storing detection results and signals."""
 
     __tablename__ = "smurf_detections"
+    __table_args__ = {"schema": "app"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -33,7 +34,7 @@ class SmurfDetection(Base):
     # Foreign key
     puuid: Mapped[str] = mapped_column(
         String(78),
-        ForeignKey("players.puuid", ondelete="CASCADE"),
+        ForeignKey("app.players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the player being analyzed (Riot PUUID)",

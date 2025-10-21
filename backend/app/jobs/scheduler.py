@@ -24,12 +24,16 @@ _JOB_REGISTRY: Optional[Dict[JobType, Type[BaseJob]]] = None
 def _get_job_registry() -> Dict[JobType, Type[BaseJob]]:
     global _JOB_REGISTRY
     if _JOB_REGISTRY is None:
-        from .player_analyzer import PlayerAnalyzerJob
         from .tracked_player_updater import TrackedPlayerUpdaterJob
+        from .match_fetcher import MatchFetcherJob
+        from .smurf_analyzer import SmurfAnalyzerJob
+        from .ban_checker import BanCheckerJob
 
         _JOB_REGISTRY = {
             JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,
-            JobType.PLAYER_ANALYZER: PlayerAnalyzerJob,
+            JobType.MATCH_FETCHER: MatchFetcherJob,
+            JobType.SMURF_ANALYZER: SmurfAnalyzerJob,
+            JobType.BAN_CHECKER: BanCheckerJob,
         }
 
     return _JOB_REGISTRY
@@ -44,14 +48,12 @@ def get_scheduler() -> Optional[AsyncIOScheduler]:
     return _scheduler
 
 
-def _resolve_interval_seconds(
-    job_config: JobConfiguration, default_interval: int
-) -> int:
+def _resolve_interval_seconds(job_config: JobConfiguration) -> int:
     """Determine interval seconds for a job configuration.
 
     :param job_config: Job configuration with schedule settings.
-    :param default_interval: Default interval if no valid config found.
     :returns: Interval in seconds (minimum 1).
+    :raises ValueError: If no valid interval configuration found.
     """
     config = job_config.config_json or {}
     custom_value = config.get("interval_seconds")
@@ -67,8 +69,11 @@ def _resolve_interval_seconds(
     if interval_from_schedule:
         return interval_from_schedule
 
-    # Fall back to default
-    return default_interval
+    # No valid configuration found - fail hard
+    raise ValueError(
+        f"No valid interval configuration found for job '{job_config.name}'. "
+        f"Either set 'interval_seconds' in config_json or provide a valid schedule string."
+    )
 
 
 def _parse_interval_from_config(custom_value: any) -> Optional[int]:
@@ -249,8 +254,6 @@ async def start_scheduler() -> AsyncIOScheduler:
 
         logger.info(
             "Job scheduler started successfully",
-            interval_seconds=settings.job_interval_seconds,
-            timeout_seconds=settings.job_timeout_seconds,
         )
 
         # Load and schedule job configurations from database
@@ -315,7 +318,7 @@ def _schedule_job(
     :param job_class: Job class to instantiate.
     :param interval_seconds: Interval in seconds.
     """
-    job_instance = job_class(job_config)
+    job_instance = job_class(job_config.id)
     job_type = job_config.job_type
 
     _scheduler.add_job(
@@ -360,7 +363,6 @@ async def _load_and_schedule_jobs() -> None:
             return
 
         registry = _get_job_registry()
-        settings = get_global_settings()
 
         for job_config in job_configs:
             job_type = _convert_job_type(job_config)
@@ -371,9 +373,7 @@ async def _load_and_schedule_jobs() -> None:
             if not job_class:
                 continue
 
-            interval_seconds = _resolve_interval_seconds(
-                job_config, settings.job_interval_seconds
-            )
+            interval_seconds = _resolve_interval_seconds(job_config)
             _schedule_job(job_config, job_class, interval_seconds)
 
         logger.info("Successfully loaded and scheduled jobs", count=len(job_configs))

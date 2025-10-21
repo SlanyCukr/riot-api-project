@@ -7,12 +7,14 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import db_manager
 from app.models import JobConfiguration, JobExecution, JobStatus
 from structlog import contextvars as structlog_contextvars
 from .log_capture import job_log_capture
+from .error_handling import RateLimitSignal
 
 logger = structlog.get_logger(__name__)
 
@@ -30,13 +32,14 @@ class BaseJob(ABC):
     - execute(): The main job logic
     """
 
-    def __init__(self, job_config: JobConfiguration):
-        """Initialize the job with its configuration.
+    def __init__(self, job_config_id: int):
+        """Initialize the job with its configuration ID.
 
         Args:
-            job_config: Job configuration from database.
+            job_config_id: ID of job configuration from database.
         """
-        self.job_config = job_config
+        self.job_config_id = job_config_id
+        self.job_config: Optional[JobConfiguration] = None
         self.job_execution: Optional[JobExecution] = None
         self.metrics = defaultdict(int)
         self.metrics.update(
@@ -64,11 +67,37 @@ class BaseJob(ABC):
         """
         pass
 
+    async def _refresh_config(self, db: AsyncSession) -> None:
+        """Load fresh job configuration from database.
+
+        Args:
+            db: Database session for querying configuration.
+
+        Raises:
+            Exception: If configuration is missing or invalid.
+        """
+        stmt = select(JobConfiguration).where(JobConfiguration.id == self.job_config_id)
+        result = await db.execute(stmt)
+        job_config = result.scalar_one_or_none()
+
+        if job_config is None:
+            raise Exception(
+                f"Job configuration {self.job_config_id} not found or deleted"
+            )
+
+        self.job_config = job_config
+        logger.debug(
+            "Job configuration refreshed",
+            job_config_id=self.job_config_id,
+            job_name=self.job_config.name,
+            job_type=self.job_config.job_type.value,
+        )
+
     async def log_start(self, db: AsyncSession) -> None:
         """Log job execution start and create JobExecution record."""
         try:
             self.job_execution = JobExecution(
-                job_config_id=self.job_config.id,
+                job_config_id=self.job_config_id,
                 started_at=datetime.now(timezone.utc),
                 status=JobStatus.RUNNING,
                 api_requests_made=0,
@@ -84,15 +113,14 @@ class BaseJob(ABC):
 
             logger.debug(
                 "Job execution started",
-                job_type=self.job_config.job_type.value,
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 execution_id=self.job_execution.id,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to log job start",
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 error=str(e),
                 error_type=type(e).__name__,
             )
@@ -105,13 +133,21 @@ class BaseJob(ABC):
         success: bool = True,
         error_message: Optional[str] = None,
         logs: Optional[List[Dict[str, Any]]] = None,
+        status: Optional[JobStatus] = None,
     ) -> None:
-        """Log job execution completion and update JobExecution record."""
+        """Log job execution completion and update JobExecution record.
+
+        :param db: Database session
+        :param success: Whether the job succeeded
+        :param error_message: Optional error message
+        :param logs: Optional list of log entries
+        :param status: Optional explicit status (overrides success-based status)
+        """
         # Exit early if job execution was never started
         if self.job_execution is None:
             logger.warning(
                 "Cannot log completion, job execution not started",
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
             )
             return
 
@@ -129,15 +165,23 @@ class BaseJob(ABC):
                 detailed_logs = {"logs": self._strip_redundant_fields(logs)}
 
             update_stmt = self._build_completion_update_statement(
-                JobExecution, completed_at, success, error_message, detailed_logs
+                JobExecution,
+                completed_at,
+                success,
+                error_message,
+                detailed_logs,
+                status,
             )
 
             await self._execute_completion_update(db, update_stmt)
 
             # Update local execution object state
             self.job_execution.completed_at = completed_at
+            # Use explicit status if provided, otherwise derive from success
             self.job_execution.status = (
-                JobStatus.SUCCESS if success else JobStatus.FAILED
+                status
+                if status is not None
+                else (JobStatus.SUCCESS if success else JobStatus.FAILED)
             )
 
         except Exception as e:
@@ -150,7 +194,7 @@ class BaseJob(ABC):
         stmt = (
             select(JobExecution)
             .where(
-                JobExecution.job_config_id == self.job_config.id,
+                JobExecution.job_config_id == self.job_config_id,
                 JobExecution.status == JobStatus.RUNNING,
             )
             .limit(1)
@@ -161,8 +205,7 @@ class BaseJob(ABC):
         if running_job:
             logger.info(
                 "Job is already running, skipping execution",
-                job_type=self.job_config.job_type.value,
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 running_execution_id=running_job.id,
                 running_since=running_job.started_at.isoformat()
                 if running_job.started_at
@@ -178,8 +221,9 @@ class BaseJob(ABC):
 
         logger.error(
             "Job execution failed",
-            job_type=self.job_config.job_type.value,
-            job_name=self.job_config.name,
+            job_config_id=self.job_config_id,
+            job_type=self.job_config.job_type.value if self.job_config else None,
+            job_name=self.job_config.name if self.job_config else None,
             execution_id=self.job_execution.id if self.job_execution else None,
             error=error_message,
             error_type=type(error).__name__,
@@ -197,8 +241,7 @@ class BaseJob(ABC):
             if await self.is_already_running(db):
                 logger.info(
                     "Skipping job execution - already running",
-                    job_type=self.job_config.job_type.value,
-                    job_name=self.job_config.name,
+                    job_config_id=self.job_config_id,
                 )
                 return
 
@@ -207,13 +250,16 @@ class BaseJob(ABC):
             except Exception as error:
                 logger.error(
                     "Failed to initialize job execution",
-                    job_name=self.job_config.name,
+                    job_config_id=self.job_config_id,
                     error=str(error),
                     error_type=type(error).__name__,
                 )
                 return
 
             try:
+                # Load fresh configuration before execution
+                await self._refresh_config(db)
+
                 if self.job_execution:
                     structlog_contextvars.bind_contextvars(
                         job_execution_id=self.job_execution.id,
@@ -223,6 +269,21 @@ class BaseJob(ABC):
 
                 await self.execute(db)
 
+            except RateLimitSignal as rate_limit_signal:
+                # Rate limit hit - save progress and mark as rate limited
+                logger.warning(
+                    "Job stopped due to rate limit",
+                    job_config_id=self.job_config_id,
+                    job_name=self.job_config.name,
+                    retry_after=rate_limit_signal.retry_after,
+                )
+                job_logs = self._get_job_logs()
+                await self.log_completion(
+                    db,
+                    success=True,  # Not a failure - completed what we could
+                    logs=job_logs,
+                    status=JobStatus.RATE_LIMITED,
+                )
             except Exception as job_error:
                 error_message = await self.handle_error(db, job_error)
                 job_logs = self._get_job_logs()
@@ -264,7 +325,7 @@ class BaseJob(ABC):
                 f"Failed to commit {operation}",
                 error=str(e),
                 error_type=type(e).__name__,
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 execution_id=self.job_execution.id if self.job_execution else None,
             )
             return False
@@ -286,13 +347,13 @@ class BaseJob(ABC):
         """Remove fields that are redundant in DB (already in job_execution table).
 
         Keep them in stdout for debugging, strip only before DB storage.
+        Note: 'level' is NOT stripped because each log entry can have a different level.
         """
         redundant_fields = {
             "job_execution_id",
             "job_name",
             "job_type",
             "logger",
-            "level",
         }
 
         return [
@@ -314,6 +375,7 @@ class BaseJob(ABC):
         """Log completion details to structured logger."""
         logger.debug(
             "Job execution completed",
+            job_config_id=self.job_config_id,
             job_type=self.job_config.job_type.value,
             job_name=self.job_config.name,
             execution_id=self.job_execution.id,
@@ -326,17 +388,30 @@ class BaseJob(ABC):
         )
 
     def _build_completion_update_statement(
-        self, job_execution_model, completed_at, success, error_message, detailed_logs
+        self,
+        job_execution_model,
+        completed_at,
+        success,
+        error_message,
+        detailed_logs,
+        status=None,
     ):
         """Build SQLAlchemy update statement for job completion."""
         from sqlalchemy import update
+
+        # Use explicit status if provided, otherwise derive from success
+        final_status = (
+            status
+            if status is not None
+            else (JobStatus.SUCCESS if success else JobStatus.FAILED)
+        )
 
         return (
             update(job_execution_model)
             .where(job_execution_model.id == self.job_execution.id)
             .values(
                 completed_at=completed_at,
-                status=JobStatus.SUCCESS if success else JobStatus.FAILED,
+                status=final_status,
                 api_requests_made=self.metrics["api_requests_made"],
                 records_created=self.metrics["records_created"],
                 records_updated=self.metrics["records_updated"],
@@ -355,7 +430,7 @@ class BaseJob(ABC):
         except Exception as execute_error:
             logger.error(
                 "Failed to execute job completion update",
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 execution_id=self.job_execution.id,
                 error=str(execute_error),
                 error_type=type(execute_error).__name__,
@@ -378,7 +453,7 @@ class BaseJob(ABC):
         except Exception as retry_error:
             logger.error(
                 "Failed to execute job completion retry - job may remain stuck",
-                job_name=self.job_config.name,
+                job_config_id=self.job_config_id,
                 execution_id=self.job_execution.id,
                 error=str(retry_error),
                 error_type=type(retry_error).__name__,
@@ -391,7 +466,7 @@ class BaseJob(ABC):
         """Handle errors that occur during completion logging."""
         logger.error(
             "Failed to log job completion",
-            job_name=self.job_config.name,
+            job_config_id=self.job_config_id,
             execution_id=self.job_execution.id if self.job_execution else None,
             error=str(error),
             error_type=type(error).__name__,

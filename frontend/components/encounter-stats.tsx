@@ -40,7 +40,7 @@ export function EncounterStats({
       const result = await validatedGet(
         EncounterStatsResponseSchema,
         `/matches/player/${puuid}/encounter-stats`,
-        { limit: 50, min_encounters: 3 }
+        { limit: 50, min_encounters: 3 },
       );
       if (!result.success) {
         throw new Error(result.error.message);
@@ -51,7 +51,7 @@ export function EncounterStats({
   });
 
   const getSuspicionIndicator = (
-    data: EncounterData
+    data: EncounterData,
   ): { level: "high" | "medium" | "low"; message: string } | null => {
     const totalGames = data.total_encounters;
     const teammateRate = data.as_teammate / totalGames;
@@ -67,7 +67,7 @@ export function EncounterStats({
       return {
         level: "high",
         message: `${(winRate * 100).toFixed(
-          0
+          0,
         )}% win rate together - possible duo abuse`,
       };
     }
@@ -87,7 +87,7 @@ export function EncounterStats({
       return {
         level: "low",
         message: `High win rate (${(winRate * 100).toFixed(
-          0
+          0,
         )}%) when playing together`,
       };
     }
@@ -169,7 +169,7 @@ export function EncounterStats({
 
   // Sort encounters by total games (most frequent first)
   const sortedEncounters = Object.entries(encounterStats.encounters).sort(
-    ([, a], [, b]) => b.total_encounters - a.total_encounters
+    ([, a], [, b]) => b.total_encounters - a.total_encounters,
   );
 
   return (
@@ -208,7 +208,7 @@ export function EncounterStats({
                   <TableRow
                     key={encounterPuuid}
                     className={cn(
-                      suspicion && suspicion.level === "high" && "bg-red-50/50"
+                      suspicion && suspicion.level === "high" && "bg-red-50/50",
                     )}
                   >
                     <TableCell>
@@ -225,7 +225,7 @@ export function EncounterStats({
                               variant="outline"
                               className={cn(
                                 "text-xs",
-                                getSuspicionColor(suspicion.level)
+                                getSuspicionColor(suspicion.level),
                               )}
                             >
                               {suspicion.level === "high" && "⚠️ "}
@@ -251,10 +251,10 @@ export function EncounterStats({
                           data.teammate_win_rate >= 0.75
                             ? "text-red-600"
                             : data.teammate_win_rate >= 0.6
-                            ? "text-orange-600"
-                            : data.teammate_win_rate >= 0.5
-                            ? "text-green-600"
-                            : "text-muted-foreground"
+                              ? "text-orange-600"
+                              : data.teammate_win_rate >= 0.5
+                                ? "text-green-600"
+                                : "text-muted-foreground",
                         )}
                       >
                         {data.as_teammate > 0
@@ -264,12 +264,12 @@ export function EncounterStats({
                       {data.as_teammate > 0 && (
                         <div className="text-xs text-muted-foreground">
                           {Math.round(
-                            data.teammate_win_rate * data.as_teammate
+                            data.teammate_win_rate * data.as_teammate,
                           )}
                           W -{" "}
                           {data.as_teammate -
                             Math.round(
-                              data.teammate_win_rate * data.as_teammate
+                              data.teammate_win_rate * data.as_teammate,
                             )}
                           L
                         </div>
@@ -282,10 +282,10 @@ export function EncounterStats({
                           data.avg_kda >= 4
                             ? "text-purple-600"
                             : data.avg_kda >= 3
-                            ? "text-blue-600"
-                            : data.avg_kda >= 2
-                            ? "text-green-600"
-                            : "text-muted-foreground"
+                              ? "text-blue-600"
+                              : data.avg_kda >= 2
+                                ? "text-green-600"
+                                : "text-muted-foreground",
                         )}
                       >
                         {data.avg_kda.toFixed(2)}

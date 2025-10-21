@@ -14,12 +14,10 @@ from ..models.matches import Match
 from ..models.participants import MatchParticipant
 from ..schemas.matchmaking import (
     MatchmakingAnalysisResponse,
-    MatchmakingAnalysisResults,
     MatchmakingAnalysisStatusResponse,
 )
 from ..riot_api.client import RiotAPIClient
-from ..riot_api.errors import RiotAPIError, RateLimitError
-from ..riot_api.constants import Region
+from ..riot_api.errors import RiotAPIError
 from ..riot_api.transformers import MatchTransformer
 
 logger = structlog.get_logger(__name__)
@@ -564,76 +562,200 @@ class MatchmakingAnalysisService:
                 match_id=match_id,
             )
 
-            # Get participants for this match
-            participants = await self._get_match_participants(match_id)
-            requests_completed += 1
+            # Process single match
+            match_result = await self._process_single_match(
+                analysis_id,
+                match_id,
+                target_puuid,
+                requests_completed,
+                total_estimated,
+            )
 
-            # Find target player's team
-            target_team_id = None
-            for puuid, team_id in participants:
-                if puuid == target_puuid:
-                    target_team_id = team_id
-                    break
-
-            if target_team_id is None:
-                logger.warning(
-                    "Target player not found in match",
-                    match_id=match_id,
-                    target_puuid=target_puuid,
-                )
-                continue
-
-            # Process each participant in batches for better API usage
-            # Batch size of 10 allows ~10 requests/sec while respecting rate limits
-            # Note: We process sequentially to avoid DB session conflicts,
-            # but the individual _calculate_participant_winrate calls may batch API requests internally
-            for participant_puuid, team_id in participants:
-                if participant_puuid == target_puuid:
-                    continue  # Skip the target player themselves
-
+            if match_result is None:
+                # Cancelled or target player not found
                 if self._is_cancelled(analysis_id):
                     return {}
+                continue
 
-                # Get participant's winrate
-                winrate = await self._calculate_participant_winrate(participant_puuid)
-                requests_completed += 1
-
-                # Update progress
-                await self._update_progress(
-                    analysis_id, requests_completed, total_estimated
-                )
-
-                if winrate is not None:
-                    if team_id == target_team_id:
-                        team_winrates.append(winrate)
-                    else:
-                        enemy_winrates.append(winrate)
+            # Update counters and collect winrates
+            requests_completed = match_result["requests_completed"]
+            team_winrates.extend(match_result["team_winrates"])
+            enemy_winrates.extend(match_result["enemy_winrates"])
 
             # Mark this match as processed after analyzing all its participants
             await self._mark_match_processed(match_id)
 
-        # Calculate averages
+        return self._calculate_final_results(
+            team_winrates, enemy_winrates, len(match_ids)
+        )
+
+    async def _process_single_match(
+        self,
+        analysis_id: int,
+        match_id: str,
+        target_puuid: str,
+        requests_completed: int,
+        total_estimated: int,
+    ) -> Optional[Dict]:
+        """
+        Process a single match and collect winrates for team and enemy participants.
+
+        Args:
+            analysis_id: ID of the analysis
+            match_id: Match ID to process
+            target_puuid: PUUID of the target player
+            requests_completed: Number of requests completed so far
+            total_estimated: Total estimated requests
+
+        Returns:
+            Dict with requests_completed, team_winrates, enemy_winrates, or None if cancelled/invalid
+        """
+        # Get participants for this match
+        participants = await self._get_match_participants(match_id)
+        requests_completed += 1
+
+        # Find target player's team
+        target_team_id = self._find_target_team_id(participants, target_puuid)
+
+        if target_team_id is None:
+            logger.warning(
+                "Target player not found in match",
+                match_id=match_id,
+                target_puuid=target_puuid,
+            )
+            return None
+
+        # Process each participant
+        team_winrates: List[float] = []
+        enemy_winrates: List[float] = []
+
+        for participant_puuid, team_id in participants:
+            if participant_puuid == target_puuid:
+                continue  # Skip the target player themselves
+
+            if self._is_cancelled(analysis_id):
+                return None
+
+            # Get participant's winrate
+            winrate = await self._calculate_participant_winrate(participant_puuid)
+            requests_completed += 1
+
+            # Update progress
+            await self._update_progress(
+                analysis_id, requests_completed, total_estimated
+            )
+
+            # Categorize winrate by team
+            self._categorize_winrate(
+                winrate, team_id, target_team_id, team_winrates, enemy_winrates
+            )
+
+        return {
+            "requests_completed": requests_completed,
+            "team_winrates": team_winrates,
+            "enemy_winrates": enemy_winrates,
+        }
+
+    def _find_target_team_id(
+        self, participants: List[Tuple[str, int]], target_puuid: str
+    ) -> Optional[int]:
+        """
+        Find the team ID of the target player in a list of participants.
+
+        Args:
+            participants: List of (puuid, team_id) tuples
+            target_puuid: PUUID of the target player
+
+        Returns:
+            Team ID if found, None otherwise
+        """
+        for puuid, team_id in participants:
+            if puuid == target_puuid:
+                return team_id
+        return None
+
+    def _categorize_winrate(
+        self,
+        winrate: Optional[float],
+        team_id: int,
+        target_team_id: int,
+        team_winrates: List[float],
+        enemy_winrates: List[float],
+    ) -> None:
+        """
+        Categorize a participant's winrate as either team or enemy.
+
+        Args:
+            winrate: Participant's winrate (0.0-1.0) or None
+            team_id: Participant's team ID
+            target_team_id: Target player's team ID
+            team_winrates: List to append team winrates to (modified in place)
+            enemy_winrates: List to append enemy winrates to (modified in place)
+        """
+        if winrate is not None:
+            if team_id == target_team_id:
+                team_winrates.append(winrate)
+            else:
+                enemy_winrates.append(winrate)
+
+    def _calculate_final_results(
+        self,
+        team_winrates: List[float],
+        enemy_winrates: List[float],
+        matches_analyzed: int,
+    ) -> Dict:
+        """
+        Calculate final analysis results from collected winrates.
+
+        Args:
+            team_winrates: List of winrates for teammates
+            enemy_winrates: List of winrates for enemies
+            matches_analyzed: Number of matches analyzed
+
+        Returns:
+            Dict with team_avg_winrate, enemy_avg_winrate, matches_analyzed
+        """
         team_avg = sum(team_winrates) / len(team_winrates) if team_winrates else 0.0
         enemy_avg = sum(enemy_winrates) / len(enemy_winrates) if enemy_winrates else 0.0
 
         return {
             "team_avg_winrate": round(team_avg, 4),
             "enemy_avg_winrate": round(enemy_avg, 4),
-            "matches_analyzed": len(match_ids),
+            "matches_analyzed": matches_analyzed,
         }
 
-    async def _calculate_participant_winrate(
-        self, puuid: str, match_count: int = 10
+    def _calculate_winrate_from_results(
+        self, win_results: List[Tuple[bool]]
     ) -> Optional[float]:
         """
-        Calculate winrate for a participant from their last N matches.
+        Calculate winrate from a list of win/loss results.
 
-        Checks DB first for efficiency, falls back to API if needed.
+        Args:
+            win_results: List of tuples containing win status
 
         Returns:
-            Float between 0.0 and 1.0, or None if no matches found
+            Float between 0.0 and 1.0, or None if empty
         """
-        # First try to get winrate from DB
+        if not win_results:
+            return None
+
+        wins = sum(1 for (win,) in win_results if win)
+        total = len(win_results)
+        return wins / total if total > 0 else None
+
+    async def _get_db_winrate(
+        self, puuid: str, match_count: int
+    ) -> Tuple[Optional[float], List[Tuple[bool]]]:
+        """
+        Get winrate from database for a participant.
+
+        Args:
+            puuid: Player PUUID
+            match_count: Number of matches to check
+
+        Returns:
+            Tuple of (winrate if enough matches, all DB results for fallback)
+        """
         result = await self.db.execute(
             select(MatchParticipant.win)
             .join(Match, MatchParticipant.match_id == Match.match_id)
@@ -646,68 +768,85 @@ class MatchmakingAnalysisService:
         )
         db_wins = result.all()
 
-        # If we have enough matches in DB, calculate from those
+        # Return winrate if we have enough matches, otherwise return None and the partial results
         if len(db_wins) >= match_count:
-            wins = sum(1 for (win,) in db_wins if win)
-            total = len(db_wins)
-            winrate = wins / total if total > 0 else None
-
+            winrate = self._calculate_winrate_from_results(db_wins)
             logger.debug(
                 "Calculated winrate from DB",
                 puuid=puuid,
-                wins=wins,
-                total=total,
+                wins=sum(1 for (win,) in db_wins if win),
+                total=len(db_wins),
                 winrate=winrate,
             )
+            return winrate, db_wins
 
-            return winrate
+        return None, db_wins
 
-        # Otherwise fetch from API
+    async def _get_api_winrate(self, puuid: str, match_count: int) -> Optional[float]:
+        """
+        Get winrate from Riot API for a participant.
+
+        Args:
+            puuid: Player PUUID
+            match_count: Number of matches to fetch
+
+        Returns:
+            Float between 0.0 and 1.0, or None if no matches found
+        """
+        match_list = await self.riot_client.get_match_list_by_puuid(
+            puuid=puuid,
+            start=0,
+            count=match_count,
+            queue=420,  # Ranked Solo/Duo only
+        )
+
+        if not match_list.match_ids:
+            return None
+
+        # Get win status for each match
+        wins = 0
+        total = 0
+
+        for match_id in match_list.match_ids:
+            win_status = await self._get_participant_winrate(puuid, match_id)
+            if win_status is not None:
+                total += 1
+                if win_status:
+                    wins += 1
+
+        return wins / total if total > 0 else None
+
+    async def _calculate_participant_winrate(
+        self, puuid: str, match_count: int = 10
+    ) -> Optional[float]:
+        """
+        Calculate winrate for a participant from their last N matches.
+
+        Checks DB first for efficiency, falls back to API if needed.
+
+        Returns:
+            Float between 0.0 and 1.0, or None if no matches found
+        """
+        # Try DB first
+        db_winrate, db_wins = await self._get_db_winrate(puuid, match_count)
+        if db_winrate is not None:
+            return db_winrate
+
+        # Try API with fallback to partial DB data
         try:
-            match_list = await self.riot_client.get_match_list_by_puuid(
-                puuid=puuid,
-                start=0,
-                count=match_count,
-                queue=420,  # Ranked Solo/Duo only
+            api_winrate = await self._get_api_winrate(puuid, match_count)
+            return (
+                api_winrate
+                if api_winrate is not None
+                else self._calculate_winrate_from_results(db_wins)
             )
-
-            if not match_list.match_ids:
-                # Fall back to DB data if we have any
-                if db_wins:
-                    wins = sum(1 for (win,) in db_wins if win)
-                    total = len(db_wins)
-                    return wins / total if total > 0 else None
-                return None
-
-            # Get win status for each match
-            wins = 0
-            total = 0
-
-            for match_id in match_list.match_ids:
-                win_status = await self._get_participant_winrate(puuid, match_id)
-
-                if win_status is not None:
-                    total += 1
-                    if win_status:
-                        wins += 1
-
-            if total == 0:
-                return None
-
-            return wins / total
-
         except RiotAPIError as e:
             logger.warning(
                 "Failed to calculate participant winrate from API",
                 puuid=puuid,
                 error=str(e),
             )
-            # Fall back to DB data if we have any
-            if db_wins:
-                wins = sum(1 for (win,) in db_wins if win)
-                total = len(db_wins)
-                return wins / total if total > 0 else None
-            return None
+            return self._calculate_winrate_from_results(db_wins)
 
     async def _update_progress(
         self, analysis_id: int, completed: int, total: int

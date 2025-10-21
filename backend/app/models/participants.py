@@ -24,6 +24,7 @@ class MatchParticipant(Base):
     """Match participant model storing individual player performance data."""
 
     __tablename__ = "match_participants"
+    __table_args__ = {"schema": "app"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -33,7 +34,7 @@ class MatchParticipant(Base):
     # Foreign keys
     match_id: Mapped[str] = mapped_column(
         String(64),
-        ForeignKey("matches.match_id", ondelete="CASCADE"),
+        ForeignKey("app.matches.match_id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the match this participant belongs to",
@@ -41,7 +42,7 @@ class MatchParticipant(Base):
 
     puuid: Mapped[str] = mapped_column(
         String(78),
-        ForeignKey("players.puuid", ondelete="CASCADE"),
+        ForeignKey("app.players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the player (Riot PUUID)",

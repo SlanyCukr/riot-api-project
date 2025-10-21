@@ -62,7 +62,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
     queryFn: async () => {
       const result = await validatedGet(
         DetectionResponseSchema,
-        `/player-analysis/player/${puuid}/latest`
+        `/player-analysis/player/${puuid}/latest`,
       );
       if (!result.success) {
         if (result.error.status === 404) {
@@ -80,7 +80,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
     queryFn: async () => {
       const result = await validatedGet(
         DetectionExistsResponseSchema,
-        `/player-analysis/player/${puuid}/exists`
+        `/player-analysis/player/${puuid}/exists`,
       );
       if (!result.success) {
         return null;
@@ -104,7 +104,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
       return validatedPost(
         DetectionResponseSchema,
         "/player-analysis/analyze",
-        request
+        request,
       );
     },
     onSuccess: () => {
@@ -130,7 +130,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
       : null;
 
   const getConfidenceVariant = (
-    confidence: string
+    confidence: string,
   ): "default" | "secondary" | "destructive" => {
     switch (confidence) {
       case "high":
@@ -215,7 +215,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
               <Alert
                 className={cn(
                   "border-blue-200 bg-blue-50",
-                  timestampInfo.isOld && "border-yellow-200 bg-yellow-50"
+                  timestampInfo.isOld && "border-yellow-200 bg-yellow-50",
                 )}
               >
                 <Clock className="h-4 w-4" />
@@ -239,7 +239,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
                 "flex items-center justify-between rounded-lg border-2 p-4",
                 detection.is_smurf
                   ? "border-red-500 bg-red-50"
-                  : "border-green-500 bg-green-50"
+                  : "border-green-500 bg-green-50",
               )}
             >
               <div className="flex items-center gap-3">
@@ -263,7 +263,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
                 <div
                   className={cn(
                     "text-2xl font-bold",
-                    getScoreColor(detection.detection_score)
+                    getScoreColor(detection.detection_score),
                   )}
                 >
                   {(detection.detection_score * 100).toFixed(0)}%
@@ -304,7 +304,7 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
                           "text-sm font-medium",
                           factor.meets_threshold
                             ? "text-red-600"
-                            : "text-muted-foreground"
+                            : "text-muted-foreground",
                         )}
                       >
                         {factor.meets_threshold ? "⚠️" : "✓"}{" "}

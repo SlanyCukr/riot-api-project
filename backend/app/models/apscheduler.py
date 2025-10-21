@@ -18,6 +18,13 @@ class APSchedulerJob(Base):  # noqa: vulture
     """
 
     __tablename__ = "apscheduler_jobs"
+    __table_args__ = {
+        "schema": "app",
+        "info": {
+            # Prevent Alembic autogenerate from trying to manage this table
+            "skip_autogenerate": True,
+        },
+    }
 
     id: Mapped[str] = mapped_column(
         String(191),

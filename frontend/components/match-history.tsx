@@ -61,7 +61,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
             queue: queueFilter,
             start: 0,
             count: displayCount,
-          }
+          },
         );
         return result;
       } catch (err) {
@@ -121,7 +121,7 @@ export function MatchHistory({ puuid, queueFilter = 420 }: MatchHistoryProps) {
           loadMore();
         }
       },
-      { threshold: 0.1, rootMargin: "100px" }
+      { threshold: 0.1, rootMargin: "100px" },
     );
 
     const currentRef = loadMoreRef.current;

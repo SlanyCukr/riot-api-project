@@ -2,12 +2,16 @@
 
 from .scheduler import get_scheduler, start_scheduler, shutdown_scheduler
 from .tracked_player_updater import TrackedPlayerUpdaterJob
-from .player_analyzer import PlayerAnalyzerJob
+from .match_fetcher import MatchFetcherJob
+from .smurf_analyzer import SmurfAnalyzerJob
+from .ban_checker import BanCheckerJob
 
 __all__ = [
     "get_scheduler",
     "start_scheduler",
     "shutdown_scheduler",
     "TrackedPlayerUpdaterJob",
-    "PlayerAnalyzerJob",
+    "MatchFetcherJob",
+    "SmurfAnalyzerJob",
+    "BanCheckerJob",
 ]
