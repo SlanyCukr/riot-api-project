@@ -5,8 +5,8 @@ services:
   frontend:
     image: riot-api-frontend:latest
     build:
-      context: ../frontend
-      dockerfile: ../docker/frontend/Dockerfile
+      context: ./frontend
+      dockerfile: ./docker/frontend/Dockerfile
       target: runner
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
@@ -37,8 +37,8 @@ services:
   backend:
     image: riot-api-backend:latest
     build:
-      context: ../backend
-      dockerfile: ../docker/backend/Dockerfile
+      context: ./backend
+      dockerfile: ./docker/backend/Dockerfile
       target: production
       # Use Bake-compatible build configuration
       x-bake:
@@ -84,7 +84,7 @@ services:
       - app-network
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

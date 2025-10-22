@@ -19,25 +19,28 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # Quick Start
 
+**Development** (automatic hot reload with watch mode):
 ```bash
-./scripts/dev.sh              # Start with hot reload
-./scripts/dev.sh --build      # Rebuild (uses Docker Bake for parallel builds)
-./scripts/dev.sh --down       # Stop services
-./scripts/logs.sh             # View logs (all services)
-./scripts/logs.sh backend     # View backend logs only
-./scripts/alembic.sh current  # Check migration status
+docker compose watch                                # Start with hot reload
+docker compose logs -f backend                      # View backend logs
+docker compose exec backend uv run alembic current  # Check migration status
+docker compose down                                 # Stop services
 ```
 
-**Production**: See `docker/AGENTS.md` for deployment workflow.
+**Production**:
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml up -d
+docker compose -f compose.yaml -f compose.prod.yaml logs -f
+docker compose -f compose.yaml -f compose.prod.yaml down
+```
 
-## Helper Scripts
+**Building** (uses Docker Bake for parallel builds):
+```bash
+docker buildx bake -f docker/docker-bake.hcl dev --load   # Dev build
+docker buildx bake -f docker/docker-bake.hcl prod --load  # Prod build
+```
 
-Always use these helper scripts instead of raw `docker compose` commands:
-
-- `./scripts/dev.sh` - Start/stop development environment
-- `./scripts/prod.sh` - Start production environment
-- `./scripts/alembic.sh` - Run Alembic migrations (handles paths/env automatically)
-- `./scripts/logs.sh` - View container logs (handles paths/env automatically)
+See `docker/AGENTS.md` for comprehensive command reference and deployment workflows.
 
 # Project Structure
 
@@ -101,28 +104,24 @@ No restart needed - just save files:
 
 **ALWAYS use Alembic** for all database schema changes. Never use `create_all()`, `--reset-db`, or manual SQL.
 
-**Use the helper script** `./scripts/alembic.sh` for all Alembic commands:
-
 ```bash
 # Create migration after changing models
-./scripts/alembic.sh revision --autogenerate -m "description"
+docker compose exec backend uv run alembic revision --autogenerate -m "description"
 
 # Apply migrations
-./scripts/alembic.sh upgrade head
+docker compose exec backend uv run alembic upgrade head
 
 # Check current migration status
-./scripts/alembic.sh current
+docker compose exec backend uv run alembic current
 
 # View migration history
-./scripts/alembic.sh history
+docker compose exec backend uv run alembic history
 
 # Rollback one migration
-./scripts/alembic.sh downgrade -1
+docker compose exec backend uv run alembic downgrade -1
 ```
 
 **Important**: The entrypoint automatically runs `alembic upgrade head` on startup, so migrations are applied when containers start.
-
-**Note**: The `alembic.sh` script automatically handles Docker Compose file paths and environment variables. Never use raw `docker compose` commands - always use the helper scripts.
 
 See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
@@ -137,8 +136,7 @@ See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
 # Detailed Documentation
 
-- `scripts/AGENTS.md`: All build and development commands
-- `docker/AGENTS.md`: Docker, builds, and production deployment
+- `docker/AGENTS.md`: **Comprehensive Docker Compose command reference**, builds, and production deployment
 - `backend/AGENTS.md`: Riot API integration and FastAPI patterns
 - `backend/alembic/AGENTS.md`: Database migrations with Alembic
 - `frontend/AGENTS.md`: Next.js patterns and shadcn/ui

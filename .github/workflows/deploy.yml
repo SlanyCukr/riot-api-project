@@ -27,11 +27,7 @@ jobs:
           if [ -d "/home/pi/riot-api" ]; then
             echo "Stopping existing containers..."
             cd /home/pi/riot-api
-            if [ -f ".env" ]; then
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down 2>/dev/null || true
-            else
-              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml down 2>/dev/null || true
-            fi
+            docker compose -f compose.yaml -f compose.prod.yaml down 2>/dev/null || true
           fi
 
           # Remove old deployment directory (use sudo for Docker-owned files)
@@ -92,15 +88,14 @@ jobs:
       - name: Deploy production environment
         run: |
           cd /home/pi/riot-api
-          chmod +x scripts/prod.sh
 
           echo "🚀 Deploying production environment..."
           echo "⏱️  Build started at: $(date '+%Y-%m-%d %H:%M:%S')"
           BUILD_START=$(date +%s)
 
-          # Run build with explicit error handling and detailed output
-          # Cache is enabled for faster rebuilds (2TB SSD, 50GB cache available)
-          if ! ./scripts/prod.sh --build --down 2>&1 | tee build.log; then
+          # Build images with Docker Bake (parallel backend + frontend builds)
+          echo "🔨 Building containers with Docker Bake..."
+          if ! docker buildx bake -f docker/docker-bake.hcl prod --load 2>&1 | tee build.log; then
             BUILD_END=$(date +%s)
             BUILD_DURATION=$((BUILD_END - BUILD_START))
 
@@ -115,7 +110,7 @@ jobs:
             tail -100 build.log
             echo ""
             echo "=== Container Status ==="
-            docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps 2>&1 || true
+            docker compose -f compose.yaml -f compose.prod.yaml ps 2>&1 || true
             echo ""
             echo "=== Docker System Info ==="
             docker system df || true
@@ -127,6 +122,10 @@ jobs:
           echo ""
           echo "✅ Build completed successfully in ${BUILD_DURATION}s ($(($BUILD_DURATION / 60))m $(($BUILD_DURATION % 60))s)"
 
+          # Start production services
+          echo "🚀 Starting production services..."
+          docker compose -f compose.yaml -f compose.prod.yaml up -d
+
       - name: Wait for services to start
         run: |
           echo "⏳ Waiting for services to start..."
@@ -136,7 +135,7 @@ jobs:
         run: |
           cd /home/pi/riot-api
           echo "📊 Container status:"
-          docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps
+          docker compose -f compose.yaml -f compose.prod.yaml ps
 
           echo ""
           echo "🔍 Running health checks..."
@@ -145,7 +144,7 @@ jobs:
           # Test PostgreSQL connectivity with retries
           echo "🗄️  Testing PostgreSQL connectivity..."
           for i in {1..10}; do
-            if docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml exec -T postgres pg_isready -U riot_api_user -d riot_api_db 2>/dev/null; then
+            if docker compose -f compose.yaml -f compose.prod.yaml exec -T postgres pg_isready -U riot_api_user -d riot_api_db 2>/dev/null; then
               echo "✅ PostgreSQL is ready"
               break
             else
@@ -156,10 +155,10 @@ jobs:
               echo "❌ PostgreSQL not ready after 10 attempts"
               echo ""
               echo "=== PostgreSQL Container Status ==="
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps postgres
+              docker compose -f compose.yaml -f compose.prod.yaml ps postgres
               echo ""
               echo "=== PostgreSQL Logs ==="
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 postgres
+              docker compose -f compose.yaml -f compose.prod.yaml logs --tail=50 postgres
               exit 1
             fi
           done
@@ -178,7 +177,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Backend API health check failed after 10 attempts"
               echo "Debug: Container logs"
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 backend
+              docker compose -f compose.yaml -f compose.prod.yaml logs --tail=50 backend
               exit 1
             fi
           done
@@ -196,7 +195,7 @@ jobs:
             if [ $i -eq 10 ]; then
               echo "❌ Frontend not accessible after 10 attempts"
               echo "Debug: Container logs"
-              docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml logs --tail=50 frontend
+              docker compose -f compose.yaml -f compose.prod.yaml logs --tail=50 frontend
               exit 1
             fi
           done
@@ -224,7 +223,7 @@ jobs:
           echo "   Deployment:  $(date '+%Y-%m-%d %H:%M:%S')"
           echo ""
           echo "📊 Container Status:"
-          docker compose --env-file .env -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+          docker compose -f compose.yaml -f compose.prod.yaml ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 

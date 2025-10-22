@@ -1,56 +1,69 @@
-# Development Scripts
+# Utility Scripts
 
-Quick command reference for development workflows. For Docker build system details, see `docker/AGENTS.md`.
+This directory contains utility scripts for Docker cleanup. All Docker Compose commands are now executed directly - see `docker/AGENTS.md` for comprehensive command reference.
 
-## Scripts
+## Available Scripts
 
-### Development (`dev.sh`)
+### Docker Cleanup (`docker-cleanup.sh`)
+
+Removes unused Docker resources to free up disk space:
+
 ```bash
-./scripts/dev.sh                  # Start with hot reload
-./scripts/dev.sh --build          # Rebuild (Docker Bake parallel builds)
-./scripts/dev.sh --build backend  # Build only backend
-./scripts/dev.sh --reset-db       # Reset database
-./scripts/dev.sh --down           # Stop all services
-./scripts/dev.sh --clean          # Clean Docker resources then start
-./scripts/dev.sh --no-watch       # Start without watch mode
-./scripts/dev.sh -d               # Start in detached mode
+./scripts/docker-cleanup.sh
 ```
 
-### Production (`prod.sh`)
-```bash
-./scripts/prod.sh                     # Start production environment
-./scripts/prod.sh --build             # Rebuild with Docker Bake
-./scripts/prod.sh --build --no-cache  # Clean build (for deployments)
-./scripts/prod.sh --reset-db          # Reset production database (⚠️ destructive)
-./scripts/prod.sh --down              # Stop all services
-./scripts/prod.sh --logs              # Start and follow logs
+**What it cleans**:
+- Stopped containers
+- Dangling images (untagged)
+- Unused build cache
+- Unused networks
+- Dangling volumes
 
-# Typical deployment workflow
-git pull && ./scripts/prod.sh --build
+**When to use**:
+- Disk space running low
+- Build cache causing issues
+- After major changes to Docker configuration
+
+## Docker Compose Commands
+
+**All Docker Compose commands are now executed directly from the project root.**
+
+See `docker/AGENTS.md` for comprehensive command reference including:
+- Development workflow (`docker compose watch`)
+- Production deployment (`docker compose -f compose.yaml -f compose.prod.yaml up -d`)
+- Database operations (`docker compose exec postgres psql ...`)
+- Alembic migrations (`docker compose exec backend uv run alembic ...`)
+- Logging and debugging
+- Building with Docker Bake
+
+## Pre-commit Hooks
+
+Always run pre-commit hooks before creating PRs:
+
+```bash
+pre-commit run --all-files
 ```
 
-### Utilities
-```bash
-./scripts/docker-cleanup.sh       # Clean Docker resources
-```
+**Checks include**:
+- **pydocstyle**: All docstrings present and formatted correctly
+- **pyright**: No type errors (runs in Docker with full dependency access)
+- **ruff**: Code style and quality
+- **bandit**: Security vulnerabilities
+- **vulture**: Dead code detection
+- **radon**: Complexity analysis
+- **Frontend checks**: ESLint, TypeScript, etc.
+
+**Never skip pre-commit hooks** with `--no-verify` unless absolutely necessary and approved by team.
 
 ## Guidelines
 
-- Always use scripts instead of direct Docker commands
-- All builds use Docker Bake automatically (no flags needed)
-- Builds use parallel backend + frontend builds with local caching
-- Hot reload works for both frontend and backend (no restart needed)
+✅ **Do**:
+- Use direct Docker Compose commands (see `docker/AGENTS.md`)
+- Run `./scripts/docker-cleanup.sh` when disk space is low
+- Run pre-commit hooks before every commit
+- Refer to `docker/AGENTS.md` for all Docker operations
 
-## Pre-commit
-
-Always run `pre-commit run --all-files` before creating PRs to ensure:
-- **pydocstyle**: All docstrings present and formatted correctly
-- **pyright**: No type errors (runs in Docker with full dependency access)
-- **All other quality checks pass** (ruff, bandit, vulture, radon, frontend checks)
-
-**Do Not**:
-- Run Docker commands directly - use scripts
-- Clear `/tmp/.buildx-cache` unless troubleshooting
-- Use production scripts for development
-- Modify scripts without testing all options
+❌ **Don't**:
+- Clear `/tmp/.buildx-cache` manually (use docker-cleanup.sh)
 - Skip pre-commit hooks with `--no-verify`
+- Create wrapper scripts (use direct Docker commands instead)

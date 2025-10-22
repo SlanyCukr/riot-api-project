@@ -96,8 +96,9 @@ Both frontend and backend support hot reload—just save files, no restart neede
 ```bash
 ./scripts/dev.sh                # Start with hot reload
 ./scripts/dev.sh --build        # Rebuild containers
-./scripts/dev.sh --reset-db     # Reset database (⚠️ wipes data)
 ./scripts/dev.sh --down         # Stop services
+./scripts/logs.sh               # View logs (all services)
+./scripts/alembic.sh current    # Check migration status
 ```
 
 For detailed build info and production deployment, see **`docker/AGENTS.md`** and **`scripts/AGENTS.md`**.
@@ -154,19 +155,29 @@ MAX_TRACKED_PLAYERS=10         # Max players to track
 
 ```
 riot-api-project/
-├── backend/app/               # FastAPI application
-│   ├── api/                   # API endpoints
-│   ├── services/              # Business logic
-│   ├── riot_api/              # Riot API integration
-│   ├── models/                # Database models
-│   └── jobs/                  # Background jobs
-├── frontend/                  # Next.js application
+├── backend/app/               # FastAPI application (feature-based)
+│   ├── core/                  # Infrastructure (database, config, Riot API client)
+│   └── features/              # Domain features
+│       ├── players/           # Player management (search, tracking, rank info)
+│       ├── matches/           # Match data and statistics
+│       ├── smurf_detection/   # Smurf analysis algorithms
+│       ├── matchmaking_analysis/  # Matchmaking fairness evaluation
+│       ├── jobs/              # Background job scheduling
+│       └── settings/          # System configuration
+├── frontend/                  # Next.js application (feature-based)
 │   ├── app/                   # Pages (App Router)
-│   ├── components/            # React components
-│   └── lib/                   # Utilities and API client
+│   ├── features/              # Feature modules
+│   │   ├── players/           # Player components, hooks, utilities
+│   │   ├── matches/           # Match components
+│   │   ├── smurf-detection/   # Analysis components
+│   │   ├── matchmaking/       # Matchmaking analysis components
+│   │   ├── jobs/              # Job management components
+│   │   └── settings/          # Settings components
+│   ├── components/            # Shared layout components and shadcn/ui
+│   └── lib/core/              # Core utilities (API client, schemas, validations)
 ├── docker/                    # Docker configuration
 ├── scripts/                   # Development scripts
-└── CLAUDE.md                  # Project quick reference
+└── AGENTS.md                  # Project quick reference (CLAUDE.md → AGENTS.md)
 ```
 
 ## 🧪 Testing

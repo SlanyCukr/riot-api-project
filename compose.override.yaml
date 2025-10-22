@@ -24,7 +24,7 @@ services:
     develop:
       watch:
         # Hot reload for code changes
-        - path: ../frontend
+        - path: ./frontend
           action: sync+restart
           target: /app
           ignore:
@@ -58,7 +58,7 @@ services:
     develop:
       watch:
         # Sync code changes (FastAPI auto-reload handles restart)
-        - path: ../backend
+        - path: ./backend
           action: sync
           target: /app
           ignore:
@@ -71,6 +71,6 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app-network
