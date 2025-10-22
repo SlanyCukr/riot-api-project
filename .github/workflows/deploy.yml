@@ -71,11 +71,11 @@ jobs:
           LOG_LEVEL=INFO
 
           # Frontend Configuration
-          NEXT_PUBLIC_API_URL=https://leagueyespy.com
+          NEXT_PUBLIC_API_URL=https://leagueanalysis.gg
           NODE_ENV=production
 
           # CORS Configuration
-          CORS_ORIGINS=https://leagueyespy.com,https://www.leagueyespy.com
+          CORS_ORIGINS=https://leagueanalysis.gg,https://www.leagueanalysis.gg
 
           # Docker Configuration
           COMPOSE_PROJECT_NAME=riot_api_app
@@ -95,7 +95,7 @@ jobs:
 
           # Build images with Docker Bake (parallel backend + frontend builds)
           echo "🔨 Building containers with Docker Bake..."
-          if ! NEXT_PUBLIC_API_URL=https://leagueyespy.com docker buildx bake -f docker/docker-bake.hcl prod --load 2>&1 | tee build.log; then
+          if ! NEXT_PUBLIC_API_URL=https://leagueanalysis.gg docker buildx bake -f docker/docker-bake.hcl prod --load 2>&1 | tee build.log; then
             BUILD_END=$(date +%s)
             BUILD_DURATION=$((BUILD_END - BUILD_START))
 
@@ -212,7 +212,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           echo "🌐 Service URLs:"
-          echo "   Production:  https://leagueyespy.com"
+          echo "   Production:  https://leagueanalysis.gg"
           echo "   Backend API: http://localhost:8086"
           echo "   Frontend:    http://localhost:8088"
           echo ""
