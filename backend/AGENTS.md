@@ -16,11 +16,12 @@ The backend uses **feature-based organization** where related code is grouped by
 ### Core Infrastructure (`app/core/`)
 - `database.py` - Database session management
 - `config.py` - Application settings and configuration
-- `logging.py` - Structured logging setup
 - `exceptions.py` - Base exception classes
 - `dependencies.py` - Core dependency injection
 - `enums.py` - Shared enums (Tier, Platform, etc.)
 - `models.py` - Base SQLAlchemy model class
+- `decorators.py` - Utility decorators (retry, circuit breaker, etc.)
+- `validation.py` - Shared validation utilities
 - `riot_api/` - Riot API client infrastructure
   - `client.py` - RiotAPIClient with rate limiting
   - `data_manager.py` - RiotDataManager for data enrichment
@@ -207,7 +208,7 @@ When creating a new feature, follow this structure:
 - Don't block event loop (no time.sleep(), use asyncio.sleep())
 - Don't catch generic Exception (catch specific exceptions)
 - Don't hardcode configuration (use app/config.py)
-- Don't use `create_all()` or manual SQL (use Alembic - see MIGRATIONS.md)
+- Don't use `create_all()` or manual SQL (use Alembic - see `backend/alembic/AGENTS.md`)
 - Don't write complex functions (keep cyclomatic complexity <20, aim for <10)
 - Don't use f-strings in log messages (use context: `logger.info("msg", key=value)`)
 - Don't skip pre-commit checks (`git commit --no-verify` is forbidden)

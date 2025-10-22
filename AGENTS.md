@@ -41,16 +41,30 @@ Always use these helper scripts instead of raw `docker compose` commands:
 
 # Project Structure
 
-- `backend/app/api/`: FastAPI endpoints
-- `backend/app/services/`: Business logic
-- `backend/app/riot_api/`: Riot API integration
-- `backend/app/models/`: SQLAlchemy ORM models
-- `backend/app/schemas/`: Pydantic validation schemas
-- `backend/app/algorithms/`: Player analysis algorithms
-- `backend/app/jobs/`: Background jobs (player updates, analysis, matchmaking)
-- `frontend/app/`: Next.js pages
-- `frontend/components/`: React components
-- `frontend/lib/`: Utilities and API client
+## Backend (Feature-Based Architecture)
+
+- `backend/app/core/`: Infrastructure (database, config, Riot API client, shared enums)
+- `backend/app/features/`: Domain features
+  - `features/players/`: Player management (search, tracking, rank info)
+  - `features/matches/`: Match data and statistics
+  - `features/smurf_detection/`: Smurf analysis algorithms
+  - `features/matchmaking_analysis/`: Matchmaking fairness evaluation
+  - `features/jobs/`: Background job scheduling and execution
+  - `features/settings/`: System configuration management
+  - Each feature contains: `router.py`, `service.py`, `models.py`, `schemas.py`, `dependencies.py`
+
+## Frontend (Feature-Based Architecture)
+
+- `frontend/app/`: Next.js pages (App Router)
+- `frontend/features/`: Feature modules
+  - `features/players/`: Player components, hooks, utilities
+  - `features/matches/`: Match components
+  - `features/smurf-detection/`: Analysis components
+  - `features/matchmaking/`: Matchmaking analysis components
+  - `features/jobs/`: Job management components
+  - `features/settings/`: Settings components
+- `frontend/components/`: Shared layout components and shadcn/ui
+- `frontend/lib/core/`: Core utilities (API client, schemas, validations)
 
 # Hot Reload
 
@@ -65,6 +79,23 @@ No restart needed - just save files:
 - **Backend**: async/await, type hints, FastAPI patterns
 - **Frontend**: TypeScript, function components with hooks
 - **General**: Explicit imports, no .env edits
+
+## Feature Organization
+
+- **Core vs. Features**: Infrastructure code in `core/`, domain code in `features/`
+- **Dependency Flow**: Features depend on core, never the reverse
+- **Public API**: Features expose public APIs through `__init__.py` exports
+- **Import Examples**:
+  ```python
+  # Backend - import from features
+  from app.features.players import PlayerService, Player, PlayerResponse
+  from app.core.database import get_db
+  from app.core.riot_api import RiotAPIClient
+
+  # Frontend - import from features
+  import { PlayerSearch } from '@/features/players'
+  import { api } from '@/lib/core/api'
+  ```
 
 # Database Migrations
 
@@ -93,7 +124,7 @@ No restart needed - just save files:
 
 **Note**: The `alembic.sh` script automatically handles Docker Compose file paths and environment variables. Never use raw `docker compose` commands - always use the helper scripts.
 
-See `backend/MIGRATIONS.md` for details.
+See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
 # Constraints
 
@@ -109,6 +140,6 @@ See `backend/MIGRATIONS.md` for details.
 - `scripts/AGENTS.md`: All build and development commands
 - `docker/AGENTS.md`: Docker, builds, and production deployment
 - `backend/AGENTS.md`: Riot API integration and FastAPI patterns
-- `backend/MIGRATIONS.md`: Database migrations with Alembic
+- `backend/alembic/AGENTS.md`: Database migrations with Alembic
 - `frontend/AGENTS.md`: Next.js patterns and shadcn/ui
 - `docker/postgres/AGENTS.md`: Database schema and tuning
