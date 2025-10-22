@@ -17,7 +17,7 @@ import {
   getLatestMatchmakingAnalysis,
   cancelMatchmakingAnalysis,
   getMatchmakingAnalysisStatus,
-} from "@/lib/api";
+} from "@/lib/core/api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

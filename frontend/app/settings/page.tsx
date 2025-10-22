@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { validatedGet, validatedPut, validatedPost } from "@/lib/api";
-import { SettingSchema, SettingTestResponseSchema } from "@/lib/schemas";
+import { validatedGet, validatedPut, validatedPost } from "@/lib/core/api";
+import { SettingSchema, SettingTestResponseSchema } from "@/lib/core/schemas";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

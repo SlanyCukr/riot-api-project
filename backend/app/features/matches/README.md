@@ -1,91 +1,136 @@
 # Matches Feature
 
-Match history and statistics feature for League of Legends matches.
-
 ## Purpose
 
-Provides match data retrieval and player statistics calculation from stored matches.
+Manages League of Legends match data, including match retrieval, storage, and analysis. Provides detailed match information including participants, stats, and game timeline.
 
 ## API Endpoints
 
-### GET `/api/v1/matches/player/{puuid}`
-Get match history for a player from database.
+### Match Data
+- `GET /api/v1/matches/{puuid}` - Get match history for a player
+- `GET /api/v1/matches/{match_id}/details` - Get detailed information for a specific match
+- `GET /api/v1/matches/{puuid}/recent` - Get recent matches with full details
 
-**Query Parameters:**
-- `start` (int, optional): Start index for pagination (default: 0)
-- `count` (int, optional): Number of matches to return (default: 20, max: 500)
-- `queue` (int, optional): Filter by queue ID (420=Ranked Solo/Duo)
-- `start_time` (int, optional): Start timestamp filter
-- `end_time` (int, optional): End timestamp filter
-
-**Response:** `MatchListResponse` with paginated matches
-
-### GET `/api/v1/matches/player/{puuid}/stats`
-Get player statistics from recent matches.
-
-**Query Parameters:**
-- `queue` (int, optional): Filter by queue ID
-- `limit` (int, optional): Number of matches to analyze (default: 50, max: 200)
-
-**Response:** `MatchStatsResponse` with aggregated player stats
+### Match Statistics
+- `GET /api/v1/matches/{puuid}/stats` - Get aggregated match statistics
+- `GET /api/v1/matches/{puuid}/encounters` - Get encounter history with specific opponents
 
 ## Key Components
 
 ### Router (`router.py`)
-FastAPI endpoints for match data retrieval.
+FastAPI router defining all match-related endpoints. Handles match data retrieval and filtering.
 
 ### Service (`service.py`)
-Business logic for:
-- Fetching matches from database
-- Calculating player statistics
-- Fetching and storing matches from Riot API (used by background jobs)
-- Managing match participants
+**MatchService** - Core business logic for match operations:
+- Match data fetching from Riot API
+- Match history retrieval and pagination
+- Match data storage and caching
+- Match statistics aggregation
+- Opponent encounter tracking
 
-### Models
-- `models.py`: `Match` - Match metadata and game information
-- `participants.py`: `MatchParticipant` - Individual player performance in matches
+### Models (`models.py`, `participants.py`)
+**SQLAlchemy Models:**
+- `Match` - Match entity (match ID, queue type, game mode, duration, creation time)
+- `MatchParticipant` - Participant data (PUUID, champion, stats, items, runes, performance metrics)
 
-### Schemas
-- `schemas.py`: Match request/response schemas
-- `participants_schemas.py`: Participant schemas
-- `transformers.py`: DTO transformation utilities
+### Schemas (`schemas.py`, `participants_schemas.py`)
+**Pydantic Schemas:**
+- `MatchResponse` - API response format for match data
+- `MatchHistoryResponse` - List of matches with pagination
+- `MatchParticipantResponse` - Participant details response
+- `MatchStatsResponse` - Aggregated statistics
+
+### Transformers (`transformers.py`)
+**MatchDTOTransformer** - Converts Riot API match DTOs to database models:
+- Transforms raw API data to structured models
+- Enriches match data with additional context
+- Handles data normalization and validation
 
 ### Dependencies (`dependencies.py`)
-- `get_match_service()`: Factory for MatchService instances
-- `MatchServiceDep`: Type alias for dependency injection
+- `get_match_service()` - Dependency injection for MatchService
 
 ## Dependencies
 
-### Internal
-- `app.core.database`: Database session management
-- `app.core.riot_api`: Riot API client and transformers
-- `app.models.players`: Player model (not yet migrated)
-- `app.utils.statistics`: Statistical utility functions
+### Core Dependencies
+- `core.database` - Database session management
+- `core.riot_api` - Riot API client for match data
+- `core.config` - Application settings
 
-### External
-- SQLAlchemy 2.0+: Database ORM
-- Pydantic v2: Data validation
-- FastAPI: API framework
+### Feature Dependencies
+- None (matches feature is independent of other features)
 
-## Usage Example
+### External Libraries
+- SQLAlchemy - ORM for database operations
+- Pydantic - Data validation and serialization
+- FastAPI - API routing and dependency injection
+
+## Usage Examples
+
+### Fetching Match History
 
 ```python
-from app.features.matches import MatchService, get_match_service
+from app.features.matches.dependencies import get_match_service
+from app.features.matches.service import MatchService
 
-# In a FastAPI endpoint
-@router.get("/custom-endpoint")
-async def my_endpoint(match_service: MatchServiceDep):
-    matches = await match_service.get_player_matches(
-        puuid="player-uuid",
-        count=20,
-        queue=420
-    )
+async def get_player_matches(
+    puuid: str,
+    match_service: MatchService = Depends(get_match_service)
+):
+    matches = await match_service.get_match_history(puuid, limit=20)
     return matches
 ```
 
-## Notes
+### Using Match Models
 
-- All match data is served from database only (no direct Riot API calls from endpoints)
-- Background jobs handle fetching new matches from Riot API
-- Supports pagination for large match histories
-- Calculates statistics (KDA, win rate, CS, vision score) from match participants
+```python
+from app.features.matches.models import Match, MatchParticipant
+
+# Query matches
+matches = session.query(Match).filter(
+    Match.queue_type == "RANKED_SOLO_5x5"
+).all()
+
+# Access participants
+for match in matches:
+    for participant in match.participants:
+        print(f"{participant.summoner_name} played {participant.champion_name}")
+```
+
+### Transforming Riot API Data
+
+```python
+from app.features.matches.transformers import MatchDTOTransformer
+
+transformer = MatchDTOTransformer()
+match_model = transformer.transform(riot_api_match_dto)
+session.add(match_model)
+await session.commit()
+```
+
+## Data Model
+
+### Match
+- `match_id` (str, PK) - Riot match ID
+- `queue_type` (str) - Queue type (e.g., RANKED_SOLO_5x5)
+- `game_mode` (str) - Game mode (e.g., CLASSIC)
+- `game_duration` (int) - Match duration in seconds
+- `game_creation` (datetime) - Match creation timestamp
+- `participants` (relationship) - List of MatchParticipant
+
+### MatchParticipant
+- `id` (int, PK) - Auto-increment ID
+- `match_id` (str, FK) - Reference to Match
+- `puuid` (str) - Player PUUID
+- `champion_id` (int) - Champion ID
+- `champion_name` (str) - Champion name
+- `summoner_name` (str) - Summoner name
+- `kills`, `deaths`, `assists` (int) - KDA stats
+- `win` (bool) - Victory status
+- Additional stats: gold, CS, damage, vision score, etc.
+
+## Related Features
+
+- **Players** - Match history is associated with players
+- **Smurf Detection** - Analyzes match performance for smurf indicators
+- **Matchmaking Analysis** - Uses match data for fairness evaluation
+- **Jobs** - Background jobs fetch and update match data

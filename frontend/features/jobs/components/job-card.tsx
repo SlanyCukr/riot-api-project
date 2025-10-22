@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { validatedPost, validatedGet, validatedPut } from "@/lib/api";
+import { validatedPost, validatedGet, validatedPut } from "@/lib/core/api";
 import {
   JobConfiguration,
   JobTriggerResponseSchema,
   JobExecutionListResponseSchema,
   JobConfigurationSchema,
-} from "@/lib/schemas";
+} from "@/lib/core/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

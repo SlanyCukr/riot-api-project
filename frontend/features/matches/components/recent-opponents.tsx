@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
-import { RecentOpponentsSchema, Player } from "@/lib/schemas";
+import { validatedGet } from "@/lib/core/api";
+import { RecentOpponentsSchema, Player } from "@/lib/core/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

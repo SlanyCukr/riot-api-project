@@ -6,9 +6,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   addTrackedPlayerSchema,
   type AddTrackedPlayerForm,
-} from "@/lib/validations";
-import { addTrackedPlayer } from "@/lib/api";
-import { PlayerSchema } from "@/lib/schemas";
+} from "@/lib/core/validations";
+import { addTrackedPlayer } from "@/lib/core/api";
+import { PlayerSchema } from "@/lib/core/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

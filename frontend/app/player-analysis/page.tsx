@@ -2,14 +2,11 @@
 
 import { useState, useEffect, Suspense, useTransition, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Player, PlayerSchema } from "@/lib/schemas";
-import { validatedGet } from "@/lib/api";
-import { PlayerSearch } from "@/components/player-search";
-import { PlayerCard } from "@/components/player-card";
-import { PlayerStats } from "@/components/player-stats";
-import { MatchHistory } from "@/components/match-history";
-import { PlayerAnalysis } from "@/components/player-analysis";
-import { RecentOpponents } from "@/components/recent-opponents";
+import { Player, PlayerSchema } from "@/lib/core/schemas";
+import { validatedGet } from "@/lib/core/api";
+import { PlayerSearch, PlayerCard, PlayerStats } from "@/features/players";
+import { MatchHistory, RecentOpponents } from "@/features/matches";
+import { PlayerAnalysis } from "@/features/smurf-detection";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {

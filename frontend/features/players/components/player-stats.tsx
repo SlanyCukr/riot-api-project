@@ -15,8 +15,8 @@ import {
 import {
   MatchStatsResponseSchema,
   type MatchStatsResponse,
-} from "@/lib/schemas";
-import { validatedGet } from "@/lib/api";
+} from "@/lib/core/schemas";
+import { validatedGet } from "@/lib/core/api";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

@@ -1,6 +1,6 @@
 "use client";
 
-import { JobStatusResponse } from "@/lib/schemas";
+import { JobStatusResponse } from "@/lib/core/schemas";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {

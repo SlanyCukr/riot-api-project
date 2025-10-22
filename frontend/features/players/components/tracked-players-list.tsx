@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
-import { PlayerSchema, type Player } from "@/lib/schemas";
+import { validatedGet } from "@/lib/core/api";
+import { PlayerSchema, type Player } from "@/lib/core/schemas";
 import { z } from "zod";
-import { api } from "@/lib/api";
+import { api } from "@/lib/core/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

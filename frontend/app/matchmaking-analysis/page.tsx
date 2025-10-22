@@ -3,13 +3,14 @@
 import { useState, Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Player } from "@/lib/schemas";
-import { getPlayerByPuuid } from "@/lib/api";
-import { PlayerSearch } from "@/components/player-search";
-import { PlayerCard } from "@/components/player-card";
-import { MatchHistory } from "@/components/match-history";
-import { MatchmakingAnalysis } from "@/components/matchmaking-analysis";
-import { MatchmakingAnalysisResults } from "@/components/matchmaking-analysis-results";
+import { Player } from "@/lib/core/schemas";
+import { getPlayerByPuuid } from "@/lib/core/api";
+import { PlayerSearch, PlayerCard } from "@/features/players";
+import { MatchHistory } from "@/features/matches";
+import {
+  MatchmakingAnalysis,
+  MatchmakingAnalysisResults,
+} from "@/features/matchmaking";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 import {

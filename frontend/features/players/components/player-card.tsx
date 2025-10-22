@@ -1,12 +1,12 @@
 "use client";
 
-import { Player, PlayerRankSchema } from "@/lib/schemas";
+import { Player, PlayerRankSchema } from "@/lib/core/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Trophy } from "lucide-react";
-import { TrackPlayerButton } from "@/components/track-player-button";
+import { TrackPlayerButton } from "./track-player-button";
 import { useQuery } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
+import { validatedGet } from "@/lib/core/api";
 
 interface PlayerCardProps {
   player: Player;

@@ -14,8 +14,8 @@ import {
   DetectionResponseSchema,
   DetectionExistsResponseSchema,
   type DetectionRequest,
-} from "@/lib/schemas";
-import { validatedPost, validatedGet } from "@/lib/api";
+} from "@/lib/core/schemas";
+import { validatedPost, validatedGet } from "@/lib/core/api";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";

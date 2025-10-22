@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { History, AlertCircle, Loader2 } from "lucide-react";
 
-import { MatchListResponseSchema } from "@/lib/schemas";
-import { validatedGet } from "@/lib/api";
+import { MatchListResponseSchema } from "@/lib/core/schemas";
+import { validatedGet } from "@/lib/core/api";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

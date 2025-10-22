@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
+import { validatedGet } from "@/lib/core/api";
 import {
   JobConfigurationSchema,
   JobConfiguration,
   JobExecutionListResponseSchema,
   JobStatusResponseSchema,
-} from "@/lib/schemas";
-import { JobCard } from "@/components/job-card";
-import { JobExecutions } from "@/components/job-executions";
-import { SystemStatus } from "@/components/system-status";
+} from "@/lib/core/schemas";
+import { JobCard, JobExecutions, SystemStatus } from "@/features/jobs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

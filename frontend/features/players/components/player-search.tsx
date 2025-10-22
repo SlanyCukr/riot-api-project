@@ -7,13 +7,16 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Search, User, AlertCircle, UserPlus, Loader2 } from "lucide-react";
 import { z } from "zod";
 
-import { Player, PlayerSchema } from "@/lib/schemas";
-import { playerSearchSchema, type PlayerSearchForm } from "@/lib/validations";
+import { Player, PlayerSchema } from "@/lib/core/schemas";
+import {
+  playerSearchSchema,
+  type PlayerSearchForm,
+} from "@/lib/core/validations";
 import {
   validatedGet,
   addTrackedPlayer,
   searchPlayerSuggestions,
-} from "@/lib/api";
+} from "@/lib/core/api";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

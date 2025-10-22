@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { validatedGet } from "@/lib/api";
+import { validatedGet } from "@/lib/core/api";
 import {
   JobExecutionListResponse,
   JobExecution,
   JobExecutionListResponseSchema,
   JobConfiguration,
-} from "@/lib/schemas";
+} from "@/lib/core/schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {

@@ -1,7 +1,6 @@
 "use client";
 
-import { AddTrackedPlayer } from "@/components/add-tracked-player";
-import { TrackedPlayersList } from "@/components/tracked-players-list";
+import { AddTrackedPlayer, TrackedPlayersList } from "@/features/players";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 

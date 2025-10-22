@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   EncounterStatsResponseSchema,
   type EncounterData,
-} from "@/lib/schemas";
-import { validatedGet } from "@/lib/api";
+} from "@/lib/core/schemas";
+import { validatedGet } from "@/lib/core/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
