@@ -136,8 +136,7 @@ See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
 # Detailed Documentation
 
-- `docker/AGENTS.md`: **Comprehensive Docker Compose command reference**, builds, and production deployment
+- `docker/AGENTS.md`: **Comprehensive Docker Compose command reference**, builds, database operations, and production deployment
 - `backend/AGENTS.md`: Riot API integration and FastAPI patterns
 - `backend/alembic/AGENTS.md`: Database migrations with Alembic
 - `frontend/AGENTS.md`: Next.js patterns and shadcn/ui
-- `docker/postgres/AGENTS.md`: Database schema and tuning

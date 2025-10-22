@@ -95,7 +95,7 @@ jobs:
 
           # Build images with Docker Bake (parallel backend + frontend builds)
           echo "🔨 Building containers with Docker Bake..."
-          if ! docker buildx bake -f docker/docker-bake.hcl prod --load 2>&1 | tee build.log; then
+          if ! NEXT_PUBLIC_API_URL=https://leagueyespy.com docker buildx bake -f docker/docker-bake.hcl prod --load 2>&1 | tee build.log; then
             BUILD_END=$(date +%s)
             BUILD_DURATION=$((BUILD_END - BUILD_START))
 
