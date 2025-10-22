@@ -14,11 +14,14 @@ from app.core import get_global_settings, get_riot_api_key
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router
 from app.features.smurf_detection.router import router as smurf_detection_router
-from app.api.jobs import router as jobs_router
+from app.features.jobs import (
+    jobs_router,
+    start_scheduler,
+    shutdown_scheduler,
+    job_log_capture,
+)
 from app.features.settings.router import router as settings_router
 from app.features.matchmaking_analysis.router import router as matchmaking_router
-from app.jobs import start_scheduler, shutdown_scheduler
-from app.jobs.log_capture import job_log_capture
 import structlog
 from structlog import contextvars as structlog_contextvars
 

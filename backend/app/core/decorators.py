@@ -281,7 +281,6 @@ def input_validation(
         @input_validation(
             validate_non_empty=["puuid", "platform"],
             validate_positive=["limit"],
-            custom_validators={"platform": validate_platform}
         )
     """
 

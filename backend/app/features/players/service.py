@@ -14,12 +14,6 @@ from app.core.exceptions import (
     PlayerServiceError,
 )
 from app.core.decorators import service_error_handler, input_validation
-from app.core.utils import (
-    validate_platform,
-    validate_summoner_name,
-    create_safe_riot_id,
-    sanitize_string_field,
-)
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
@@ -38,7 +32,6 @@ class PlayerService:
     @service_error_handler("PlayerService")
     @input_validation(
         validate_non_empty=["game_name", "platform"],
-        custom_validators={"platform": validate_platform},
     )
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
@@ -61,10 +54,10 @@ class PlayerService:
             PlayerServiceError: If player is not found or database error occurs
             ValidationError: If input parameters are invalid
         """
-        # Sanitize inputs
-        safe_game_name = sanitize_string_field(game_name)
-        safe_tag_line = sanitize_string_field(tag_line)
-        normalized_platform = validate_platform(platform)
+        # Normalize inputs
+        safe_game_name = game_name.strip()
+        safe_tag_line = tag_line.strip() if tag_line else None
+        normalized_platform = platform.strip().upper()
 
         # Query database only
         result = await self.db.execute(
@@ -99,14 +92,6 @@ class PlayerService:
 
         return PlayerResponse.model_validate(player)
 
-    @service_error_handler("PlayerService")
-    @input_validation(
-        validate_non_empty=["summoner_name", "platform"],
-        custom_validators={
-            "platform": validate_platform,
-            "summoner_name": validate_summoner_name,
-        },
-    )
     def _find_exact_summoner_match(
         self, players: list[Player], safe_summoner_name: str
     ) -> Player | None:
@@ -158,9 +143,9 @@ class PlayerService:
             PlayerServiceError: If player is not found
             ValidationError: If input parameters are invalid
         """
-        # Sanitize inputs
-        safe_summoner_name = validate_summoner_name(summoner_name)
-        normalized_platform = validate_platform(platform)
+        # Normalize inputs
+        safe_summoner_name = summoner_name.strip()
+        normalized_platform = platform.strip().upper()
 
         # Search database for exact match or partial match
         result = await self.db.execute(
@@ -495,9 +480,6 @@ class PlayerService:
         Returns:
             List of PlayerResponse sorted by relevance
         """
-        # Validate platform using existing utility (moved from hardcoded list)
-        validate_platform(platform)
-
         # Parse search query
         search_type, game_name, tag_line = self._parse_search_query(query)
 
@@ -978,7 +960,6 @@ class PlayerService:
     @service_error_handler("PlayerService")
     @input_validation(
         validate_non_empty=["platform"],
-        custom_validators={"platform": validate_platform},
     )
     async def discover_players_from_match(self, match_dto: Any, platform: str) -> int:
         """
@@ -1003,9 +984,9 @@ class PlayerService:
             ValidationError: If input parameters are invalid
             DatabaseError: If database operations fail
         """
-        from ..schemas.transformers import PlayerDataSanitizer
+        from app.features.matches.transformers import PlayerDataSanitizer
 
-        normalized_platform = validate_platform(platform)
+        normalized_platform = platform.strip().upper()
         discovered_count = 0
 
         for participant in match_dto.info.participants:
@@ -1042,9 +1023,9 @@ class PlayerService:
                 logger.debug(
                     "Marked new discovered player",
                     puuid=participant.puuid,
-                    riot_id=create_safe_riot_id(
-                        player_data["riot_id"], player_data["tag_line"]
-                    ),
+                    riot_id=f"{player_data['riot_id']}#{player_data['tag_line']}"
+                    if player_data.get("riot_id") and player_data.get("tag_line")
+                    else player_data.get("riot_id"),
                 )
 
         # Commit transaction for all discovered players

@@ -7,8 +7,8 @@ import math
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, desc
 
-from ..models.job_tracking import JobConfiguration, JobExecution, JobStatus
-from ..schemas.jobs import (
+from .models import JobConfiguration, JobExecution, JobStatus
+from .schemas import (
     JobConfigurationUpdate,
     JobConfigurationResponse,
     JobExecutionResponse,

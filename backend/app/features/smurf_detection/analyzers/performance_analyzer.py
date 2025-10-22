@@ -6,11 +6,11 @@ unusually consistent high performance that may indicate smurfing behavior.
 """
 
 from typing import TYPE_CHECKING, Dict, Any, List
+import statistics
 import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ..schemas import DetectionFactor
-from app.utils.statistics import safe_mean, safe_stdev, safe_divide
 
 if TYPE_CHECKING:
     from app.features.players.models import Player
@@ -79,11 +79,21 @@ class PerformanceFactorAnalyzer(BaseFactorAnalyzer):
                     score=0.0,
                 )
 
-            # Calculate statistics
-            avg_kda = safe_mean(metrics["kda_values"])
-            kda_std_dev = safe_stdev(metrics["kda_values"])
-            avg_cs = safe_mean(metrics["cs_values"])
-            avg_vision = safe_mean(metrics["vision_values"])
+            # Calculate statistics (already validated kda_values is not empty)
+            avg_kda = statistics.mean(metrics["kda_values"])
+            kda_std_dev = (
+                statistics.stdev(metrics["kda_values"])
+                if len(metrics["kda_values"]) > 1
+                else 0.0
+            )
+            avg_cs = (
+                statistics.mean(metrics["cs_values"]) if metrics["cs_values"] else 0.0
+            )
+            avg_vision = (
+                statistics.mean(metrics["vision_values"])
+                if metrics["vision_values"]
+                else 0.0
+            )
 
             # Calculate consistency score
             consistency_score = self._calculate_consistency(avg_kda, kda_std_dev)
@@ -159,12 +169,18 @@ class PerformanceFactorAnalyzer(BaseFactorAnalyzer):
         assists = match.get("assists", 0)
 
         # If no deaths, return perfect KDA (kills + assists)
-        return safe_divide(kills + assists, deaths, default=kills + assists)
+        if deaths == 0:
+            return float(kills + assists)
+        return (kills + assists) / deaths
 
     def _calculate_consistency(self, mean: float, std_dev: float) -> float:
         """Calculate consistency score (0.0-1.0, where 1.0 is most consistent)."""
         # Coefficient of variation (lower = more consistent)
-        cv = safe_divide(std_dev, mean, default=0.0)
+        # If mean is 0, all values are 0 (perfectly consistent)
+        if mean == 0:
+            cv = 0.0
+        else:
+            cv = std_dev / mean
 
         # Convert to consistency score (inverse of CV, capped at 1.0)
         consistency = max(0.0, 1.0 - cv)

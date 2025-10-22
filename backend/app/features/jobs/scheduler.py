@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_global_settings
 from app.core import db_manager
-from app.models.job_tracking import JobExecution, JobStatus, JobConfiguration, JobType
+from .models import JobExecution, JobStatus, JobConfiguration, JobType
 from .base import BaseJob
 
 logger = structlog.get_logger(__name__)
@@ -24,10 +24,10 @@ _JOB_REGISTRY: Optional[Dict[JobType, Type[BaseJob]]] = None
 def _get_job_registry() -> Dict[JobType, Type[BaseJob]]:
     global _JOB_REGISTRY
     if _JOB_REGISTRY is None:
-        from .tracked_player_updater import TrackedPlayerUpdaterJob
-        from .match_fetcher import MatchFetcherJob
-        from .smurf_analyzer import SmurfAnalyzerJob
-        from .ban_checker import BanCheckerJob
+        from .implementations.tracked_player_updater import TrackedPlayerUpdaterJob
+        from .implementations.match_fetcher import MatchFetcherJob
+        from .implementations.smurf_analyzer import SmurfAnalyzerJob
+        from .implementations.ban_checker import BanCheckerJob
 
         _JOB_REGISTRY = {
             JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,

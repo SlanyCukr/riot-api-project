@@ -10,7 +10,6 @@ import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ..schemas import DetectionFactor
-from app.utils.statistics import safe_divide
 
 if TYPE_CHECKING:
     from app.features.players.models import Player
@@ -87,8 +86,9 @@ class WinRateTrendFactorAnalyzer(BaseFactorAnalyzer):
             older_wins = sum(1 for m in older_matches if m.get("win", False))
             recent_wins = sum(1 for m in recent_half if m.get("win", False))
 
-            older_rate = safe_divide(older_wins, len(older_matches))
-            recent_rate = safe_divide(recent_wins, len(recent_half))
+            # Both halves guaranteed non-empty (validated min 10 matches above)
+            older_rate = older_wins / len(older_matches)
+            recent_rate = recent_wins / len(recent_half)
 
             trend_improvement = recent_rate - older_rate
 

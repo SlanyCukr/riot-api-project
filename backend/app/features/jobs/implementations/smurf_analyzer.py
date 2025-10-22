@@ -11,8 +11,8 @@ import structlog
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import BaseJob
-from .error_handling import handle_riot_api_errors
+from ..base import BaseJob
+from ..error_handling import handle_riot_api_errors
 from app.core.riot_api.data_manager import RiotDataManager
 from app.features.smurf_detection.service import SmurfDetectionService
 from app.features.players.service import PlayerService

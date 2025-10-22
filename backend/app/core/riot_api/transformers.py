@@ -3,7 +3,7 @@
 from typing import Dict, List, Any
 import structlog
 
-from app.utils.validation import validate_nested_fields, validate_list_items
+from app.core.validation import validate_nested_fields, validate_list_items
 
 logger = structlog.get_logger(__name__)
 

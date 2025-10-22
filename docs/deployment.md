@@ -134,7 +134,9 @@ cd riot-api
 
 ```bash
 # 1. Reset database (WARNING: Deletes all data!)
-docker compose -f docker-compose.prod.yml exec backend uv run python -m app.init_db reset
+# Use Alembic to drop and recreate schema from migrations
+docker compose -f docker-compose.prod.yml exec backend uv run alembic downgrade base
+docker compose -f docker-compose.prod.yml exec backend uv run alembic upgrade head
 
 # 2. Seed job configurations
 ./scripts/seed-job-configs.sh
@@ -271,9 +273,11 @@ sqlalchemy.exc.ProgrammingError: relation "table_name" does not exist
    ```bash
    docker compose -f docker-compose.prod.yml exec postgres psql -U riot_api_user -d riot_api_db -c "\dt"
    ```
-2. If tables missing, reset database:
+2. If tables missing, reset database using Alembic:
    ```bash
-   docker compose -f docker-compose.prod.yml exec backend uv run python -m app.init_db reset
+   # Drop all tables and recreate from migrations
+   docker compose -f docker-compose.prod.yml exec backend uv run alembic downgrade base
+   docker compose -f docker-compose.prod.yml exec backend uv run alembic upgrade head
    ```
 
 ### Issue 6: Stale Docker Images
@@ -375,10 +379,14 @@ If database backup exists:
 docker compose -f docker-compose.prod.yml exec -T postgres psql -U riot_api_user -d riot_api_db < backup.sql
 ```
 
-If no backup, reset and reseed:
+If no backup, reset and reseed using Alembic:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec backend uv run python -m app.init_db reset
+# Reset schema using Alembic migrations
+docker compose -f docker-compose.prod.yml exec backend uv run alembic downgrade base
+docker compose -f docker-compose.prod.yml exec backend uv run alembic upgrade head
+
+# Reseed data
 ./scripts/seed-job-configs.sh
 ./scripts/seed-dev-data.sh
 docker compose -f docker-compose.prod.yml restart backend
@@ -451,7 +459,14 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 
 ```bash
 # WARNING: This deletes all data!
-docker compose -f docker-compose.prod.yml exec backend uv run python -m app.init_db reset
+# Use Alembic to drop and recreate schema from migrations
+docker compose -f docker-compose.prod.yml exec backend uv run alembic downgrade base
+docker compose -f docker-compose.prod.yml exec backend uv run alembic upgrade head
+
+# Alternative: Reset volume (requires services restart)
+docker compose -f docker-compose.prod.yml down
+docker volume rm riot-api-project_postgres_data_prod
+docker compose -f docker-compose.prod.yml up -d  # Migrations auto-run on startup
 ```
 
 ### Create Database Backup

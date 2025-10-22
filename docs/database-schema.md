@@ -613,17 +613,20 @@ Database tables are automatically created on backend startup using SQLAlchemy's 
 docker compose up backend
 ```
 
-**Manual Operations**:
+**Manual Operations** (use Alembic for all schema changes):
 
 ```bash
-# Create all tables
-docker compose exec backend uv run python -m app.init_db init
+# Apply all migrations (creates/updates tables)
+./scripts/alembic.sh upgrade head
 
 # Reset database (WARNING: deletes all data)
-docker compose exec backend uv run python -m app.init_db reset
+./scripts/alembic.sh downgrade base  # Drop all tables
+./scripts/alembic.sh upgrade head    # Recreate from migrations
 
-# Drop all tables (WARNING: deletes all data)
-docker compose exec backend uv run python -m app.init_db drop
+# Alternative: Reset volume completely
+./scripts/dev.sh --down
+docker volume rm riot-api-project_postgres_data
+./scripts/dev.sh  # Migrations auto-run on startup
 ```
 
 ### Model Definitions

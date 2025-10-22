@@ -16,7 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base
+from app.core.models import Base
 
 
 class AnalysisStatus(str, Enum):

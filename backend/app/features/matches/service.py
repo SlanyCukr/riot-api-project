@@ -22,7 +22,6 @@ from app.core.riot_api.errors import (
     ForbiddenError,
     NotFoundError,
 )
-from app.utils.statistics import safe_divide
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
@@ -204,18 +203,19 @@ class MatchService:
             total_matches = len(matches.matches)
             avg_kda = self._calculate_kda(total_kills, total_deaths, total_assists)
 
+            # total_matches is guaranteed > 0 (checked for empty matches above)
             return MatchStatsResponse(
                 puuid=puuid,
                 total_matches=total_matches,
                 wins=wins,
                 losses=total_matches - wins,
-                win_rate=safe_divide(wins, total_matches),
-                avg_kills=safe_divide(total_kills, total_matches),
-                avg_deaths=safe_divide(total_deaths, total_matches),
-                avg_assists=safe_divide(total_assists, total_matches),
+                win_rate=wins / total_matches,
+                avg_kills=total_kills / total_matches,
+                avg_deaths=total_deaths / total_matches,
+                avg_assists=total_assists / total_matches,
                 avg_kda=avg_kda,
-                avg_cs=safe_divide(total_cs, total_matches),
-                avg_vision_score=safe_divide(total_vision, total_matches),
+                avg_cs=total_cs / total_matches,
+                avg_vision_score=total_vision / total_matches,
             )
         except Exception as e:
             logger.error("Failed to get player stats", puuid=puuid, error=str(e))
@@ -543,9 +543,10 @@ class MatchService:
 
     def _calculate_kda(self, kills: int, deaths: int, assists: int) -> float:
         """Calculate KDA ratio."""
-        from app.utils.statistics import safe_divide
-
-        return safe_divide(kills + assists, deaths, default=float(kills + assists))
+        # If no deaths, return perfect KDA (kills + assists)
+        if deaths == 0:
+            return float(kills + assists)
+        return (kills + assists) / deaths
 
     # ============================================
     # Helper Methods for Jobs

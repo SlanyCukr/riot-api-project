@@ -21,7 +21,6 @@ from .schemas import (
     DetectionFactor,
 )
 from app.core.decorators import service_error_handler, input_validation
-from app.core.utils import validate_puuid
 from .config import get_detection_config
 from .analyzers import (
     WinRateFactorAnalyzer,
@@ -74,7 +73,6 @@ class SmurfDetectionService:
     @input_validation(
         validate_non_empty=["puuid"],
         validate_positive=["min_games"],
-        custom_validators={"puuid": validate_puuid},
     )
     async def analyze_player(
         self,

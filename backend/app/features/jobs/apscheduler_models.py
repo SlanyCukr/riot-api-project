@@ -7,7 +7,7 @@ so Alembic can manage schema changes, but APScheduler handles the data.
 from sqlalchemy import String, Float, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column
 
-from . import Base
+from app.core import Base
 
 
 class APSchedulerJob(Base):  # noqa: vulture

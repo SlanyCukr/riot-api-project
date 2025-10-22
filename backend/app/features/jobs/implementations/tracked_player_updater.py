@@ -8,8 +8,8 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .base import BaseJob
-from .error_handling import handle_riot_api_errors
+from ..base import BaseJob
+from ..error_handling import handle_riot_api_errors
 from app.features.players.models import Player
 from app.core.riot_api.client import RiotAPIClient
 from app.core.riot_api.data_manager import RiotDataManager
@@ -538,7 +538,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :returns: List of match ID strings.
         :rtype: List[str]
         """
-        from ..schemas.transformers import MatchDTOTransformer
+        from app.features.matches.transformers import MatchDTOTransformer
 
         return MatchDTOTransformer.extract_match_ids(match_list_dto)
 

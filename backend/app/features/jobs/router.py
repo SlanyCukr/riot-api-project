@@ -3,19 +3,19 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 
-from ..models.job_tracking import JobStatus, JobType
-from ..schemas.jobs import (
+from .models import JobStatus, JobType
+from .schemas import (
     JobConfigurationUpdate,
     JobConfigurationResponse,
     JobExecutionListResponse,
     JobStatusResponse,
     JobTriggerResponse,
 )
-from ..api.dependencies import JobServiceDep
-from ..jobs.tracked_player_updater import TrackedPlayerUpdaterJob
-from ..jobs.match_fetcher import MatchFetcherJob
-from ..jobs.smurf_analyzer import SmurfAnalyzerJob
-from ..jobs.ban_checker import BanCheckerJob
+from .dependencies import JobServiceDep
+from .implementations.tracked_player_updater import TrackedPlayerUpdaterJob
+from .implementations.match_fetcher import MatchFetcherJob
+from .implementations.smurf_analyzer import SmurfAnalyzerJob
+from .implementations.ban_checker import BanCheckerJob
 import structlog
 
 logger = structlog.get_logger(__name__)

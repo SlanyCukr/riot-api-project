@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.models.job_tracking import JobStatus, JobType
+from .models import JobStatus, JobType
 
 
 class JobConfigurationBase(BaseModel):
