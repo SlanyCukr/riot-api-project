@@ -6,7 +6,7 @@ services:
     image: riot-api-frontend:latest
     build:
       context: ./frontend
-      dockerfile: ./docker/frontend/Dockerfile
+      dockerfile: ../docker/frontend/Dockerfile
       target: runner
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
@@ -38,7 +38,7 @@ services:
     image: riot-api-backend:latest
     build:
       context: ./backend
-      dockerfile: ./docker/backend/Dockerfile
+      dockerfile: ../docker/backend/Dockerfile
       target: production
       # Use Bake-compatible build configuration
       x-bake:

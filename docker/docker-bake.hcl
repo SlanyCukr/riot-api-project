@@ -80,7 +80,7 @@ target "_prod_common" {
 target "backend" {
   inherits = ["_common"]
   context = "./backend"
-  dockerfile = "./docker/backend/Dockerfile"
+  dockerfile = "../docker/backend/Dockerfile"
   target = "production"
   tags = ["riot-api-backend:latest"]
 }
@@ -96,7 +96,7 @@ target "backend-prod" {
 target "backend-dev" {
   inherits = ["_common"]
   context = "./backend"
-  dockerfile = "./docker/backend/Dockerfile"
+  dockerfile = "../docker/backend/Dockerfile"
   target = "development"
   tags = ["riot-api-backend:dev"]
   output = ["type=docker"]
@@ -106,7 +106,7 @@ target "backend-dev" {
 target "frontend" {
   inherits = ["_common"]
   context = "./frontend"
-  dockerfile = "./docker/frontend/Dockerfile"
+  dockerfile = "../docker/frontend/Dockerfile"
   target = "runner"
   args = {
     NEXT_PUBLIC_API_URL = NEXT_PUBLIC_API_URL
@@ -125,7 +125,7 @@ target "frontend-prod" {
 target "frontend-dev" {
   inherits = ["_common"]
   context = "./frontend"
-  dockerfile = "./docker/frontend/Dockerfile"
+  dockerfile = "../docker/frontend/Dockerfile"
   target = "development"
   args = {
     NEXT_PUBLIC_API_URL = NEXT_PUBLIC_API_URL
@@ -142,7 +142,7 @@ group "validate" {
 # Backend lint target (requires lint stage in Dockerfile)
 target "backend-lint" {
   context = "./backend"
-  dockerfile = "./docker/backend/Dockerfile"
+  dockerfile = "../docker/backend/Dockerfile"
   target = "lint"
   output = ["type=cacheonly"]
 }
@@ -150,7 +150,7 @@ target "backend-lint" {
 # Frontend lint target (requires lint stage in Dockerfile)
 target "frontend-lint" {
   context = "./frontend"
-  dockerfile = "./docker/frontend/Dockerfile"
+  dockerfile = "../docker/frontend/Dockerfile"
   target = "lint"
   output = ["type=cacheonly"]
 }
