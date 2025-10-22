@@ -514,7 +514,7 @@ Document major deployments here:
 - [Backend Documentation](../backend/AGENTS.md)
 - [Frontend Documentation](../frontend/AGENTS.md)
 - [Docker Documentation](../docker/AGENTS.md)
-- [Database Documentation](../docker/postgres/AGENTS.md)
+- [Alembic Migrations](../backend/alembic/AGENTS.md)
 - [Project README](../README.md)
 
 ---

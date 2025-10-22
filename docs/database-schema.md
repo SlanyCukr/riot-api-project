@@ -651,6 +651,6 @@ All table definitions are in SQLAlchemy models:
 
 ## See Also
 
-- [Docker PostgreSQL Guide](/docker/postgres/AGENTS.md) - Database operations and commands
+- [Docker Guide](/docker/AGENTS.md) - Database operations and container management
 - [Backend Guide](/backend/AGENTS.md) - SQLAlchemy models and database interactions
-- [Docker Guide](/docker/AGENTS.md) - Container management and deployment
+- [Alembic Guide](/backend/alembic/AGENTS.md) - Database migration workflows
