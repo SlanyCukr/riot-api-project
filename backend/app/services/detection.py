@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import structlog
 
-from ..riot_api.data_manager import RiotDataManager
+from app.core.riot_api.data_manager import RiotDataManager
 from ..models.players import Player
 from ..models.smurf_detection import SmurfDetection
 from ..models.ranks import PlayerRank

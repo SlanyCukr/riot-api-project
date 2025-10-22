@@ -11,7 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from . import Base
+from app.models import Base
 
 
 class SystemSetting(Base):

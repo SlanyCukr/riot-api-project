@@ -117,9 +117,9 @@ exclude = [
     "app/schemas/",  # Pydantic fields appear unused but are used for serialization
     "app/algorithms/",  # Dataclass fields appear unused but are used by framework
     "app/tests/",  # Test fixtures and mocks often appear unused
-    "app/riot_api/constants.py",  # Enum definitions used as constants
-    "app/riot_api/models.py",  # Pydantic DTO fields from Riot API
-    "app/config.py",  # Pydantic Settings properties may appear unused but are accessed by framework
+    "app/core/riot_api/constants.py",  # Enum definitions used as constants
+    "app/core/riot_api/models.py",  # Pydantic DTO fields from Riot API
+    "app/core/config.py",  # Pydantic Settings properties may appear unused but are accessed by framework
 ]
 ignore_decorators = ["@app.route", "@router.*", "@app.*", "@abstractmethod"]
 ignore_names = [
@@ -139,6 +139,8 @@ ignore_names = [
     "riot_id_tagline",
     # Utility functions for future use
     "dual_mode_decorator",
+    # Pydantic Settings property accessed by framework
+    "environment",
 ]
 min_confidence = 60
 paths = ["app/"]

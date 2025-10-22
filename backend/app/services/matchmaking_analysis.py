@@ -16,9 +16,9 @@ from ..schemas.matchmaking import (
     MatchmakingAnalysisResponse,
     MatchmakingAnalysisStatusResponse,
 )
-from ..riot_api.client import RiotAPIClient
-from ..riot_api.errors import RiotAPIError
-from ..riot_api.transformers import MatchTransformer
+from app.core.riot_api.client import RiotAPIClient
+from app.core.riot_api.errors import RiotAPIError
+from app.core.riot_api.transformers import MatchTransformer
 
 logger = structlog.get_logger(__name__)
 

@@ -10,7 +10,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import db_manager
+from app.core import db_manager
 from app.models import JobConfiguration, JobExecution, JobStatus
 from structlog import contextvars as structlog_contextvars
 from .log_capture import job_log_capture
@@ -152,7 +152,7 @@ class BaseJob(ABC):
             return
 
         try:
-            from ..models.job_tracking import JobExecution
+            from app.models.job_tracking import JobExecution
 
             completed_at = datetime.now(timezone.utc)
             duration = (completed_at - self.job_execution.started_at).total_seconds()

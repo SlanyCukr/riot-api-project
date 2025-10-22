@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
 from .error_handling import handle_riot_api_errors
-from ..models.players import Player
-from ..riot_api.client import RiotAPIClient
-from ..riot_api.data_manager import RiotDataManager
-from ..riot_api.errors import NotFoundError
-from ..config import get_global_settings, get_riot_api_key
+from app.models.players import Player
+from app.core.riot_api.client import RiotAPIClient
+from app.core.riot_api.data_manager import RiotDataManager
+from app.core.riot_api.errors import NotFoundError
+from app.core import get_global_settings, get_riot_api_key
 
 logger = structlog.get_logger(__name__)
 

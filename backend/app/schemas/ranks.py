@@ -1,25 +1,11 @@
 """Pydantic schemas for PlayerRank model."""
 
 from datetime import datetime
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
-
-class Tier(str, Enum):
-    """League of Legends rank tiers."""
-
-    IRON = "IRON"
-    BRONZE = "BRONZE"
-    SILVER = "SILVER"
-    GOLD = "GOLD"
-    PLATINUM = "PLATINUM"
-    EMERALD = "EMERALD"
-    DIAMOND = "DIAMOND"
-    MASTER = "MASTER"
-    GRANDMASTER = "GRANDMASTER"
-    CHALLENGER = "CHALLENGER"
+from app.core.enums import Tier
 
 
 class PlayerRankBase(BaseModel):

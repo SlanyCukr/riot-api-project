@@ -10,11 +10,17 @@ import inspect
 import structlog
 from typing import Any, Callable, Dict, Optional, Type, ParamSpec, TypeVar
 
-from .exceptions import (
+from app.core.exceptions import (
     DatabaseError,
     ExternalServiceError,
     ServiceException,
     ValidationError,
+)
+from app.core.riot_api.errors import (
+    RiotAPIError,
+    RateLimitError,
+    AuthenticationError,
+    ForbiddenError,
 )
 
 logger = structlog.get_logger(__name__)
@@ -94,6 +100,23 @@ def service_error_handler(
                 )
 
                 return result
+
+            except (
+                RateLimitError,
+                AuthenticationError,
+                ForbiddenError,
+                RiotAPIError,
+            ) as e:
+                # Riot API errors must propagate to job handlers unchanged
+                # They need special handling (rate limits = graceful stop, auth = fail immediately)
+                logger.warning(
+                    "Riot API error in service operation - propagating to caller",
+                    error_type=e.__class__.__name__,
+                    error_message=str(e),
+                    status_code=getattr(e, "status_code", None),
+                    **context,
+                )
+                raise  # Always re-raise so job error handler can process it
 
             except ServiceException as e:
                 # Already a service exception - log and re-raise

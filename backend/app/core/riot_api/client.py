@@ -5,9 +5,17 @@ from typing import Optional, Dict, Any, List, Union, Callable
 import httpx
 import structlog
 
-from ..config import get_global_settings
+from app.core import get_global_settings
 from .rate_limiter import RateLimiter
-from .errors import RiotAPIError
+from .errors import (
+    RiotAPIError,
+    RateLimitError,
+    AuthenticationError,
+    ForbiddenError,
+    NotFoundError,
+    ServiceUnavailableError,
+    BadRequestError,
+)
 from .models import (
     AccountDTO,
     SummonerDTO,
@@ -107,15 +115,15 @@ class RiotAPIClient:
             logger.info("Riot API client session closed")
 
     def _raise_client_error_if_needed(self, status: int) -> None:
-        """Raise RiotAPIError for non-retryable client errors."""
-        error_messages = {
-            400: "Invalid request parameters",
-            401: "Invalid API key",
-            403: "Access forbidden",
-            404: "Resource not found",
-        }
-        if status in error_messages:
-            raise RiotAPIError(error_messages[status], status_code=status)
+        """Raise specific RiotAPIError subclass for client errors."""
+        if status == 400:
+            raise BadRequestError("Invalid request parameters", status_code=status)
+        elif status == 401:
+            raise AuthenticationError("Invalid API key", status_code=status)
+        elif status == 403:
+            raise ForbiddenError("Access forbidden", status_code=status)
+        elif status == 404:
+            raise NotFoundError("Resource not found", status_code=status)
 
     def _handle_rate_limit(
         self, headers: dict, attempt: int, max_retries: int
@@ -124,7 +132,7 @@ class RiotAPIClient:
         retry_after = int(headers.get("Retry-After", 1))
         if attempt < max_retries:
             return (True, retry_after)
-        raise RiotAPIError(
+        raise RateLimitError(
             "Rate limit exceeded",
             status_code=429,
             retry_after=retry_after,
@@ -138,7 +146,10 @@ class RiotAPIClient:
         """Handle server errors (5xx) with exponential backoff."""
         if attempt < max_retries:
             return (True, 2**attempt)
-        raise RiotAPIError("Service unavailable", status_code=status)
+        if status == 503:
+            raise ServiceUnavailableError("Service unavailable", status_code=status)
+        else:
+            raise RiotAPIError(f"Server error {status}", status_code=status)
 
     async def _handle_http_error_status(
         self, status: int, headers: dict, attempt: int, max_retries: int

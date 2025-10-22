@@ -1,31 +1,18 @@
 """Settings API endpoints for managing system configuration."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated
+from fastapi import APIRouter, HTTPException
+import structlog
 
-from ..database import get_db
-from ..schemas.settings import (
+from .schemas import (
     SettingResponse,
     SettingUpdate,
     SettingTestResponse,
 )
-from ..services.settings import SettingsService
-import structlog
+from .dependencies import SettingsServiceDep
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
-
-
-async def get_settings_service(
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> SettingsService:
-    """Get settings service instance."""
-    return SettingsService(db)
-
-
-SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
 
 
 @router.get("/riot_api_key", response_model=SettingResponse)

@@ -5,8 +5,7 @@ This package contains the main application logic for the Riot API match history
 and player analysis service.
 """
 
-from .config import get_global_settings
-from .database import db_manager, get_db
+from .core import get_global_settings, db_manager, get_db
 import sys as _sys
 
 _sys.modules.setdefault("app.app", _sys.modules[__name__])

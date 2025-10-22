@@ -11,7 +11,8 @@ import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ...schemas.detection import DetectionFactor
-from ...models.ranks import PlayerRank, Tier
+from ...models.ranks import PlayerRank
+from app.core.enums import Tier
 
 if TYPE_CHECKING:
     from ...models.players import Player

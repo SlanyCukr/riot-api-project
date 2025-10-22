@@ -99,10 +99,10 @@ export const DetectionResponseSchema = z.object({
   detection_score: z.number(),
   confidence_level: z.string(),
   factors: z.array(DetectionFactorSchema),
-  reason: z.string(),
+  reason: z.string().nullish(),
   sample_size: z.number(),
-  analysis_time_seconds: z.number().optional(),
-  created_at: z.string().optional(),
+  analysis_time_seconds: z.number().nullish(),
+  created_at: z.string().nullish(),
 });
 
 // Detection Stats Response Schema

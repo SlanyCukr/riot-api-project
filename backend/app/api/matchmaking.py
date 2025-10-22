@@ -4,14 +4,14 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database import get_db
+from app.core import get_db
 from ..schemas.matchmaking import (
     MatchmakingAnalysisRequest,
     MatchmakingAnalysisResponse,
     MatchmakingAnalysisStatusResponse,
 )
 from ..services.matchmaking_analysis import MatchmakingAnalysisService
-from ..riot_api.client import RiotAPIClient
+from app.core.riot_api.client import RiotAPIClient
 from .dependencies import get_riot_client
 
 router = APIRouter(prefix="/matchmaking-analysis", tags=["matchmaking-analysis"])

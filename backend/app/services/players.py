@@ -9,8 +9,8 @@ import structlog
 
 from ..models.players import Player
 from ..schemas.players import PlayerResponse
-from ..config import get_global_settings
-from .exceptions import (
+from app.core import get_global_settings
+from app.core.exceptions import (
     PlayerServiceError,
 )
 from .decorators import service_error_handler, input_validation
@@ -22,7 +22,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from ..riot_api.client import RiotAPIClient
+    from app.core.riot_api.client import RiotAPIClient
     from ..models.ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
@@ -956,7 +956,7 @@ class PlayerService:
         Returns:
             True if player is likely banned, False if player is active
         """
-        from ..riot_api.constants import Platform
+        from app.core.riot_api.constants import Platform
         from datetime import datetime
 
         platform = Platform(player.platform.lower())
@@ -1084,7 +1084,7 @@ class PlayerService:
         Raises:
             ValueError: If player has invalid platform
         """
-        from ..riot_api.constants import Platform
+        from app.core.riot_api.constants import Platform
         from ..models.ranks import PlayerRank
 
         logger.debug("Updating player rank", puuid=player.puuid)

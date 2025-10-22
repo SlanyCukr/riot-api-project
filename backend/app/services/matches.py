@@ -14,12 +14,18 @@ from ..schemas.matches import (
     MatchListResponse,
     MatchStatsResponse,
 )
-from ..riot_api.transformers import MatchTransformer
-from ..riot_api.errors import RiotAPIError
+from app.core.riot_api.transformers import MatchTransformer
+from app.core.riot_api.errors import (
+    RiotAPIError,
+    RateLimitError,
+    AuthenticationError,
+    ForbiddenError,
+    NotFoundError,
+)
 from ..utils.statistics import safe_divide
 
 if TYPE_CHECKING:
-    from ..riot_api.client import RiotAPIClient
+    from app.core.riot_api.client import RiotAPIClient
 
 logger = structlog.get_logger(__name__)
 
@@ -224,8 +230,6 @@ class MatchService:
         Raises:
             RateLimitError, NotFoundError: API errors that should propagate
         """
-        from ..riot_api.errors import RateLimitError, NotFoundError
-
         try:
             match_list = await riot_api_client.get_match_list_by_puuid(
                 puuid=puuid, queue=queue, start=0, count=100
@@ -246,14 +250,28 @@ class MatchService:
             )
 
             return match_ids
-        except (RateLimitError, NotFoundError) as e:
+        except NotFoundError as e:
             logger.warning(
-                "Failed to fetch match list",
+                "Player not found in Riot API",
                 puuid=puuid,
                 error=str(e),
-                error_type=type(e).__name__,
             )
-            raise
+            return []  # Return empty list for not found players
+        except RateLimitError as e:
+            logger.warning(
+                "Rate limit hit while fetching match list",
+                puuid=puuid,
+                retry_after=getattr(e, "retry_after", None),
+            )
+            raise  # Let job handler convert to RateLimitSignal
+        except (AuthenticationError, ForbiddenError) as e:
+            logger.error(
+                "Authentication error fetching match list - cannot continue",
+                puuid=puuid,
+                error=str(e),
+                status_code=e.status_code,
+            )
+            raise  # Always fail immediately on auth errors
 
     async def _get_new_match_ids(self, all_match_ids: list[str]) -> list[str]:
         """Filter match IDs to only those not in database."""
@@ -278,8 +296,6 @@ class MatchService:
         Raises:
             RateLimitError: If rate limit is hit (should stop processing)
         """
-        from ..riot_api.errors import RateLimitError
-
         try:
             match_dto = await riot_api_client.get_match(match_id)
             if match_dto:
@@ -296,7 +312,7 @@ class MatchService:
 
     def _validate_platform_code(self, platform: str, puuid: str) -> bool:
         """Validate platform code. Returns True if valid, False if invalid."""
-        from ..riot_api.constants import Platform
+        from app.core.riot_api.constants import Platform
 
         try:
             Platform(platform.lower())

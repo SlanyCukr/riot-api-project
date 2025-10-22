@@ -5,23 +5,19 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 
-from ..database import get_db
-from ..riot_api.client import RiotAPIClient
-from ..riot_api.constants import Platform, Region
-from ..riot_api.data_manager import RiotDataManager
+from app.core import get_db, get_global_settings, get_riot_api_key
+from app.core.riot_api import RiotAPIClient, RiotDataManager
+from app.core.riot_api.constants import Platform, Region
 from ..services.players import PlayerService
 from ..services.matches import MatchService
 from ..services.detection import SmurfDetectionService
 from ..services.jobs import JobService
-from ..config import get_global_settings
 
 
 async def get_riot_client(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AsyncGenerator[RiotAPIClient, None]:
     """Get Riot API client instance."""
-    from ..config import get_riot_api_key
-
     settings = get_global_settings()
 
     # Get API key from database first, fallback to environment

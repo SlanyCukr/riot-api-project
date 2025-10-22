@@ -15,7 +15,7 @@ from ..api.dependencies import (
     RiotDataManagerDep,
     get_player_service,
 )
-from ..riot_api.constants import Platform
+from app.core.riot_api.constants import Platform
 
 logger = structlog.get_logger(__name__)
 

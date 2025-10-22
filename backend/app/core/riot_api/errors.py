@@ -43,10 +43,37 @@ class RiotAPIError(Exception):
         return f"Riot API Error: {self.message}"
 
 
-# Backwards compatibility aliases (deprecated)
-RateLimitError = RiotAPIError
-AuthenticationError = RiotAPIError
-ForbiddenError = RiotAPIError
-NotFoundError = RiotAPIError
-ServiceUnavailableError = RiotAPIError
-BadRequestError = RiotAPIError
+class RateLimitError(RiotAPIError):
+    """Rate limit error (429) - can be retried after cooldown."""
+
+    pass
+
+
+class AuthenticationError(RiotAPIError):
+    """Authentication error (401) - invalid or expired API key."""
+
+    pass
+
+
+class ForbiddenError(RiotAPIError):
+    """Forbidden error (403) - insufficient permissions."""
+
+    pass
+
+
+class NotFoundError(RiotAPIError):
+    """Not found error (404) - resource doesn't exist."""
+
+    pass
+
+
+class ServiceUnavailableError(RiotAPIError):
+    """Service unavailable (503) - Riot servers down."""
+
+    pass
+
+
+class BadRequestError(RiotAPIError):
+    """Bad request (400) - invalid parameters."""
+
+    pass

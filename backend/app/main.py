@@ -10,12 +10,12 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from app.config import get_global_settings, get_riot_api_key
+from app.core import get_global_settings, get_riot_api_key
 from app.api.players import router as players_router
 from app.api.matches import router as matches_router
 from app.api.detection import router as detection_router
 from app.api.jobs import router as jobs_router
-from app.api.settings import router as settings_router
+from app.features.settings import settings_router
 from app.api.matchmaking import router as matchmaking_router
 from app.jobs import start_scheduler, shutdown_scheduler
 from app.jobs.log_capture import job_log_capture

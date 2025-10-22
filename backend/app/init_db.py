@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models import Base
-from app.config import get_global_settings
+from app.core import get_global_settings
 
 logger = structlog.get_logger(__name__)
 

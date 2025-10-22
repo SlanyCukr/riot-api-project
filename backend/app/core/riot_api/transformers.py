@@ -3,6 +3,8 @@
 from typing import Dict, List, Any
 import structlog
 
+from app.utils.validation import validate_nested_fields, validate_list_items
+
 logger = structlog.get_logger(__name__)
 
 
@@ -130,8 +132,6 @@ class MatchTransformer:
         Returns:
             True if valid, False otherwise
         """
-        from ..utils.validation import validate_nested_fields, validate_list_items
-
         required_structure = {
             "metadata": ["matchId"],
             "info": [

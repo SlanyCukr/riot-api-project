@@ -13,10 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
 from .error_handling import handle_riot_api_errors
-from ..riot_api.data_manager import RiotDataManager
+from app.core.riot_api.data_manager import RiotDataManager
 from ..services.detection import SmurfDetectionService
 from ..services.players import PlayerService
-from ..config import get_global_settings
+from app.core import get_global_settings
 
 logger = structlog.get_logger(__name__)
 

@@ -281,7 +281,7 @@ async def get_job_system_status(
         running executions, and last execution details.
     """
     try:
-        from ..config import get_global_settings
+        from app.core import get_global_settings
 
         settings = get_global_settings()
 

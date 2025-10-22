@@ -1,6 +1,8 @@
 ---
+name: OpenSpec: Archive
 description: Archive a deployed OpenSpec change and update specs.
-argument-hint: change-id
+category: OpenSpec
+tags: [openspec, archive]
 ---
 <!-- OPENSPEC:START -->
 **Guardrails**
@@ -22,6 +24,4 @@ argument-hint: change-id
 **Reference**
 - Use `openspec list` to confirm change IDs before archiving.
 - Inspect refreshed specs with `openspec list --specs` and address any validation issues before handing off.
-
-$ARGUMENTS
 <!-- OPENSPEC:END -->

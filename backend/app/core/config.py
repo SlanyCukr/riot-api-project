@@ -105,7 +105,7 @@ async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
         try:
             from sqlalchemy import select
             from sqlalchemy.exc import SQLAlchemyError, DatabaseError
-            from .models.settings import SystemSetting
+            from app.features.settings.models import SystemSetting
 
             stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
             result = await db.execute(stmt)

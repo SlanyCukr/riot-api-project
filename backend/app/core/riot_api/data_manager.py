@@ -22,9 +22,9 @@ from .client import RiotAPIClient
 from .errors import RateLimitError, RiotAPIError
 from .models import MatchDTO
 from .constants import Platform, Region
-from ..models.players import Player
-from ..models.matches import Match
-from ..schemas.players import PlayerResponse, PlayerCreate
+from app.models.players import Player
+from app.models.matches import Match
+from app.schemas.players import PlayerResponse, PlayerCreate
 
 logger = structlog.get_logger(__name__)
 

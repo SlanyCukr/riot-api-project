@@ -97,13 +97,13 @@ from .matches import Match  # noqa: E402
 from .participants import MatchParticipant  # noqa: E402
 from .ranks import PlayerRank  # noqa: E402
 from .smurf_detection import SmurfDetection  # noqa: E402
-from .job_tracking import (
+from .job_tracking import (  # noqa: E402
     JobConfiguration,
     JobExecution,
     JobStatus,
     JobType,
-)  # noqa: E402
-from .settings import SystemSetting  # noqa: E402
+)
+from app.features.settings.models import SystemSetting  # noqa: E402
 from .apscheduler import APSchedulerJob  # noqa: E402
 from .matchmaking_analysis import MatchmakingAnalysis, AnalysisStatus  # noqa: E402
 

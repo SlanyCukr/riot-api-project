@@ -5,16 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import structlog
 
-from ..models.settings import SystemSetting
-from ..schemas.settings import (
+from .models import SystemSetting
+from .schemas import (
     SettingResponse,
     SettingUpdate,
     SettingValidationResponse,
     SettingTestResponse,
 )
-from ..riot_api.client import RiotAPIClient
-from ..riot_api.constants import Platform, Region
-from ..riot_api.errors import RiotAPIError
+from app.core.riot_api.client import RiotAPIClient
+from app.core.riot_api.constants import Platform, Region
+from app.core.riot_api.errors import RiotAPIError
 
 logger = structlog.get_logger(__name__)
 

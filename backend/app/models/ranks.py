@@ -1,6 +1,5 @@
 """Player rank model for storing ranked information."""
 
-from enum import Enum
 from datetime import datetime
 from typing import Optional
 
@@ -16,21 +15,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from . import Base
-
-
-class Tier(str, Enum):
-    """League of Legends rank tiers."""
-
-    IRON = "IRON"
-    BRONZE = "BRONZE"
-    SILVER = "SILVER"
-    GOLD = "GOLD"
-    PLATINUM = "PLATINUM"
-    EMERALD = "EMERALD"
-    DIAMOND = "DIAMOND"
-    MASTER = "MASTER"
-    GRANDMASTER = "GRANDMASTER"
-    CHALLENGER = "CHALLENGER"
 
 
 class PlayerRank(Base):

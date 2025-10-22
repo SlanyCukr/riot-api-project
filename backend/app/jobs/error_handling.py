@@ -13,7 +13,7 @@ from functools import wraps
 from typing import Callable, TypeVar, ParamSpec, Any, Optional
 import structlog
 
-from ..riot_api.errors import RateLimitError, AuthenticationError, ForbiddenError
+from app.core.riot_api.errors import RateLimitError, AuthenticationError, ForbiddenError
 
 logger = structlog.get_logger(__name__)
 

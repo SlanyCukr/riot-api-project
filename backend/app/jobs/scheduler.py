@@ -9,8 +9,8 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_global_settings
-from app.database import db_manager
+from app.core import get_global_settings
+from app.core import db_manager
 from app.models import JobExecution, JobStatus, JobConfiguration, JobType
 from .base import BaseJob
 

@@ -257,5 +257,6 @@ CODE_REVIEW*.md
 code-reviews/
 
 !.claude/skills
+!.claude/commands/*
 .claude/settings.local.json
 .claude/.claude
