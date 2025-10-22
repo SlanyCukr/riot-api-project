@@ -8,12 +8,12 @@ including player analysis, detection history, statistics, and configuration.
 from fastapi import APIRouter, HTTPException, Query
 import structlog
 
-from ..schemas.detection import (
+from .schemas import (
     DetectionResponse,
     DetectionRequest,
     DetectionExistsResponse,
 )
-from ..api.dependencies import DetectionServiceDep
+from .dependencies import DetectionServiceDep
 
 logger = structlog.get_logger(__name__)
 

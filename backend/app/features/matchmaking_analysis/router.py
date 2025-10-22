@@ -1,33 +1,15 @@
 """Matchmaking analysis API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Annotated
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException
 
-from app.core import get_db
-from ..schemas.matchmaking import (
+from .schemas import (
     MatchmakingAnalysisRequest,
     MatchmakingAnalysisResponse,
     MatchmakingAnalysisStatusResponse,
 )
-from ..services.matchmaking_analysis import MatchmakingAnalysisService
-from app.core.riot_api.client import RiotAPIClient
-from .dependencies import get_riot_client
+from .dependencies import MatchmakingServiceDep
 
 router = APIRouter(prefix="/matchmaking-analysis", tags=["matchmaking-analysis"])
-
-
-async def get_matchmaking_service(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
-) -> MatchmakingAnalysisService:
-    """Get matchmaking analysis service instance."""
-    return MatchmakingAnalysisService(db, riot_client)
-
-
-MatchmakingServiceDep = Annotated[
-    MatchmakingAnalysisService, Depends(get_matchmaking_service)
-]
 
 
 @router.post("/start", response_model=MatchmakingAnalysisResponse)

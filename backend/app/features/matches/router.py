@@ -3,11 +3,11 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from ..schemas.matches import (
+from .schemas import (
     MatchListResponse,
     MatchStatsResponse,
 )
-from ..api.dependencies import (
+from .dependencies import (
     MatchServiceDep,
     get_match_service,
 )

@@ -13,16 +13,16 @@ from sqlalchemy import select, and_, desc
 import structlog
 
 from app.core.riot_api.data_manager import RiotDataManager
-from ..models.players import Player
-from ..models.smurf_detection import SmurfDetection
-from ..models.ranks import PlayerRank
-from ..schemas.detection import (
+from app.features.players.models import Player
+from .models import SmurfDetection
+from app.features.players.ranks import PlayerRank
+from .schemas import (
     DetectionResponse,
     DetectionFactor,
 )
-from .decorators import service_error_handler, input_validation
-from .utils import validate_puuid
-from .detection_config import get_detection_config
+from app.core.decorators import service_error_handler, input_validation
+from app.core.utils import validate_puuid
+from .config import get_detection_config
 from .analyzers import (
     WinRateFactorAnalyzer,
     WinRateTrendFactorAnalyzer,
@@ -318,8 +318,8 @@ class SmurfDetectionService:
         :returns: Tuple of (match_data_list, match_ids_list)
         :rtype: tuple[List[Dict[str, Any]], List[str]]
         """
-        from ..models.matches import Match
-        from ..models.participants import MatchParticipant
+        from app.features.matches.models import Match
+        from app.features.matches.participants import MatchParticipant
 
         # Build query for recent matches
         # Use analysis config for minimum matches calculation
@@ -474,7 +474,7 @@ class SmurfDetectionService:
             return
 
         from sqlalchemy import update
-        from ..models.matches import Match
+        from app.features.matches.models import Match
 
         try:
             # Update all matches in one query

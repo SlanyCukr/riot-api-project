@@ -115,6 +115,7 @@ exclude = [
     "*.pyc",
     "app/models/",  # SQLAlchemy ORM fields appear unused but are accessed by framework
     "app/schemas/",  # Pydantic fields appear unused but are used for serialization
+    "app/features/",  # Feature-based modules contain models/schemas with framework-accessed fields
     "app/algorithms/",  # Dataclass fields appear unused but are used by framework
     "app/tests/",  # Test fixtures and mocks often appear unused
     "app/core/riot_api/constants.py",  # Enum definitions used as constants

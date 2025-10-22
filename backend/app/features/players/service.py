@@ -7,14 +7,14 @@ from sqlalchemy import select, update, func, and_, or_
 from Levenshtein import distance as levenshtein_distance
 import structlog
 
-from ..models.players import Player
-from ..schemas.players import PlayerResponse
+from .models import Player
+from .schemas import PlayerResponse
 from app.core import get_global_settings
 from app.core.exceptions import (
     PlayerServiceError,
 )
-from .decorators import service_error_handler, input_validation
-from .utils import (
+from app.core.decorators import service_error_handler, input_validation
+from app.core.utils import (
     validate_platform,
     validate_summoner_name,
     create_safe_riot_id,
@@ -23,7 +23,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
-    from ..models.ranks import PlayerRank
+    from .ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
 
@@ -549,7 +549,7 @@ class PlayerService:
         Returns:
             List of PlayerResponse objects for opponents found in database
         """
-        from ..models.participants import MatchParticipant
+        from app.features.matches.participants import MatchParticipant
 
         # Use a single JOIN query to get opponent player data efficiently (fixes N+1 query problem)
         # This joins MatchParticipant twice: once to find recent matches, once to find opponents
@@ -801,7 +801,7 @@ class PlayerService:
         Returns:
             List of Player objects needing match data
         """
-        from ..models.participants import MatchParticipant
+        from app.features.matches.participants import MatchParticipant
 
         stmt = (
             select(Player, func.count(MatchParticipant.match_id).label("match_count"))
@@ -860,8 +860,8 @@ class PlayerService:
         Returns:
             List of Player objects ready for analysis
         """
-        from ..models.participants import MatchParticipant
-        from ..models.smurf_detection import SmurfDetection
+        from app.features.matches.participants import MatchParticipant
+        from app.features.smurf_detection.models import SmurfDetection
 
         stmt = (
             select(Player, func.count(MatchParticipant.match_id).label("match_count"))
@@ -916,7 +916,7 @@ class PlayerService:
         Returns:
             List of Player objects needing ban check
         """
-        from ..models.smurf_detection import SmurfDetection
+        from app.features.smurf_detection.models import SmurfDetection
         from datetime import datetime, timedelta
 
         cutoff = datetime.now() - timedelta(days=days)
@@ -1085,7 +1085,7 @@ class PlayerService:
             ValueError: If player has invalid platform
         """
         from app.core.riot_api.constants import Platform
-        from ..models.ranks import PlayerRank
+        from .ranks import PlayerRank
 
         logger.debug("Updating player rank", puuid=player.puuid)
 
@@ -1154,7 +1154,7 @@ class PlayerService:
             Most recent PlayerRank or None if no rank data exists
         """
         from sqlalchemy import select
-        from ..models.ranks import PlayerRank
+        from .ranks import PlayerRank
 
         stmt = (
             select(PlayerRank)

@@ -11,12 +11,12 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.core import get_global_settings, get_riot_api_key
-from app.api.players import router as players_router
-from app.api.matches import router as matches_router
-from app.api.detection import router as detection_router
+from app.features.players.router import router as players_router
+from app.features.matches.router import router as matches_router
+from app.features.smurf_detection.router import router as smurf_detection_router
 from app.api.jobs import router as jobs_router
-from app.features.settings import settings_router
-from app.api.matchmaking import router as matchmaking_router
+from app.features.settings.router import router as settings_router
+from app.features.matchmaking_analysis.router import router as matchmaking_router
 from app.jobs import start_scheduler, shutdown_scheduler
 from app.jobs.log_capture import job_log_capture
 import structlog
@@ -202,7 +202,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
-app.include_router(detection_router, prefix="/api/v1", tags=["player-analysis"])
+app.include_router(smurf_detection_router, prefix="/api/v1", tags=["player-analysis"])
 app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 app.include_router(matchmaking_router, prefix="/api/v1", tags=["matchmaking-analysis"])
@@ -210,7 +210,7 @@ app.include_router(matchmaking_router, prefix="/api/v1", tags=["matchmaking-anal
 # Legacy route compatibility (tests and existing clients expect root-level paths)
 app.include_router(players_router)
 app.include_router(matches_router)
-app.include_router(detection_router)
+app.include_router(smurf_detection_router)
 app.include_router(jobs_router)
 
 

@@ -11,9 +11,11 @@ Simple flow:
 No TTL caching, no freshness tracking, no queue management.
 """
 
+from __future__ import annotations
+
 import structlog
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -22,9 +24,13 @@ from .client import RiotAPIClient
 from .errors import RateLimitError, RiotAPIError
 from .models import MatchDTO
 from .constants import Platform, Region
-from app.models.players import Player
-from app.models.matches import Match
-from app.schemas.players import PlayerResponse, PlayerCreate
+
+# Import schemas only - models will be imported lazily to avoid circular import
+from app.features.players.schemas import PlayerResponse, PlayerCreate
+
+# TYPE_CHECKING imports for type annotations (not evaluated at runtime)
+if TYPE_CHECKING:
+    from app.features.players.models import Player
 
 logger = structlog.get_logger(__name__)
 
@@ -59,6 +65,9 @@ class RiotDataManager:
         Returns:
             PlayerResponse if found/fetched, None if rate limited
         """
+        # Lazy import to avoid circular dependency
+        from app.features.players.models import Player
+
         riot_id = f"{game_name}#{tag_line}"
 
         try:
@@ -155,6 +164,9 @@ class RiotDataManager:
         Returns:
             PlayerResponse if found/fetched, None if rate limited
         """
+        # Lazy import to avoid circular dependency
+        from app.features.players.models import Player
+
         try:
             # 1. Check database first
             result = await self.db.execute(
@@ -276,6 +288,9 @@ class RiotDataManager:
         Returns:
             MatchDTO if found/fetched, None if rate limited
         """
+        # Lazy import to avoid circular dependency
+        from app.features.matches.models import Match
+
         try:
             # 1. Check database first
             result = await self.db.execute(

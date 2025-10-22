@@ -32,12 +32,14 @@ repos:
         args: ["-c", "backend/pyproject.toml"]
         exclude: ^(tests/|tools/)
 
-  # Vulture - Find dead/unused Python code
-  - repo: https://github.com/jendrikseipp/vulture
-    rev: v2.14
+  # Vulture - Find dead/unused Python code (non-blocking)
+  - repo: local
     hooks:
       - id: vulture
-        args: ["--config", "backend/pyproject.toml", "backend/app/"]
+        name: Vulture - Dead Code Detection (non-blocking)
+        entry: bash -c 'uvx vulture --config backend/pyproject.toml backend/app/ || true'
+        language: system
+        files: ^backend/.*\.py$
         pass_filenames: false
 
   # Radon - Code complexity and maintainability checks

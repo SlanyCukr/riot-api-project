@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_global_settings
 from app.core import db_manager
-from app.models import JobExecution, JobStatus, JobConfiguration, JobType
+from app.models.job_tracking import JobExecution, JobStatus, JobConfiguration, JobType
 from .base import BaseJob
 
 logger = structlog.get_logger(__name__)

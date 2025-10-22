@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import db_manager
-from app.models import JobConfiguration, JobExecution, JobStatus
+from app.models.job_tracking import JobConfiguration, JobExecution, JobStatus
 from structlog import contextvars as structlog_contextvars
 from .log_capture import job_log_capture
 from .error_handling import RateLimitSignal

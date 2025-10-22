@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Dict, Any, List
 import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
-from ...schemas.detection import DetectionFactor
+from ..schemas import DetectionFactor
 
 if TYPE_CHECKING:
-    from ...models.players import Player
+    from app.features.players.models import Player
 
 logger = structlog.get_logger(__name__)
 

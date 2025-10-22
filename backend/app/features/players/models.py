@@ -14,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 import sqlalchemy as sa
 
-from . import Base
+from app.models.base import Base
 
 
 class Player(Base):

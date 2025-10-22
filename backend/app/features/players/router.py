@@ -6,11 +6,11 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 import structlog
 
-from ..schemas.players import (
+from .schemas import (
     PlayerResponse,
 )
-from ..schemas.ranks import PlayerRankResponse
-from ..api.dependencies import (
+from .ranks_schemas import PlayerRankResponse
+from .dependencies import (
     PlayerServiceDep,
     RiotDataManagerDep,
     get_player_service,

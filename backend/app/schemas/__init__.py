@@ -1,32 +1,12 @@
 """Pydantic schemas package for API request/response validation."""
 
-from .players import (
-    PlayerCreate,
-    PlayerUpdate,
-    PlayerResponse,
-    PlayerListResponse,
-)
+# NOTE: Most schemas have been moved to feature modules.
+# Import them directly from features:
+#   from app.features.players.schemas import PlayerResponse
+#   from app.features.matches.schemas import MatchResponse
+#   etc.
 
-from .matches import (
-    MatchCreate,
-    MatchUpdate,
-    MatchResponse,
-    MatchListResponse,
-)
-
-from .participants import (
-    MatchParticipantCreate,
-    MatchParticipantUpdate,
-    MatchParticipantResponse,
-    MatchParticipantListResponse,
-)
-
-from .ranks import (
-    PlayerRankCreate,
-    PlayerRankUpdate,
-    PlayerRankResponse,
-)
-
+# Only jobs schemas remain here (will be migrated in task 10)
 from .jobs import (
     JobConfigurationCreate,
     JobConfigurationUpdate,
@@ -38,25 +18,6 @@ from .jobs import (
 )
 
 __all__ = [
-    # Player schemas
-    "PlayerCreate",
-    "PlayerUpdate",
-    "PlayerResponse",
-    "PlayerListResponse",
-    # Match schemas
-    "MatchCreate",
-    "MatchUpdate",
-    "MatchResponse",
-    "MatchListResponse",
-    # Participant schemas
-    "MatchParticipantCreate",
-    "MatchParticipantUpdate",
-    "MatchParticipantResponse",
-    "MatchParticipantListResponse",
-    # Rank schemas
-    "PlayerRankCreate",
-    "PlayerRankUpdate",
-    "PlayerRankResponse",
     # Job schemas
     "JobConfigurationCreate",
     "JobConfigurationUpdate",

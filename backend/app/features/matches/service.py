@@ -6,10 +6,10 @@ import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 
-from ..models.matches import Match
-from ..models.participants import MatchParticipant
-from ..models.players import Player
-from ..schemas.matches import (
+from .models import Match
+from .participants import MatchParticipant
+from app.features.players.models import Player
+from .schemas import (
     MatchResponse,
     MatchListResponse,
     MatchStatsResponse,
@@ -22,7 +22,7 @@ from app.core.riot_api.errors import (
     ForbiddenError,
     NotFoundError,
 )
-from ..utils.statistics import safe_divide
+from app.utils.statistics import safe_divide
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
@@ -543,7 +543,7 @@ class MatchService:
 
     def _calculate_kda(self, kills: int, deaths: int, assists: int) -> float:
         """Calculate KDA ratio."""
-        from ..utils.statistics import safe_divide
+        from app.utils.statistics import safe_divide
 
         return safe_divide(kills + assists, deaths, default=float(kills + assists))
 
@@ -574,7 +574,7 @@ class MatchService:
         Note:
             Caller must commit the transaction.
         """
-        from ..schemas.transformers import MatchDTOTransformer
+        from .transformers import MatchDTOTransformer
 
         try:
             # Extract platform

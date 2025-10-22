@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .base import BaseJob
 from .error_handling import handle_riot_api_errors
 from app.core.riot_api.client import RiotAPIClient
-from ..services.players import PlayerService
+from app.features.players.service import PlayerService
 from app.core import get_global_settings, get_riot_api_key
 
 logger = structlog.get_logger(__name__)

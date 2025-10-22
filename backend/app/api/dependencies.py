@@ -8,10 +8,10 @@ from typing import Annotated
 from app.core import get_db, get_global_settings, get_riot_api_key
 from app.core.riot_api import RiotAPIClient, RiotDataManager
 from app.core.riot_api.constants import Platform, Region
-from ..services.players import PlayerService
-from ..services.matches import MatchService
-from ..services.detection import SmurfDetectionService
-from ..services.jobs import JobService
+from app.features.players.service import PlayerService
+from app.features.matches.service import MatchService
+from app.features.smurf_detection.service import SmurfDetectionService
+from ..services.jobs import JobService  # Will be migrated in task 10
 
 
 async def get_riot_client(

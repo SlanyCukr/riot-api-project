@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import BaseJob
 from .error_handling import handle_riot_api_errors
-from app.models.players import Player
+from app.features.players.models import Player
 from app.core.riot_api.client import RiotAPIClient
 from app.core.riot_api.data_manager import RiotDataManager
 from app.core.riot_api.errors import NotFoundError
@@ -307,8 +307,8 @@ class TrackedPlayerUpdaterJob(BaseJob):
             return 0
 
         # Use PlayerService to discover and mark new players from match
-        from ..services.players import PlayerService
-        from ..services.matches import MatchService
+        from app.features.players.service import PlayerService
+        from app.features.matches.service import MatchService
 
         player_service = PlayerService(db)
         match_service = MatchService(db)
@@ -348,7 +348,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :param player: Player to update rank for.
         :type player: Player
         """
-        from ..services.players import PlayerService
+        from app.features.players.service import PlayerService
 
         player_service = PlayerService(db)
 
@@ -386,7 +386,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :returns: Number of existing matches.
         :rtype: int
         """
-        from ..services.matches import MatchService
+        from app.features.matches.service import MatchService
 
         match_service = MatchService(db)
         return await match_service.count_player_matches(player.puuid)
@@ -403,7 +403,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :returns: Timestamp in milliseconds, or None if no matches.
         :rtype: Optional[int]
         """
-        from ..services.matches import MatchService
+        from app.features.matches.service import MatchService
 
         match_service = MatchService(db)
         return await match_service.get_player_last_match_time(player.puuid)
@@ -554,7 +554,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :returns: List of new match IDs not in database.
         :rtype: List[str]
         """
-        from ..services.matches import MatchService
+        from app.features.matches.service import MatchService
 
         match_service = MatchService(db)
         return await match_service.filter_existing_matches(match_ids)

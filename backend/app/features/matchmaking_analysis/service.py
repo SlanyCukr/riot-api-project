@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from ..models.matchmaking_analysis import MatchmakingAnalysis, AnalysisStatus
-from ..models.matches import Match
-from ..models.participants import MatchParticipant
-from ..schemas.matchmaking import (
+from .models import MatchmakingAnalysis, AnalysisStatus
+from app.features.matches.models import Match
+from app.features.matches.participants import MatchParticipant
+from .schemas import (
     MatchmakingAnalysisResponse,
     MatchmakingAnalysisStatusResponse,
 )
