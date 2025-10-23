@@ -134,8 +134,13 @@ See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 - ❌ Don't skip pre-commit hooks (always run checks before committing)
 - ❌ Don't manage tables owned by external libraries (e.g., APScheduler) — they handle their own schema
 
+# Production Environment
+
+**When working on production issues, deployments, or server operations**, read `docs/production-rpi.md` for complete production server documentation.
+
 # Detailed Documentation
 
+- `docs/production-rpi.md`: **Production server access, deployment, and troubleshooting**
 - `docker/AGENTS.md`: **Comprehensive Docker Compose command reference**, builds, database operations, and production deployment
 - `backend/AGENTS.md`: Riot API integration and FastAPI patterns
 - `backend/alembic/AGENTS.md`: Database migrations with Alembic
