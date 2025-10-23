@@ -69,6 +69,7 @@ jobs:
 
           # Application Configuration
           LOG_LEVEL=INFO
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
 
           # Frontend Configuration
           NEXT_PUBLIC_API_URL=https://leagueanalysis.gg
