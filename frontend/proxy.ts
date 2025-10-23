@@ -43,7 +43,7 @@ function isTokenExpired(token: string): boolean {
   return payload.exp < now;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow sign-in page
