@@ -46,20 +46,84 @@ def upgrade() -> None:
 
     print(f"Found {table_count} tables in app schema to migrate")
 
+    # Helper function to check if table exists in schema
+    def table_exists_in_schema(schema: str, table: str) -> bool:
+        result = conn.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table)"
+            ),
+            {"schema": schema, "table": table},
+        )
+        return result.scalar()
+
+    # Helper function to check if enum type exists in schema
+    def enum_exists_in_schema(schema: str, enum_name: str) -> bool:
+        result = conn.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = :schema AND t.typname = :enum_name)"
+            ),
+            {"schema": schema, "enum_name": enum_name},
+        )
+        return result.scalar()
+
     # Move core tables from app schema to core schema
     # Order matters due to foreign key dependencies
 
     # 1. Move independent tables first (no foreign keys)
     print("Moving core tables: players, matches...")
-    op.execute("ALTER TABLE app.players SET SCHEMA core")
-    op.execute("ALTER TABLE app.matches SET SCHEMA core")
+
+    if table_exists_in_schema("app", "players") and not table_exists_in_schema(
+        "core", "players"
+    ):
+        op.execute("ALTER TABLE app.players SET SCHEMA core")
+    else:
+        print("  - players: already in core schema or doesn't exist in app, skipping")
+
+    if table_exists_in_schema("app", "matches") and not table_exists_in_schema(
+        "core", "matches"
+    ):
+        op.execute("ALTER TABLE app.matches SET SCHEMA core")
+    else:
+        print("  - matches: already in core schema or doesn't exist in app, skipping")
 
     # 2. Move tables with foreign keys
     print("Moving dependent core tables...")
-    op.execute("ALTER TABLE app.match_participants SET SCHEMA core")
-    op.execute("ALTER TABLE app.player_ranks SET SCHEMA core")
-    op.execute("ALTER TABLE app.smurf_detections SET SCHEMA core")
-    op.execute("ALTER TABLE app.matchmaking_analyses SET SCHEMA core")
+
+    if table_exists_in_schema(
+        "app", "match_participants"
+    ) and not table_exists_in_schema("core", "match_participants"):
+        op.execute("ALTER TABLE app.match_participants SET SCHEMA core")
+    else:
+        print(
+            "  - match_participants: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if table_exists_in_schema("app", "player_ranks") and not table_exists_in_schema(
+        "core", "player_ranks"
+    ):
+        op.execute("ALTER TABLE app.player_ranks SET SCHEMA core")
+    else:
+        print(
+            "  - player_ranks: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if table_exists_in_schema("app", "smurf_detections") and not table_exists_in_schema(
+        "core", "smurf_detections"
+    ):
+        op.execute("ALTER TABLE app.smurf_detections SET SCHEMA core")
+    else:
+        print(
+            "  - smurf_detections: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if table_exists_in_schema(
+        "app", "matchmaking_analyses"
+    ) and not table_exists_in_schema("core", "matchmaking_analyses"):
+        op.execute("ALTER TABLE app.matchmaking_analyses SET SCHEMA core")
+    else:
+        print(
+            "  - matchmaking_analyses: already in core schema or doesn't exist in app, skipping"
+        )
 
     # 3. Move alembic_version to public schema (Alembic metadata table - should be in public)
     print("Checking for alembic_version table...")
@@ -74,49 +138,128 @@ def upgrade() -> None:
 
     # 4. Move jobs tables from app schema to jobs schema
     print("Moving jobs tables...")
-    op.execute("ALTER TABLE app.job_configurations SET SCHEMA jobs")
-    op.execute("ALTER TABLE app.job_executions SET SCHEMA jobs")
-    op.execute("ALTER TABLE app.system_settings SET SCHEMA jobs")
+
+    if table_exists_in_schema(
+        "app", "job_configurations"
+    ) and not table_exists_in_schema("jobs", "job_configurations"):
+        op.execute("ALTER TABLE app.job_configurations SET SCHEMA jobs")
+    else:
+        print(
+            "  - job_configurations: already in jobs schema or doesn't exist in app, skipping"
+        )
+
+    if table_exists_in_schema("app", "job_executions") and not table_exists_in_schema(
+        "jobs", "job_executions"
+    ):
+        op.execute("ALTER TABLE app.job_executions SET SCHEMA jobs")
+    else:
+        print(
+            "  - job_executions: already in jobs schema or doesn't exist in app, skipping"
+        )
+
+    if table_exists_in_schema("app", "system_settings") and not table_exists_in_schema(
+        "jobs", "system_settings"
+    ):
+        op.execute("ALTER TABLE app.system_settings SET SCHEMA jobs")
+    else:
+        print(
+            "  - system_settings: already in jobs schema or doesn't exist in app, skipping"
+        )
 
     # 5. Move APScheduler table if it exists
     print("Checking for APScheduler table...")
-    result = conn.execute(
-        sa.text(
-            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'app' AND table_name = 'apscheduler_jobs')"
-        )
-    )
-    if result.scalar():
+    if table_exists_in_schema("app", "apscheduler_jobs") and not table_exists_in_schema(
+        "jobs", "apscheduler_jobs"
+    ):
         print("Moving apscheduler_jobs to jobs schema...")
         op.execute("ALTER TABLE app.apscheduler_jobs SET SCHEMA jobs")
+    else:
+        print(
+            "  - apscheduler_jobs: already in jobs schema or doesn't exist in app, skipping"
+        )
 
     # 6. Move enums to appropriate schemas (if they exist)
     print("Checking for enums to migrate...")
 
     # Check and move job-related enums to jobs schema
-    result = conn.execute(
-        sa.text(
-            "SELECT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'app' AND t.typname = 'job_type_enum')"
-        )
-    )
-    if result.scalar():
-        print("Moving job-related enums to jobs schema...")
+    print("Checking job-related enums...")
+    if enum_exists_in_schema("app", "job_type_enum") and not enum_exists_in_schema(
+        "jobs", "job_type_enum"
+    ):
+        print("Moving job_type_enum to jobs schema...")
         op.execute("ALTER TYPE app.job_type_enum SET SCHEMA jobs")
+    else:
+        print(
+            "  - job_type_enum: already in jobs schema or doesn't exist in app, skipping"
+        )
+
+    if enum_exists_in_schema("app", "job_status_enum") and not enum_exists_in_schema(
+        "jobs", "job_status_enum"
+    ):
+        print("Moving job_status_enum to jobs schema...")
         op.execute("ALTER TYPE app.job_status_enum SET SCHEMA jobs")
+    else:
+        print(
+            "  - job_status_enum: already in jobs schema or doesn't exist in app, skipping"
+        )
 
     # Check and move core-related enums to core schema
-    result = conn.execute(
-        sa.text(
-            "SELECT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'app' AND t.typname = 'tier_enum')"
-        )
-    )
-    if result.scalar():
-        print("Moving core-related enums to core schema...")
+    print("Checking core-related enums...")
+    if enum_exists_in_schema("app", "tier_enum") and not enum_exists_in_schema(
+        "core", "tier_enum"
+    ):
+        print("Moving tier_enum to core schema...")
         op.execute("ALTER TYPE app.tier_enum SET SCHEMA core")
+    else:
+        print("  - tier_enum: already in core schema or doesn't exist in app, skipping")
+
+    if enum_exists_in_schema("app", "rank_enum") and not enum_exists_in_schema(
+        "core", "rank_enum"
+    ):
+        print("Moving rank_enum to core schema...")
         op.execute("ALTER TYPE app.rank_enum SET SCHEMA core")
+    else:
+        print("  - rank_enum: already in core schema or doesn't exist in app, skipping")
+
+    if enum_exists_in_schema("app", "queue_type_enum") and not enum_exists_in_schema(
+        "core", "queue_type_enum"
+    ):
+        print("Moving queue_type_enum to core schema...")
         op.execute("ALTER TYPE app.queue_type_enum SET SCHEMA core")
+    else:
+        print(
+            "  - queue_type_enum: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if enum_exists_in_schema(
+        "app", "confidence_level_enum"
+    ) and not enum_exists_in_schema("core", "confidence_level_enum"):
+        print("Moving confidence_level_enum to core schema...")
         op.execute("ALTER TYPE app.confidence_level_enum SET SCHEMA core")
+    else:
+        print(
+            "  - confidence_level_enum: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if enum_exists_in_schema(
+        "app", "detection_signal_enum"
+    ) and not enum_exists_in_schema("core", "detection_signal_enum"):
+        print("Moving detection_signal_enum to core schema...")
         op.execute("ALTER TYPE app.detection_signal_enum SET SCHEMA core")
+    else:
+        print(
+            "  - detection_signal_enum: already in core schema or doesn't exist in app, skipping"
+        )
+
+    if enum_exists_in_schema(
+        "app", "analysis_status_enum"
+    ) and not enum_exists_in_schema("core", "analysis_status_enum"):
+        print("Moving analysis_status_enum to core schema...")
         op.execute("ALTER TYPE app.analysis_status_enum SET SCHEMA core")
+    else:
+        print(
+            "  - analysis_status_enum: already in core schema or doesn't exist in app, skipping"
+        )
 
     # 7. Verify app schema is empty before dropping
     result = conn.execute(

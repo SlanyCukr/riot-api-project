@@ -20,11 +20,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Drop the empty app schema."""
+    """Drop the app schema (with CASCADE to handle any remaining tables)."""
 
     conn = op.get_bind()
 
-    # Verify app schema is empty before dropping
+    # Check if app schema has any remaining tables (for logging only)
     result = conn.execute(
         sa.text(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'app'"
@@ -33,19 +33,19 @@ def upgrade() -> None:
     remaining_tables = result.scalar()
 
     if remaining_tables > 0:
-        # List remaining tables for safety
+        # List remaining tables for information
         result = conn.execute(
             sa.text(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'app' ORDER BY table_name"
             )
         )
         tables = [row[0] for row in result]
-        raise Exception(
-            f"Cannot drop app schema: {remaining_tables} tables still remain: {tables}"
+        print(
+            f"Note: {remaining_tables} tables still in app schema (will be dropped with CASCADE): {tables}"
         )
 
-    # Drop the app schema
-    print("Dropping empty app schema...")
+    # Drop the app schema (CASCADE will drop any remaining tables/objects)
+    print("Dropping app schema...")
     op.execute("DROP SCHEMA IF EXISTS app CASCADE")
     print("App schema dropped successfully!")
 

@@ -22,6 +22,17 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Create users table in auth schema with TEXT password_hash."""
 
+    # Check if users table already exists
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'users')"
+        )
+    )
+    if result.scalar():
+        print("Users table already exists in auth schema, skipping creation")
+        return
+
     op.create_table(
         "users",
         sa.Column(
