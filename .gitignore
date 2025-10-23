@@ -260,3 +260,6 @@ code-reviews/
 !.claude/commands/*
 .claude/settings.local.json
 .claude/.claude
+
+docs/production-rpi.md
+SQLMODEL_REFACTORING_GUIDE.md
