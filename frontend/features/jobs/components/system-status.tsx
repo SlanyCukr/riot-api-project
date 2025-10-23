@@ -55,13 +55,7 @@ export function SystemStatus({ status }: SystemStatusProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {/* Scheduler Status */}
-      <Card
-        className={
-          status.scheduler_running
-            ? "border-green-500/50 bg-green-500/10"
-            : "border-red-500/50 bg-red-500/10"
-        }
-      >
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -106,13 +100,7 @@ export function SystemStatus({ status }: SystemStatusProps) {
       </Card>
 
       {/* Running Executions */}
-      <Card
-        className={
-          hasRunningJobs
-            ? "border-yellow-500/50 bg-yellow-500/10"
-            : "border-green-500/50 bg-green-500/10"
-        }
-      >
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -139,13 +127,7 @@ export function SystemStatus({ status }: SystemStatusProps) {
       </Card>
 
       {/* Last Execution */}
-      <Card
-        className={
-          lastExecutionFailed
-            ? "border-red-500/50 bg-red-500/10"
-            : "border-green-500/50 bg-green-500/10"
-        }
-      >
+      <Card>
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div>

@@ -51,12 +51,26 @@ class AuthService:
         return result.scalar_one_or_none()
 
     async def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        """Authenticate a user with email and password."""
+        """Authenticate a user with email and password.
+
+        Uses constant-time comparison to prevent timing attacks that could
+        reveal valid email addresses. Always hashes the password even when
+        the user doesn't exist.
+        """
         user = await self.get_user_by_email(email)
+
+        # Always hash password to prevent timing attacks
+        # If user doesn't exist, hash against a dummy value
         if not user:
+            # Hash against dummy password to waste same amount of time
+            # Pre-computed Argon2 hash of "dummy_password_for_timing_protection"
+            dummy_hash = "$argon2id$v=19$m=65536,t=3,p=4$qNVaS2lNCcH4vzfG+P9fSw$VpLQUmDVmdNQm7w0VIYso0IyglZSf1VDJ7qtaRkmnNQ"
+            self.verify_password(password, dummy_hash)
             return None
+
         if not self.verify_password(password, user.password_hash):
             return None
+
         return user
 
     async def create_user(self, user_create: UserCreate) -> User:

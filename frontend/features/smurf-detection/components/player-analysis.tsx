@@ -214,8 +214,9 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
             {showingCached && timestampInfo && (
               <Alert
                 className={cn(
-                  "border-blue-200 bg-blue-50",
-                  timestampInfo.isOld && "border-yellow-200 bg-yellow-50",
+                  "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950",
+                  timestampInfo.isOld &&
+                    "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950",
                 )}
               >
                 <Clock className="h-4 w-4" />
@@ -238,8 +239,8 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
               className={cn(
                 "flex items-center justify-between rounded-lg border-2 p-4",
                 detection.is_smurf
-                  ? "border-red-500 bg-red-50"
-                  : "border-green-500 bg-green-50",
+                  ? "border-red-500 bg-red-50 dark:border-red-800 dark:bg-red-950"
+                  : "border-green-500 bg-green-50 dark:border-green-800 dark:bg-green-950",
               )}
             >
               <div className="flex items-center gap-3">

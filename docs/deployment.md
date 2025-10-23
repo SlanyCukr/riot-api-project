@@ -34,6 +34,67 @@ cd riot-api
 
 ---
 
+## Environment Setup & Secrets
+
+### Required Secrets
+
+The application requires the following secrets to be configured:
+
+1. **JWT_SECRET_KEY**: JWT token signing secret (32+ characters)
+2. **POSTGRES_PASSWORD**: Database password
+3. **RIOT_API_KEY**: Riot Games API key (can also be set via web UI)
+
+### Generating Secure JWT Secret
+
+The JWT secret must be at least 32 characters (256 bits) to meet RFC 7518 security requirements for HS256 algorithm.
+
+**Generate using Python**:
+```bash
+python3 -c 'import secrets; print(secrets.token_hex(32))'
+```
+
+**Example output**: `a7f8d9e2b4c6f1a3d5e7c9b1f3a5d7e9c2b4f6a8d0e2c4f6a8b0d2e4f6a8b0c2`
+
+**Or using OpenSSL**:
+```bash
+openssl rand -hex 32
+```
+
+### Setting Secrets
+
+**For GitHub Actions Deployment**:
+1. Go to repository **Settings** → **Secrets and variables** → **Actions**
+2. Add secrets: `JWT_SECRET_KEY`, `POSTGRES_PASSWORD`, `RIOT_API_KEY`
+
+**For Manual Deployment**:
+Create `.env` file in project root:
+```bash
+# /home/pi/riot-api/.env
+JWT_SECRET_KEY=<generated-secret-from-above>
+POSTGRES_PASSWORD=<your-secure-password>
+RIOT_API_KEY=<your-riot-api-key>
+ENVIRONMENT=production
+```
+
+**Important**:
+- Never commit `.env` file to git (already in `.gitignore`)
+- Never use default values like "dev_secret_key_please_change_in_production"
+- The application will **fail to start** in production if an insecure JWT secret is detected
+- Rotate secrets every 3-6 months or after security incidents
+
+### Secret Validation
+
+The application validates secrets on startup:
+- **Production**: Fails with error if JWT secret is weak or too short
+- **Development**: Logs warning but allows startup
+
+Check logs after deployment:
+```bash
+docker compose -f docker-compose.prod.yml logs backend | grep -i "jwt\|secret\|warning"
+```
+
+---
+
 ## Deployment Types
 
 ### 1. Code-Only Deployment

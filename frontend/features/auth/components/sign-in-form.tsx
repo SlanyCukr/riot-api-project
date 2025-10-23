@@ -45,11 +45,8 @@ export function SignInForm() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center py-12 px-4"
+      className="min-h-screen flex items-start justify-center py-12 px-4"
       style={{
-        background:
-          "linear-gradient(180deg, #0f1f3a 0%, #0a1428 20%, #0a1428 80%, #060d1a 100%)",
-        alignItems: "flex-start",
         paddingTop: "20vh",
       }}
     >
@@ -88,7 +85,6 @@ export function SignInForm() {
               id="sign-in-form"
               onSubmit={form.handleSubmit(onSubmit)}
               className="space-y-6"
-              autoComplete="off"
             >
               <FormField
                 control={form.control}
@@ -111,8 +107,7 @@ export function SignInForm() {
                         disabled={isSubmitting}
                         className="text-gray-900 border-gray-300 placeholder:text-gray-500 focus-visible:ring-gray-400"
                         style={{ backgroundColor: "#e5e7eb" }}
-                        autoComplete="new-password"
-                        name="email-unique"
+                        autoComplete="email"
                       />
                     </FormControl>
                     <FormMessage />
@@ -137,8 +132,7 @@ export function SignInForm() {
                         disabled={isSubmitting}
                         className="text-gray-900 border-gray-300 placeholder:text-gray-500 focus-visible:ring-gray-400"
                         style={{ backgroundColor: "#e5e7eb" }}
-                        autoComplete="new-password"
-                        name="password-unique"
+                        autoComplete="current-password"
                       />
                     </FormControl>
                     <FormMessage />
