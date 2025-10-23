@@ -1,8 +1,8 @@
-"""create_users_table
+"""Create users table
 
-Revision ID: 3e390f28278a
+Revision ID: 7dc7d16fed5b
 Revises: 03230a19b98b
-Create Date: 2025-10-23 03:16:39.226812
+Create Date: 2025-10-23 13:46:34.736530
 
 """
 
@@ -13,14 +13,14 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "3e390f28278a"
+revision: str = "7dc7d16fed5b"
 down_revision: Union[str, Sequence[str], None] = "03230a19b98b"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create users table in auth schema."""
+    """Create users table in auth schema with TEXT password_hash."""
 
     op.create_table(
         "users",
@@ -39,7 +39,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "password_hash",
-            sa.String(length=255),
+            sa.Text(),  # ✅ TEXT type from the start - no length limit
             nullable=False,
             comment="Hashed password using Argon2id",
         ),
@@ -142,7 +142,7 @@ def upgrade() -> None:
         schema="auth",
     )
 
-    print("Users table created successfully in auth schema!")
+    print("Users table created successfully in auth schema with TEXT password_hash!")
 
 
 def downgrade() -> None:
