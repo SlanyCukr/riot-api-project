@@ -9,11 +9,11 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { getToken, setToken, removeToken } from "../utils/token-manager";
 import type { User, LoginCredentials, AuthContextType } from "../types";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = "auth_token";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -21,20 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for token synchronously on initialization to avoid flash
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window === "undefined") return true;
-    return !!localStorage.getItem(TOKEN_KEY);
+    return !!getToken();
   });
   const router = useRouter();
 
   // Check authentication status on mount and after login
   const checkAuth = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getToken();
 
     if (!token) {
       setUser(null);
       setIsLoading(false);
-      // Ensure cookie is also removed
-      document.cookie =
-        "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      removeToken(); // Ensure both localStorage and cookie are cleared
       return;
     }
 
@@ -48,22 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-        // Ensure cookie is in sync with localStorage
-        document.cookie = `auth_token=${token}; path=/; max-age=${
-          7 * 24 * 60 * 60
-        }; SameSite=Lax`;
+        setToken(token); // Ensure token is in sync across storage mechanisms
       } else {
         // Token invalid or expired
-        localStorage.removeItem(TOKEN_KEY);
-        document.cookie =
-          "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        removeToken();
         setUser(null);
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
-      localStorage.removeItem(TOKEN_KEY);
-      document.cookie =
-        "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      // Only log errors in development
+      if (process.env.NODE_ENV === "development") {
+        console.error("Auth check failed:", error);
+      }
+      removeToken();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -98,13 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
 
-      // Store token in localStorage
-      localStorage.setItem(TOKEN_KEY, data.access_token);
-
-      // Also store in cookie for middleware access
-      document.cookie = `auth_token=${data.access_token}; path=/; max-age=${
-        7 * 24 * 60 * 60
-      }; SameSite=Lax`;
+      // Store token using centralized token manager
+      setToken(data.access_token);
 
       // Fetch user data
       await checkAuth();
@@ -118,10 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    // Remove cookie
-    document.cookie =
-      "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    removeToken(); // Use centralized token removal
     setUser(null);
     router.push("/sign-in");
   };

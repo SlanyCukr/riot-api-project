@@ -6,11 +6,11 @@ from typing import Dict, Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core import get_global_settings, get_riot_api_key
+from app.core.rate_limiter import limiter
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router
@@ -34,9 +34,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = structlog.get_logger(__name__)
-
-# Configure rate limiter
-limiter = Limiter(key_func=get_remote_address)
 
 # Configure structlog
 structlog.configure(
@@ -123,6 +120,10 @@ async def lifespan(app: FastAPI):
 # OpenAPI tags metadata
 tags_metadata = [
     {
+        "name": "auth",
+        "description": "Authentication and user management endpoints. Includes registration, login, and token management.",
+    },
+    {
         "name": "players",
         "description": "Operations for searching and managing player data.",
     },
@@ -167,7 +168,19 @@ app = FastAPI(
 
     ## Authentication
 
-    Currently, this API does not require authentication. This will change in production.
+    This API uses JWT (JSON Web Token) based authentication for protected endpoints.
+
+    **Public endpoints**: Health check, API documentation
+    **Protected endpoints**: Player management, match history, analysis, jobs, settings
+
+    To authenticate:
+    1. Register a new account at `/api/v1/auth/register`
+    2. Login at `/api/v1/auth/login` to receive a JWT token
+    3. Include the token in the `Authorization` header: `Bearer <token>`
+
+    **Rate limiting**: Authentication endpoints are rate-limited to prevent brute force attacks.
+    - Login: 5 attempts per minute
+    - Registration: 3 attempts per minute
 
     ## Rate Limiting
 

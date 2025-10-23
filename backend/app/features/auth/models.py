@@ -40,7 +40,7 @@ class User(Base):
     )
 
     password_hash: Mapped[str] = mapped_column(
-        String(255),
+        String,  # Text type in database, no length limit
         nullable=False,
         comment="Hashed password using Argon2id",
     )

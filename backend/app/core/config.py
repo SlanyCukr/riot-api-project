@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 from typing import List, Optional, TYPE_CHECKING
@@ -71,6 +71,62 @@ class Settings(BaseSettings):
         default=10080,  # 7 days
         description="JWT access token expiration time in minutes",
     )
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        """Validate JWT secret key meets security requirements.
+
+        Enforces:
+        - Minimum length of 32 characters (256 bits for HS256 per RFC 7518)
+        - No default/placeholder values in production
+        - Fails fast on startup with clear error messages
+
+        Raises:
+            ValueError: If secret is weak and environment is production
+        """
+        # Check if running in production
+        env = os.getenv("ENVIRONMENT", "").lower()
+        is_production = env == "production"
+
+        # Check for default/placeholder secrets
+        weak_indicators = ["dev_secret", "please_change", "changeme", "secret_key"]
+        is_weak = any(indicator in v.lower() for indicator in weak_indicators)
+
+        if is_weak:
+            if is_production:
+                raise ValueError(
+                    "Production deployment detected with default/weak JWT secret! "
+                    "Generate a strong secret using: python -c 'import secrets; print(secrets.token_hex(32))' "
+                    "and set it via JWT_SECRET_KEY environment variable."
+                )
+            # Warn in development but allow
+            import sys
+
+            print(
+                "⚠️  WARNING: Using default JWT secret in development. "
+                "Generate a production secret before deployment!",
+                file=sys.stderr,
+            )
+
+        # Enforce minimum length (32 chars = 256 bits)
+        if len(v) < 32:
+            if is_production:
+                raise ValueError(
+                    f"JWT secret must be at least 32 characters (256 bits). "
+                    f"Current length: {len(v)} characters. "
+                    f"Generate a strong secret using: python -c 'import secrets; print(secrets.token_hex(32))'"
+                )
+            # Warn in development but allow
+            import sys
+
+            print(
+                f"⚠️  WARNING: JWT secret is too short ({len(v)} chars). "
+                f"Minimum recommended: 32 characters. Generate with: python -c 'import secrets; print(secrets.token_hex(32))'",
+                file=sys.stderr,
+            )
+
+        return v
 
     model_config = SettingsConfigDict(
         env_file=".env",

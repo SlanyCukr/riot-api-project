@@ -2,9 +2,11 @@
 
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
 
+from app.core.rate_limiter import limiter
 from .dependencies import get_current_active_user, get_current_admin_user
 from .models import User
 from .schemas import Token, UserCreate, UserResponse
@@ -14,7 +16,9 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Token:
@@ -51,19 +55,31 @@ async def login(
     # Update last login timestamp
     await auth_service.update_last_login(user.id)
 
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="bearer")  # nosec B106
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_active_user)) -> dict:
-    """Logout endpoint.
+async def logout(
+    current_user: User = Depends(get_current_active_user),
+) -> dict[str, str]:
+    """Logout endpoint (placeholder).
 
-    Since we're using JWT tokens (stateless), logout is handled client-side
-    by deleting the token. This endpoint just confirms authentication works
-    and can be used to update last_login timestamp.
+    NOTE: This is a placeholder endpoint. Since we're using stateless JWT tokens,
+    logout is currently handled client-side by deleting the token.
+
+    For proper logout functionality, implement token revocation/blacklisting.
+    See docs/technical-debt.md for implementation details.
+
+    TODO:
+    - Implement JWT token blacklist (Redis cache recommended)
+    - Store revoked tokens with expiration timestamps
+    - Check blacklist in authentication middleware
+    - Revoke tokens on password change and admin actions
     """
-    # Update last login timestamp on logout as well
-    # This could be used for tracking last activity
+    # This endpoint exists to:
+    # 1. Verify the user is authenticated
+    # 2. Provide a standardized API for future token revocation
+    # 3. Track last activity (could update last_login timestamp here)
     return {"message": "Successfully logged out"}
 
 
@@ -78,7 +94,9 @@ async def get_current_user_info(
 @router.post(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
+@limiter.limit("3/minute")
 async def register_user(
+    request: Request,
     user_create: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> User:
@@ -100,7 +118,5 @@ async def list_users(
     auth_service: AuthService = Depends(get_auth_service),
 ) -> list[User]:
     """List all users (admin only)."""
-    from sqlalchemy import select
-
     result = await auth_service.db.execute(select(User))
     return list(result.scalars().all())

@@ -28,7 +28,11 @@ class UserCreate(UserBase):
         - At least one lowercase letter
         - At least one uppercase letter
         - At least one digit
-        - At least one special character
+        - At least one special character (expanded set to support password managers)
+
+        Note: For more sophisticated strength checking (e.g., entropy-based validation),
+        consider integrating zxcvbn library in the future. Current validation uses
+        regex-based rules which are adequate for basic security requirements.
         """
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
@@ -42,9 +46,12 @@ class UserCreate(UserBase):
         if not re.search(r"\d", v):
             raise ValueError("Password must contain at least one digit")
 
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+        # Expanded special character set to support password managers
+        # Includes common symbols: !@#$%^&*(),.?":{}|<>-_+=[]\/;'`~
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\\/;'`~]", v):
             raise ValueError(
-                'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)'
+                "Password must contain at least one special character "
+                "(!@#$%^&*(),.?\":{}|<>-_+=[]\\\/;'`~)"
             )
 
         return v
