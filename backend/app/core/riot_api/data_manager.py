@@ -232,6 +232,9 @@ class RiotDataManager:
 
         Uses PostgreSQL UPSERT to handle duplicates.
         """
+        # Lazy import to avoid circular dependency
+        from app.features.players.models import Player
+
         stmt = (
             insert(Player)
             .values(
