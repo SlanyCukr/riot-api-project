@@ -403,13 +403,11 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 ### Before Deployment
 
 1. **Test Locally**
-
    - Run all tests: `docker compose exec backend uv run pytest`
    - Test transaction boundaries
    - Verify schema changes work correctly
 
 2. **Review Changes**
-
    - Check for schema modifications
    - Identify dependencies between changes
    - Plan deployment order
@@ -428,7 +426,6 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
    ```
 
 2. **Check Job Execution**
-
    - Watch for job start/completion messages
    - Verify no transaction errors
    - Monitor API request counts
@@ -441,7 +438,6 @@ Run through [Verification Steps](#verification-steps) to ensure system is stable
 ### After Deployment
 
 1. **Monitor for 10-15 Minutes**
-
    - Watch for errors in logs
    - Verify jobs run successfully
    - Check API response times

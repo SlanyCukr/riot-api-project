@@ -7,6 +7,7 @@ Manages system-wide configuration settings for the application. Provides a persi
 ## API Endpoints
 
 ### Settings Management
+
 - `GET /api/v1/settings/` - List all system settings
 - `GET /api/v1/settings/{key}` - Get a specific setting by key
 - `POST /api/v1/settings/` - Create a new setting
@@ -14,21 +15,26 @@ Manages system-wide configuration settings for the application. Provides a persi
 - `DELETE /api/v1/settings/{key}` - Delete a setting
 
 ### Riot API Key Management
+
 - `GET /api/v1/settings/riot_api_key` - Get the current Riot API key (masked for security)
 - `PUT /api/v1/settings/riot_api_key` - Update the Riot API key (validates before saving)
 - `POST /api/v1/settings/riot_api_key/test` - Test an API key without saving it
 
 ### Bulk Operations
+
 - `GET /api/v1/settings/category/{category}` - Get all settings in a category
 - `PUT /api/v1/settings/bulk` - Update multiple settings at once
 
 ## Key Components
 
 ### Router (`router.py`)
+
 FastAPI router defining settings management endpoints. Handles CRUD operations for system settings with proper error handling.
 
 ### Service (`service.py`)
+
 **SettingsService** - Core business logic for settings operations:
+
 - Setting retrieval and caching
 - Setting validation and updates
 - Category-based organization
@@ -37,11 +43,15 @@ FastAPI router defining settings management endpoints. Handles CRUD operations f
 - Sensitive value masking
 
 ### Models (`models.py`)
+
 **SQLAlchemy Models:**
+
 - `SystemSetting` - Setting entity (key, value, category, description, data type, sensitive flag)
 
 ### Schemas (`schemas.py`)
+
 **Pydantic Schemas:**
+
 - `SystemSettingResponse` - API response format for settings
 - `SystemSettingCreate` - Create setting request
 - `SystemSettingUpdate` - Update setting request
@@ -50,19 +60,23 @@ FastAPI router defining settings management endpoints. Handles CRUD operations f
 - `SettingTestResponse` - Test result for API key validation
 
 ### Dependencies (`dependencies.py`)
+
 - `get_settings_service()` - Dependency injection for SettingsService
 
 ## Dependencies
 
 ### Core Dependencies
+
 - `core.database` - Database session management
 - `core.config` - Application settings (environment-based defaults)
 - `core.riot_api` - Riot API client for key validation
 
 ### Feature Dependencies
+
 - None (settings feature is independent)
 
 ### External Libraries
+
 - SQLAlchemy - ORM for database operations
 - Pydantic - Data validation and serialization
 - FastAPI - API routing and dependency injection
@@ -72,27 +86,32 @@ FastAPI router defining settings management endpoints. Handles CRUD operations f
 Settings are organized into logical categories:
 
 ### 1. Riot API (`riot_api`)
+
 - Riot API key configuration
 - Rate limit configurations
 - API request timeouts
 - Regional endpoints
 
 ### 2. Job Configuration (`jobs`)
+
 - Job schedules and intervals
 - Job execution timeouts
 - Job retry policies
 
 ### 3. Analysis Settings (`analysis`)
+
 - Smurf detection thresholds
 - Matchmaking analysis weights
 - Statistical calculation parameters
 
 ### 4. System Settings (`app`)
+
 - Database connection pool sizes
 - Logging levels
 - Cache TTL values
 
 ### 5. Feature Flags (`feature_flags`)
+
 - Enable/disable specific features
 - Beta feature toggles
 - Experimental functionality
@@ -180,6 +199,7 @@ async def bulk_update_example(
 ## Data Model
 
 ### SystemSetting
+
 - `id` (int, PK) - Auto-increment ID
 - `key` (str, unique) - Setting identifier (e.g., "riot_api_key")
 - `value` (str) - Setting value (stored as string, cast to appropriate type)
@@ -195,26 +215,31 @@ async def bulk_update_example(
 Settings support automatic type conversion:
 
 ### String
+
 ```python
 {"key": "api_endpoint", "value": "https://api.example.com", "data_type": "string"}
 ```
 
 ### Integer
+
 ```python
 {"key": "max_retries", "value": "3", "data_type": "int"}
 ```
 
 ### Float
+
 ```python
 {"key": "threshold", "value": "0.75", "data_type": "float"}
 ```
 
 ### Boolean
+
 ```python
 {"key": "feature_enabled", "value": "true", "data_type": "boolean"}
 ```
 
 ### JSON
+
 ```python
 {"key": "config_object", "value": '{"a": 1, "b": 2}', "data_type": "json"}
 ```
@@ -222,12 +247,14 @@ Settings support automatic type conversion:
 ## Security Features
 
 ### Sensitive Value Masking
+
 - Sensitive settings (like `riot_api_key`) are **never** returned in full
 - Values are masked using `****-****-{last_4_chars}` format
 - API responses automatically mask sensitive values
 - All setting updates are logged with masked values
 
 ### API Key Validation
+
 - Riot API keys are validated before being saved
 - Validation makes actual Riot API call to verify the key works
 - Test endpoint allows validation without saving
@@ -236,11 +263,13 @@ Settings support automatic type conversion:
 ## Best Practices
 
 ### Naming Conventions
+
 - Use lowercase with underscores: `job_interval_player_update`
 - Prefix by category: `riot_api_timeout`, `smurf_detection_threshold`
 - Be descriptive: `enable_experimental_feature_x` not `exp_feat_x`
 
 ### Default Values
+
 Always provide sensible defaults in code to handle missing settings:
 
 ```python
@@ -253,6 +282,7 @@ async def get_with_default(key: str, default: str):
 ```
 
 ### Validation
+
 Validate setting values before updates:
 
 ```python

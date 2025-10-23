@@ -10,7 +10,6 @@ Radix UI Primitives provides low-level, unstyled React components with built-in 
 
 ## Quick Start
 
-
 ### Basic Dialog Example
 
 ```jsx
@@ -257,9 +256,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 export const CustomDialog = ({ children, trigger, title }) => {
   return (
     <DialogPrimitive.Root>
-      <DialogPrimitive.Trigger asChild>
-        {trigger}
-      </DialogPrimitive.Trigger>
+      <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="overlay" />
         <DialogPrimitive.Content className="content">
@@ -275,12 +272,9 @@ export const CustomDialog = ({ children, trigger, title }) => {
 };
 
 // Usage
-<CustomDialog
-  title="Settings"
-  trigger={<Button>Open Settings</Button>}
->
+<CustomDialog title="Settings" trigger={<Button>Open Settings</Button>}>
   <div>Settings content here</div>
-</CustomDialog>
+</CustomDialog>;
 ```
 
 ### Styling with Data Attributes
@@ -347,7 +341,7 @@ function AsyncDialog() {
           <form onSubmit={handleSubmit}>
             <input name="email" type="email" required />
             <Button type="submit" disabled={loading}>
-              {loading ? 'Submitting…' : 'Submit'}
+              {loading ? "Submitting…" : "Submit"}
             </Button>
           </form>
         </Dialog.Content>

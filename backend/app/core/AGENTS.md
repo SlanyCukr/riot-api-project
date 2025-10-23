@@ -7,6 +7,7 @@ The `backend/app/core/` directory contains shared infrastructure code that all f
 ## Core Modules
 
 ### `database.py` - Database Session Management
+
 - **`AsyncSessionLocal`**: SQLAlchemy async session factory
 - **`get_db()`**: Async generator dependency for FastAPI routes
 - **`async_engine`**: Database engine with connection pooling
@@ -21,6 +22,7 @@ async def example(db: AsyncSession = Depends(get_db)):
 ```
 
 ### `config.py` - Application Configuration
+
 - **`Settings`**: Pydantic settings model with environment variables
 - **`get_settings()`**: Cached settings dependency
 - **Configuration sources**: `.env` file, environment variables
@@ -34,12 +36,14 @@ print(settings.RIOT_API_KEY)
 ```
 
 **Key settings:**
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `RIOT_API_KEY` - Riot API authentication key
 - `CORS_ORIGINS` - Allowed CORS origins for frontend
 - `LOG_LEVEL` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
 
 ### `logging.py` - Structured Logging
+
 - **`structlog`** configuration with JSON output
 - **Context keys** for trace ability
 - **Request ID tracking** for request correlation
@@ -55,6 +59,7 @@ logger.error("api_error", error=str(e), endpoint="/summoner/v4")
 **Never use f-strings in log messages** - use context keys instead.
 
 ### `exceptions.py` - Custom Exceptions
+
 Base exception classes for application errors:
 
 - **`RiotAPIError`**: Riot API request failures
@@ -70,6 +75,7 @@ if response.status_code == 404:
 ```
 
 ### `dependencies.py` - Core Dependency Injection
+
 - **`get_db()`**: Database session (imported from database.py)
 - **`get_settings()`**: Application settings (imported from config.py)
 - **`get_riot_api_client()`**: Riot API client instance
@@ -87,6 +93,7 @@ async def get_player(
 ```
 
 ### `enums.py` - Shared Enumerations
+
 - **`Tier`**: Rank tiers (IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER)
 - **`Platform`**: Riot API platforms (NA1, EUW1, EUN1, KR, etc.)
 - **`QueueType`**: Game queue types (RANKED_SOLO_5x5, RANKED_FLEX_SR, etc.)
@@ -99,6 +106,7 @@ if rank.tier == Tier.CHALLENGER:
 ```
 
 ### `models.py` - Base Model Class
+
 - **`Base`**: SQLAlchemy declarative base
 - **`BaseModel`**: Abstract base with common fields (`id`, `created_at`, `updated_at`)
 
@@ -114,6 +122,7 @@ class Player(BaseModel):
 ```
 
 ### `validation.py` - Shared Validation Utilities
+
 - Riot ID validation (game name + tag line)
 - PUUID format validation
 - Platform code validation
@@ -125,6 +134,7 @@ game_name, tag_line = validate_riot_id("PlayerName#NA1")
 ```
 
 ### `decorators.py` - Utility Decorators
+
 - **`@retry_on_rate_limit`**: Automatic retry with exponential backoff for rate-limited requests
 - **`@circuit_breaker`**: Circuit breaker pattern for external API calls
 - **`@measure_performance`**: Performance measurement and logging
@@ -138,11 +148,13 @@ async def fetch_matches(puuid: str):
 ```
 
 ### `riot_api/` - Riot API Integration
+
 Complete Riot API client infrastructure with rate limiting, caching, and data transformation.
 
 **See `backend/app/core/riot_api/AGENTS.md` for comprehensive Riot API documentation.**
 
 Key modules:
+
 - `client.py` - HTTP client with rate limiting
 - `data_manager.py` - High-level data access (use this, not client directly)
 - `rate_limiter.py` - Token bucket rate limiter
@@ -152,6 +164,7 @@ Key modules:
 ## Architectural Rules
 
 ### Rule 1: Features Depend on Core (Never Reverse)
+
 ```python
 # ✅ Correct: Feature imports from core
 from app.core.database import get_db
@@ -162,6 +175,7 @@ from app.features.players.service import PlayerService  # Never in core/
 ```
 
 ### Rule 2: Use RiotDataManager, Not RiotAPIClient
+
 ```python
 # ✅ Correct: Use data manager
 from app.core.riot_api import RiotDataManager
@@ -175,6 +189,7 @@ response = await client.get(url)  # Too low-level, no caching
 ```
 
 ### Rule 3: Use Dependency Injection
+
 ```python
 # ✅ Correct: DI with FastAPI Depends
 @router.get("/player")
@@ -190,6 +205,7 @@ settings = Settings()
 ```
 
 ### Rule 4: Structured Logging with Context
+
 ```python
 # ✅ Correct: Context keys
 logger.info("player_fetched", puuid=puuid, platform=platform.value)
@@ -201,12 +217,14 @@ logger.info(f"Fetched player {puuid} from {platform}")
 ## Adding to Core
 
 **When to add to core:**
+
 - Infrastructure used by multiple features
 - Third-party integrations (APIs, services)
 - Shared utilities and helpers
 - Base classes and abstractions
 
 **When NOT to add to core:**
+
 - Feature-specific business logic
 - Domain models (put in feature's `models.py`)
 - Feature-specific services

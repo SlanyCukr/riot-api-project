@@ -71,6 +71,7 @@ docker compose exec backend uv run alembic revision --autogenerate -m "Add smurf
 ```
 
 **Output:**
+
 ```
 INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
 INFO  [alembic.runtime.migration] Will assume transactional DDL.
@@ -105,6 +106,7 @@ def downgrade():
 ```
 
 **Review checklist:**
+
 - ✅ Table name matches model's `__tablename__`
 - ✅ Columns match model attributes
 - ✅ Foreign keys are correct
@@ -119,6 +121,7 @@ docker compose exec backend uv run alembic upgrade head
 ```
 
 **Output:**
+
 ```
 INFO  [alembic.runtime.migration] Running upgrade def456 -> abc123, Add smurf_scores table
 ```
@@ -201,6 +204,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 This means:
+
 - **Development**: Migrations run when you start `docker compose watch`
 - **Production**: Migrations run when deploying with `docker compose -f compose.yaml -f compose.prod.yaml up -d`
 
@@ -213,6 +217,7 @@ docker compose exec backend uv run alembic history --verbose
 ```
 
 Example output:
+
 ```
 abc123 -> head, Add smurf_scores table (2025-10-22)
 def456 -> abc123, Add matches table (2025-10-21)
@@ -234,7 +239,9 @@ docker compose exec backend uv run alembic downgrade def456
 ### Production Rollback
 
 **Be cautious in production:**
+
 1. **Backup database first**:
+
    ```bash
    docker compose exec postgres pg_dump -U riot_api_user -d riot_api_db > backup_before_rollback.sql
    ```
@@ -242,6 +249,7 @@ docker compose exec backend uv run alembic downgrade def456
 2. **Test rollback in staging environment**
 
 3. **Roll back migration**:
+
    ```bash
    docker compose exec backend uv run alembic downgrade -1
    ```

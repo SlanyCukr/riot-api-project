@@ -1,4 +1,5 @@
 # Tech Stack
+
 - Next.js 15 + React 19 (App Router)
 - TypeScript + Tailwind CSS 4 + shadcn/ui (New York)
 - TanStack Query v5 + Zod v4
@@ -13,7 +14,9 @@
 The frontend uses **feature-based organization** where related components, hooks, and utilities are grouped by domain:
 
 ### Pages (`app/`)
+
 Next.js App Router pages (routing structure unchanged):
+
 - `app/page.tsx` - Home/dashboard
 - `app/player-analysis/page.tsx` - Smurf detection analysis
 - `app/matchmaking-analysis/page.tsx` - Matchmaking fairness
@@ -26,6 +29,7 @@ Next.js App Router pages (routing structure unchanged):
 Each feature contains components, hooks, and utilities specific to that domain:
 
 **`features/players/`** - Player management
+
 - `components/player-search.tsx` - Player search with autocomplete
 - `components/player-card.tsx` - Player info display
 - `components/player-stats.tsx` - Player statistics
@@ -36,28 +40,34 @@ Each feature contains components, hooks, and utilities specific to that domain:
 - `index.ts` - Public exports
 
 **`features/matches/`** - Match data
+
 - `components/match-history.tsx` - Match history table
 - `components/encounter-stats.tsx` - Opponent encounter statistics
 - `components/recent-opponents.tsx` - Recent opponents list
 
 **`features/smurf-detection/`** - Smurf analysis
+
 - `components/player-analysis.tsx` - Smurf detection results
 
 **`features/matchmaking/`** - Matchmaking analysis
+
 - `components/matchmaking-analysis.tsx` - Analysis input form
 - `components/matchmaking-analysis-results.tsx` - Fairness results
 
 **`features/jobs/`** - Background jobs
+
 - `components/job-card.tsx` - Individual job display
 - `components/job-executions.tsx` - Execution history
 - `components/system-status.tsx` - System overview
 
 **`features/settings/`** - System settings
+
 - `components/` - Settings components
 
 ### Shared Components (`components/`)
 
 Only shared/layout components (NOT feature-specific):
+
 - `sidebar-nav.tsx` - Navigation sidebar
 - `theme-provider.tsx` - Theme context provider
 - `theme-toggle.tsx` - Dark mode toggle
@@ -68,63 +78,74 @@ Only shared/layout components (NOT feature-specific):
 ### Core Utilities (`lib/core/`)
 
 Shared infrastructure:
+
 - `api.ts` - Axios API client configuration
 - `schemas.ts` - Shared Zod schemas
 - `validations.ts` - Validation utilities
 
 ### Generic Utilities (`lib/`)
+
 - `utils.ts` - Generic utilities (cn(), formatters, etc.)
 
 ### Shared Hooks (`hooks/`)
+
 - `use-toast.ts` - Toast notifications
 
 ## Architectural Principles
 
 ### 1. Feature Organization
+
 - **Feature modules** contain domain-specific UI, logic, and utilities
 - **Shared components** are layout/infrastructure only
 - **Pages** import from features and compose them
 
 ### 2. Component Placement Rules
+
 - If component is used by ONE feature → `features/<feature>/components/`
 - If component is shared layout/infrastructure → `components/`
 - If component is shadcn/ui → `components/ui/` (never move)
 
 ### 3. Public Exports
+
 Features expose clean public APIs:
+
 ```typescript
 // features/players/index.ts
-export { PlayerSearch } from './components/player-search'
-export { PlayerCard } from './components/player-card'
-export { PlayerStats } from './components/player-stats'
+export { PlayerSearch } from "./components/player-search";
+export { PlayerCard } from "./components/player-card";
+export { PlayerStats } from "./components/player-stats";
 ```
 
 ## Import Patterns
 
 ### Importing from Features
+
 ```typescript
 // Import from feature's public API
-import { PlayerSearch, PlayerCard } from '@/features/players'
-import { MatchHistory } from '@/features/matches'
-import { JobCard } from '@/features/jobs'
+import { PlayerSearch, PlayerCard } from "@/features/players";
+import { MatchHistory } from "@/features/matches";
+import { JobCard } from "@/features/jobs";
 
 // Or import directly
-import { PlayerSearch } from '@/features/players/components/player-search'
+import { PlayerSearch } from "@/features/players/components/player-search";
 ```
 
 ### Importing from Core
+
 ```typescript
-import { api } from '@/lib/core/api'
-import { playerSchema } from '@/lib/core/schemas'
+import { api } from "@/lib/core/api";
+import { playerSchema } from "@/lib/core/schemas";
 ```
 
 ### Importing Shared Components
+
 ```typescript
-import { Button } from '@/components/ui/button'
-import { SidebarNav } from '@/components/sidebar-nav'
+import { Button } from "@/components/ui/button";
+import { SidebarNav } from "@/components/sidebar-nav";
 ```
 
 ### Page Composition Example
+
 ```typescript
 // app/player-analysis/page.tsx
 import { PlayerSearch, PlayerAnalysis } from '@/features/players'
@@ -141,12 +162,14 @@ export default function PlayerAnalysisPage() {
 ```
 
 # Commands
+
 - `npm run dev` - Start dev server with hot reload
 - `npm run build` - Type-check, lint, and build
 - `npm run start` - Start production server
 - `rm -rf .next` - Clear build cache
 
 # Code Style
+
 - Use TypeScript strict mode (no `any`)
 - kebab-case for files, PascalCase for components
 - `"use client"` for hooks/events/browser APIs
@@ -169,12 +192,12 @@ When creating a new feature module:
 3. **Create index file**: `features/my-feature/index.ts`
    ```typescript
    // Export public API
-   export { MyComponent } from './components/my-component'
-   export { useMyHook } from './hooks/use-my-hook'
+   export { MyComponent } from "./components/my-component";
+   export { useMyHook } from "./hooks/use-my-hook";
    ```
 4. **Import in pages**:
    ```typescript
-   import { MyComponent } from '@/features/my-feature'
+   import { MyComponent } from "@/features/my-feature";
    ```
 
 ## Adding Components to Existing Features
@@ -185,6 +208,7 @@ When creating a new feature module:
 4. If the component is shared across features, move it to `components/` instead
 
 # Do Not
+
 - Edit `components/ui/` files manually (use shadcn CLI)
 - Restart containers for frontend code changes (hot reload enabled)
 - Use direct axios calls in components (use TanStack Query instead)

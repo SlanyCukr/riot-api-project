@@ -12,6 +12,7 @@ APScheduler is a flexible task scheduling and job queue system for Python applic
 ## Quick Start
 
 ### Basic Synchronous Scheduler
+
 ```python
 from datetime import datetime
 from apscheduler import Scheduler
@@ -27,6 +28,7 @@ with Scheduler() as scheduler:
 ```
 
 ### Async Scheduler with FastAPI
+
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -56,6 +58,7 @@ app = FastAPI(lifespan=lifespan)
 ### Schedulers
 
 **In-memory scheduler (development):**
+
 ```python
 from apscheduler import AsyncScheduler
 
@@ -67,6 +70,7 @@ async def main():
 ```
 
 **Persistent scheduler (production):**
+
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine
 from apscheduler import AsyncScheduler
@@ -83,6 +87,7 @@ async def main():
 ```
 
 **Distributed scheduler:**
+
 ```python
 from apscheduler import AsyncScheduler, SchedulerRole
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
@@ -111,6 +116,7 @@ async def worker_node():
 ### Jobs
 
 **Simple function jobs:**
+
 ```python
 def send_daily_report():
     generate_report()
@@ -123,6 +129,7 @@ scheduler.add_schedule(
 ```
 
 **Jobs with arguments:**
+
 ```python
 def process_data(source: str, destination: str, batch_size: int):
     # Data processing logic
@@ -140,6 +147,7 @@ scheduler.add_schedule(
 ```
 
 **Async jobs:**
+
 ```python
 async def fetch_external_api():
     async with aiohttp.ClientSession() as session:
@@ -156,6 +164,7 @@ scheduler.add_schedule(
 ### Triggers
 
 **Interval trigger:**
+
 ```python
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -170,6 +179,7 @@ IntervalTrigger(days=3)
 ```
 
 **Cron trigger:**
+
 ```python
 from apscheduler.triggers.cron import CronTrigger
 
@@ -187,6 +197,7 @@ CronTrigger.from_crontab('0 9 * * 1-5')  # 9 AM weekdays
 ```
 
 **Date trigger (one-time):**
+
 ```python
 from datetime import datetime, timedelta
 from apscheduler.triggers.date import DateTrigger
@@ -200,6 +211,7 @@ DateTrigger(run_time=datetime(2024, 12, 31, 23, 59, 59))
 ```
 
 **Calendar interval:**
+
 ```python
 from apscheduler.triggers.calendarinterval import CalendarIntervalTrigger
 
@@ -213,12 +225,14 @@ CalendarIntervalTrigger(weeks=1, day_of_week='mon', hour=10, minute=0)
 ### Persistence
 
 **SQLite:**
+
 ```python
 engine = create_async_engine("sqlite+aiosqlite:///scheduler.db")
 data_store = SQLAlchemyDataStore(engine)
 ```
 
 **PostgreSQL:**
+
 ```python
 engine = create_async_engine("postgresql+asyncpg://user:pass@localhost/db")
 data_store = SQLAlchemyDataStore(engine)
@@ -226,6 +240,7 @@ event_broker = AsyncpgEventBroker.from_async_sqla_engine(engine)
 ```
 
 **Redis (event broker):**
+
 ```python
 from apscheduler.eventbrokers.redis import RedisEventBroker
 
@@ -235,6 +250,7 @@ event_broker = RedisEventBroker.from_url("redis://localhost:6379")
 ### Job Management
 
 **Get job results:**
+
 ```python
 async def main():
     async with AsyncScheduler() as scheduler:
@@ -253,6 +269,7 @@ async def main():
 ```
 
 **Schedule management:**
+
 ```python
 # Pause schedule
 await scheduler.pause_schedule("my_schedule")
@@ -269,6 +286,7 @@ print(f"Next run: {schedule.next_fire_time}")
 ```
 
 **Event handling:**
+
 ```python
 from apscheduler import JobAdded, JobReleased
 
@@ -284,6 +302,7 @@ scheduler.subscribe(on_job_completed, JobReleased)
 ## Configuration
 
 **Task defaults:**
+
 ```python
 from apscheduler import TaskDefaults
 
@@ -297,6 +316,7 @@ scheduler = AsyncScheduler(task_defaults=task_defaults)
 ```
 
 **Job execution options:**
+
 ```python
 # Configure task behavior
 await scheduler.configure_task(
@@ -332,6 +352,7 @@ pip install "apscheduler[mqtt]"        # MQTT
 ```
 
 **Dependencies by use case:**
+
 - **Basic scheduling**: `apscheduler`
 - **PostgreSQL persistence**: `asyncpg`, `sqlalchemy`
 - **Redis distributed**: `redis`

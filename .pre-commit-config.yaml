@@ -74,7 +74,7 @@ repos:
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
         pass_filenames: false
-        stages: [manual]  # Only runs when explicitly called with --hook-stage manual
+        stages: [manual] # Only runs when explicitly called with --hook-stage manual
 
       # pydocstyle - Documentation quality checker (ReST style with relaxed rules)
       - id: pydocstyle
@@ -154,7 +154,7 @@ repos:
         files: ^frontend/(app|components|lib)/.*\.(ts|tsx|js|jsx)$
         exclude: ^frontend/node_modules/
         pass_filenames: false
-        stages: [manual]  # Optional - only runs when explicitly called
+        stages: [manual] # Optional - only runs when explicitly called
 
 # Configuration for pre-commit
 default_stages: [pre-commit]

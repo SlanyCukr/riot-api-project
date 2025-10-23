@@ -51,7 +51,8 @@ if (!result.success) {
 const UserProfile = z.object({
   id: z.number().int().positive(),
   email: z.email(),
-  username: z.string()
+  username: z
+    .string()
     .min(3, "Username must be at least 3 characters")
     .max(20, "Username cannot exceed 20 characters")
     .regex(/^[a-zA-Z0-9_]+$/, "Only alphanumeric characters and underscores"),
@@ -122,14 +123,14 @@ const UniqueStrings = z.set(z.string()).min(3);
 // Map validation
 const UserPermissions = z.map(
   z.string(), // user ID
-  z.array(z.string()) // permissions
+  z.array(z.string()), // permissions
 );
 
 // Record validation
 const StringToNumber = z.record(z.string(), z.number());
 const StatusRecord = z.record(
   z.enum(["pending", "active", "complete"]),
-  z.boolean()
+  z.boolean(),
 );
 ```
 
@@ -173,7 +174,8 @@ const DetailedError = z.discriminatedUnion("code", [
 
 ```typescript
 // Custom validation with refinements
-const PasswordSchema = z.string()
+const PasswordSchema = z
+  .string()
   .min(8, "Password must be at least 8 characters")
   .refine((val) => /[A-Z]/.test(val), "Must contain uppercase letter")
   .refine((val) => /[a-z]/.test(val), "Must contain lowercase letter")
@@ -181,50 +183,54 @@ const PasswordSchema = z.string()
   .refine((val) => /[^A-Za-z0-9]/.test(val), "Must contain special character");
 
 // Complex validation with superRefine
-const UserRegistration = z.object({
-  email: z.email(),
-  password: z.string(),
-  confirmPassword: z.string(),
-  age: z.number(),
-  termsAccepted: z.boolean(),
-}).superRefine((data, ctx) => {
-  if (data.password !== data.confirmPassword) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["confirmPassword"],
-      message: "Passwords must match",
-    });
-  }
+const UserRegistration = z
+  .object({
+    email: z.email(),
+    password: z.string(),
+    confirmPassword: z.string(),
+    age: z.number(),
+    termsAccepted: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["confirmPassword"],
+        message: "Passwords must match",
+      });
+    }
 
-  if (data.age < 18 && !data.termsAccepted) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["termsAccepted"],
-      message: "Parental consent required for users under 18",
-    });
-  }
-});
+    if (data.age < 18 && !data.termsAccepted) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["termsAccepted"],
+        message: "Parental consent required for users under 18",
+      });
+    }
+  });
 ```
 
 ### Transformations and Data Processing
 
 ```typescript
 // Transform data during validation
-const StringToNumber = z.string()
+const StringToNumber = z
+  .string()
   .transform((val) => parseInt(val, 10))
   .refine((val) => !isNaN(val), "Must be a valid number");
 
-const TimestampToDate = z.number()
+const TimestampToDate = z
+  .number()
   .transform((timestamp) => new Date(timestamp));
 
-const NormalizeEmail = z.string()
-  .transform((val) => val.toLowerCase().trim());
+const NormalizeEmail = z.string().transform((val) => val.toLowerCase().trim());
 
 // Overwrite for type-preserving transforms
 const RoundNumber = z.number().overwrite((val) => Math.round(val));
 
 // Pipeline transformations
-const ProcessUrl = z.string()
+const ProcessUrl = z
+  .string()
   .transform((val) => val.trim())
   .transform((val) => val.toLowerCase())
   .transform((val) => {
@@ -283,18 +289,21 @@ const Comment = z.object({
 ```typescript
 // File upload validation
 const ImageUpload = z.object({
-  avatar: z.file()
+  avatar: z
+    .file()
     .max(5_000_000, "File must be less than 5MB")
     .mime(["image/jpeg", "image/png", "image/webp"], "Must be an image"),
 
-  banner: z.file()
+  banner: z
+    .file()
     .max(10_000_000, "File must be less than 10MB")
     .mime(["image/jpeg", "image/png"], "Must be JPEG or PNG")
     .optional(),
 });
 
 // Document validation
-const DocumentUpload = z.file()
+const DocumentUpload = z
+  .file()
   .min(1000, "File must be at least 1KB")
   .max(50_000_000, "File must be less than 50MB")
   .mime([
@@ -338,13 +347,15 @@ const getUser = FetchUser.implementAsync(async (id) => {
 ```typescript
 // Custom error messages
 const CustomValidation = z.object({
-  username: z.string({
-    error: (issue) => {
-      if (issue.input === undefined) return "Username is required";
-      if (typeof issue.input !== "string") return "Username must be a string";
-      return "Invalid username";
-    },
-  }).min(3, "Username must be at least 3 characters"),
+  username: z
+    .string({
+      error: (issue) => {
+        if (issue.input === undefined) return "Username is required";
+        if (typeof issue.input !== "string") return "Username must be a string";
+        return "Invalid username";
+      },
+    })
+    .min(3, "Username must be at least 3 characters"),
 });
 
 // Error handling patterns
@@ -358,11 +369,14 @@ const validateInput = (input: unknown) => {
     console.log(z.prettifyError(error));
 
     // Extract field errors
-    const fieldErrors = error.issues.reduce((acc, issue) => {
-      const field = issue.path.join(".");
-      acc[field] = issue.message;
-      return acc;
-    }, {} as Record<string, string>);
+    const fieldErrors = error.issues.reduce(
+      (acc, issue) => {
+        const field = issue.path.join(".");
+        acc[field] = issue.message;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 
     return { success: false, errors: fieldErrors };
   }
@@ -391,7 +405,9 @@ const CoercedConfig = z.object({
 
 // Environment variable parsing
 const EnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   PORT: z.coerce.number().default(3000),
   DEBUG: z.stringbool().default("false"),
 });
@@ -408,21 +424,13 @@ const StringArray = z.array(z.string());
 const StringOrNumber = z.union([z.string(), z.number()]);
 
 // Check functions for validations
-const ValidatedEmail = z.string().check(
-  z.regex(/@/),
-  z.minLength(5),
-  z.maxLength(100),
-);
+const ValidatedEmail = z
+  .string()
+  .check(z.regex(/@/), z.minLength(5), z.maxLength(100));
 
-const PositiveInt = z.number().check(
-  z.int(),
-  z.positive(),
-  z.lt(1000),
-);
+const PositiveInt = z.number().check(z.int(), z.positive(), z.lt(1000));
 
-const NonEmptyArray = z.array(z.any()).check(
-  z.minSize(1),
-);
+const NonEmptyArray = z.array(z.any()).check(z.minSize(1));
 ```
 
 ## Practical Examples
@@ -490,7 +498,7 @@ const apiClient = {
     }
 
     return result.data.data;
-  }
+  },
 };
 ```
 

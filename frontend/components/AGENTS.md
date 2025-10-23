@@ -25,6 +25,7 @@
 `player-search.tsx` implements autocomplete/suggestions for enhanced UX:
 
 **Features:**
+
 - Debounced search (300ms) to reduce API calls
 - Keyboard navigation (Arrow Up/Down, Enter, Escape)
 - Server-side suggestions with platform filtering
@@ -33,6 +34,7 @@
 - Mouse and keyboard interaction support
 
 **Implementation details:**
+
 - Uses TanStack Query for fetching suggestions
 - Popover component for suggestion dropdown
 - Tracks selected index for keyboard navigation
@@ -41,16 +43,19 @@
 - Displays both formats when available
 
 **Key state:**
+
 - `showSuggestions` - Controls dropdown visibility
 - `debouncedSearchValue` - Delayed search term for API
 - `selectedIndex` - Currently selected suggestion (keyboard nav)
 
 **API:**
+
 - Endpoint: `/players/suggestions`
 - Query params: `q` (search term), `platform`, `limit`
 - Returns: Array of Player objects matching search
 
 **Debouncing pattern:**
+
 ```tsx
 useEffect(() => {
   const timer = setTimeout(() => {
@@ -61,13 +66,14 @@ useEffect(() => {
 ```
 
 **Keyboard navigation:**
+
 ```tsx
 const handleKeyDown = (e: React.KeyboardEvent) => {
   switch (e.key) {
     case "ArrowDown": // Move down
-    case "ArrowUp":   // Move up
-    case "Enter":     // Select current
-    case "Escape":    // Close dropdown
+    case "ArrowUp": // Move up
+    case "Enter": // Select current
+    case "Escape": // Close dropdown
   }
 };
 ```

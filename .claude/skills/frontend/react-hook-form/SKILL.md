@@ -11,7 +11,7 @@ when_to_use: "Building forms in React with validation, dynamic fields, or comple
 ### Basic Form
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function BasicForm() {
   const {
@@ -24,10 +24,10 @@ function BasicForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('firstName')} />
-      <input {...register('lastName', { required: 'Last name is required' })} />
+      <input {...register("firstName")} />
+      <input {...register("lastName", { required: "Last name is required" })} />
       {errors.lastName && <p>{errors.lastName.message}</p>}
-      <input {...register('age', { pattern: /\d+/ })} />
+      <input {...register("age", { pattern: /\d+/ })} />
       {errors.age && <p>Please enter number for age.</p>}
       <input type="submit" />
     </form>
@@ -38,24 +38,24 @@ function BasicForm() {
 ### Form with Default Values
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function FormWithDefaults() {
   const { register, handleSubmit } = useForm({
     defaultValues: {
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john@example.com'
-    }
+      firstName: "John",
+      lastName: "Doe",
+      email: "john@example.com",
+    },
   });
 
   const onSubmit = (data) => console.log(data);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('firstName')} />
-      <input {...register('lastName')} />
-      <input {...register('email')} />
+      <input {...register("firstName")} />
+      <input {...register("lastName")} />
+      <input {...register("email")} />
       <button type="submit">Submit</button>
     </form>
   );
@@ -67,7 +67,7 @@ function FormWithDefaults() {
 ### Form Validation
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function ValidationExample() {
   const {
@@ -81,27 +81,27 @@ function ValidationExample() {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <input
-        {...register('username', {
-          required: 'Username is required',
+        {...register("username", {
+          required: "Username is required",
           minLength: {
             value: 3,
-            message: 'Username must be at least 3 characters'
+            message: "Username must be at least 3 characters",
           },
           maxLength: {
             value: 20,
-            message: 'Username must be less than 20 characters'
-          }
+            message: "Username must be less than 20 characters",
+          },
         })}
       />
       {errors.username && <span>{errors.username.message}</span>}
 
       <input
-        {...register('email', {
-          required: 'Email is required',
+        {...register("email", {
+          required: "Email is required",
           pattern: {
             value: /^\S+@\S+$/i,
-            message: 'Invalid email format'
-          }
+            message: "Invalid email format",
+          },
         })}
       />
       {errors.email && <span>{errors.email.message}</span>}
@@ -115,7 +115,7 @@ function ValidationExample() {
 ### Password Confirmation
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function PasswordForm() {
   const {
@@ -130,22 +130,22 @@ function PasswordForm() {
     <form onSubmit={handleSubmit(onSubmit)}>
       <input
         type="password"
-        {...register('password', {
-          required: 'Password is required',
+        {...register("password", {
+          required: "Password is required",
           minLength: {
             value: 8,
-            message: 'Password must be at least 8 characters'
-          }
+            message: "Password must be at least 8 characters",
+          },
         })}
       />
       {errors.password && <span>{errors.password.message}</span>}
 
       <input
         type="password"
-        {...register('confirmPassword', {
-          required: 'Please confirm your password',
+        {...register("confirmPassword", {
+          required: "Please confirm your password",
           validate: (value, formValues) =>
-            value === formValues.password || 'Passwords do not match'
+            value === formValues.password || "Passwords do not match",
         })}
       />
       {errors.confirmPassword && <span>{errors.confirmPassword.message}</span>}
@@ -159,16 +159,16 @@ function PasswordForm() {
 ### Using Controller for Custom Components
 
 ```jsx
-import { useForm, Controller } from 'react-hook-form';
-import Select from 'react-select';
+import { useForm, Controller } from "react-hook-form";
+import Select from "react-select";
 
 function CustomInputForm() {
   const { handleSubmit, control } = useForm();
 
   const options = [
-    { value: 'chocolate', label: 'Chocolate' },
-    { value: 'strawberry', label: 'Strawberry' },
-    { value: 'vanilla', label: 'Vanilla' }
+    { value: "chocolate", label: "Chocolate" },
+    { value: "strawberry", label: "Strawberry" },
+    { value: "vanilla", label: "Vanilla" },
   ];
 
   const onSubmit = (data) => console.log(data);
@@ -178,7 +178,7 @@ function CustomInputForm() {
       <Controller
         name="flavor"
         control={control}
-        rules={{ required: 'Please select a flavor' }}
+        rules={{ required: "Please select a flavor" }}
         render={({ field, fieldState: { error } }) => (
           <div>
             <Select {...field} options={options} />
@@ -196,18 +196,18 @@ function CustomInputForm() {
 ### Dynamic Fields with useFieldArray
 
 ```jsx
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray } from "react-hook-form";
 
 function DynamicFieldsForm() {
   const { register, handleSubmit, control } = useForm({
     defaultValues: {
-      users: [{ name: '', email: '' }]
-    }
+      users: [{ name: "", email: "" }],
+    },
   });
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'users'
+    name: "users",
   });
 
   const onSubmit = (data) => console.log(data);
@@ -217,11 +217,15 @@ function DynamicFieldsForm() {
       {fields.map((field, index) => (
         <div key={field.id}>
           <input
-            {...register(`users.${index}.name`, { required: 'Name is required' })}
+            {...register(`users.${index}.name`, {
+              required: "Name is required",
+            })}
             placeholder="Name"
           />
           <input
-            {...register(`users.${index}.email`, { required: 'Email is required' })}
+            {...register(`users.${index}.email`, {
+              required: "Email is required",
+            })}
             placeholder="Email"
           />
           <button type="button" onClick={() => remove(index)}>
@@ -230,7 +234,7 @@ function DynamicFieldsForm() {
         </div>
       ))}
 
-      <button type="button" onClick={() => append({ name: '', email: '' })}>
+      <button type="button" onClick={() => append({ name: "", email: "" })}>
         Add User
       </button>
 
@@ -243,7 +247,7 @@ function DynamicFieldsForm() {
 ### Async Form Submission
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function AsyncSubmitForm() {
   const {
@@ -255,18 +259,18 @@ function AsyncSubmitForm() {
   const onSubmit = async (data) => {
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log('Form submitted:', data);
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log("Form submitted:", data);
     } catch (error) {
-      console.error('Submission failed:', error);
+      console.error("Submission failed:", error);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <input {...register('name', { required: true })} />
+      <input {...register("name", { required: true })} />
       <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Submitting...' : 'Submit'}
+        {isSubmitting ? "Submitting..." : "Submit"}
       </button>
     </form>
   );
@@ -276,10 +280,13 @@ function AsyncSubmitForm() {
 ### Form with Context (FormProvider)
 
 ```jsx
-import { useForm, FormProvider, useFormContext } from 'react-hook-form';
+import { useForm, FormProvider, useFormContext } from "react-hook-form";
 
 function NestedInput({ name, label }) {
-  const { register, formState: { errors } } = useFormContext();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext();
 
   return (
     <div>
@@ -309,7 +316,7 @@ function ContextForm() {
 ### Async Field Validation
 
 ```jsx
-import { useForm } from 'react-hook-form';
+import { useForm } from "react-hook-form";
 
 function AsyncValidationForm() {
   const {
@@ -320,11 +327,11 @@ function AsyncValidationForm() {
 
   const checkUsernameAvailability = async (username) => {
     // Simulate API call to check username
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const takenUsernames = ['admin', 'user', 'test'];
+    const takenUsernames = ["admin", "user", "test"];
     if (takenUsernames.includes(username.toLowerCase())) {
-      return 'Username is already taken';
+      return "Username is already taken";
     }
     return true;
   };
@@ -334,9 +341,9 @@ function AsyncValidationForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <input
-        {...register('username', {
-          required: 'Username is required',
-          validate: checkUsernameAvailability
+        {...register("username", {
+          required: "Username is required",
+          validate: checkUsernameAvailability,
         })}
       />
       {errors.username && <span>{errors.username.message}</span>}
@@ -353,16 +360,16 @@ function AsyncValidationForm() {
 
 ```jsx
 const {
-  register,          // Register input fields
-  handleSubmit,      // Form submission handler
-  formState,         // Form state (errors, dirty, isValid, etc.)
-  setValue,          // Set field value programmatically
-  getValues,         // Get form values
-  reset,             // Reset form to default values
-  trigger,           // Trigger validation
-  clearErrors,       // Clear specific or all errors
-  setError,          // Set custom errors
-  control            // Control object for Controller
+  register, // Register input fields
+  handleSubmit, // Form submission handler
+  formState, // Form state (errors, dirty, isValid, etc.)
+  setValue, // Set field value programmatically
+  getValues, // Get form values
+  reset, // Reset form to default values
+  trigger, // Trigger validation
+  clearErrors, // Clear specific or all errors
+  setError, // Set custom errors
+  control, // Control object for Controller
 } = useForm();
 ```
 
@@ -370,29 +377,29 @@ const {
 
 ```jsx
 const {
-  errors,           // Validation errors
-  dirty,            // Form is dirty (has unsaved changes)
-  dirtyFields,      // Array of dirty field names
-  isDirty,          // Boolean indicating if form is dirty
-  touched,          // Array of touched field names
-  touchedFields,    // Object of touched field states
-  isSubmitted,      // Form has been submitted
-  isSubmitting,     // Form is currently submitting
-  isValid,          // Form passes all validations
-  isValidating,     // Form is currently validating
+  errors, // Validation errors
+  dirty, // Form is dirty (has unsaved changes)
+  dirtyFields, // Array of dirty field names
+  isDirty, // Boolean indicating if form is dirty
+  touched, // Array of touched field names
+  touchedFields, // Object of touched field states
+  isSubmitted, // Form has been submitted
+  isSubmitting, // Form is currently submitting
+  isValid, // Form passes all validations
+  isValidating, // Form is currently validating
 } = formState;
 ```
 
 ### Common Validation Rules
 
 ```jsx
-register('fieldName', {
-  required: 'Field is required',
-  minLength: { value: 3, message: 'Minimum 3 characters' },
-  maxLength: { value: 50, message: 'Maximum 50 characters' },
-  min: { value: 18, message: 'Must be at least 18' },
-  max: { value: 100, message: 'Must be less than 100' },
-  pattern: { value: /^\d+$/, message: 'Numbers only' },
-  validate: (value) => value === 'expected' || 'Custom validation failed'
+register("fieldName", {
+  required: "Field is required",
+  minLength: { value: 3, message: "Minimum 3 characters" },
+  maxLength: { value: 50, message: "Maximum 50 characters" },
+  min: { value: 18, message: "Must be at least 18" },
+  max: { value: 100, message: "Must be less than 100" },
+  pattern: { value: /^\d+$/, message: "Numbers only" },
+  validate: (value) => value === "expected" || "Custom validation failed",
 });
 ```

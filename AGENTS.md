@@ -1,14 +1,17 @@
 <!-- OPENSPEC:START -->
+
 # OpenSpec Instructions
 
 These instructions are for AI assistants working in this project.
 
 Always open `@/openspec/AGENTS.md` when the request:
+
 - Mentions planning or proposals (words like proposal, spec, change, plan)
 - Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
 - Sounds ambiguous and you need the authoritative spec before coding
 
 Use `@/openspec/AGENTS.md` to learn:
+
 - How to create and apply change proposals
 - Spec format and conventions
 - Project structure and guidelines
@@ -20,6 +23,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 # Quick Start
 
 **Development** (automatic hot reload with watch mode):
+
 ```bash
 docker compose watch                                # Start with hot reload
 docker compose logs -f backend                      # View backend logs
@@ -28,6 +32,7 @@ docker compose down                                 # Stop services
 ```
 
 **Production**:
+
 ```bash
 docker compose -f compose.yaml -f compose.prod.yaml up -d
 docker compose -f compose.yaml -f compose.prod.yaml logs -f
@@ -35,6 +40,7 @@ docker compose -f compose.yaml -f compose.prod.yaml down
 ```
 
 **Building** (uses Docker Bake for parallel builds):
+
 ```bash
 docker buildx bake -f docker/docker-bake.hcl dev --load   # Dev build
 docker buildx bake -f docker/docker-bake.hcl prod --load  # Prod build
@@ -89,6 +95,7 @@ No restart needed - just save files:
 - **Dependency Flow**: Features depend on core, never the reverse
 - **Public API**: Features expose public APIs through `__init__.py` exports
 - **Import Examples**:
+
   ```python
   # Backend - import from features
   from app.features.players import PlayerService, Player, PlayerResponse

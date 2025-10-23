@@ -8,6 +8,7 @@ description: Build async APIs with FastAPI, including endpoints, dependency inje
 ## Quick start
 
 Create a basic FastAPI application:
+
 ```python
 from fastapi import FastAPI
 
@@ -23,6 +24,7 @@ async def read_item(item_id: int, q: str | None = None):
 ```
 
 Run with:
+
 ```bash
 uvicorn main:app --reload
 ```
@@ -30,6 +32,7 @@ uvicorn main:app --reload
 ## Common patterns
 
 ### Pydantic models for validation
+
 ```python
 from pydantic import BaseModel
 from typing import Optional
@@ -46,6 +49,7 @@ async def create_item(item: Item):
 ```
 
 ### Dependency injection
+
 ```python
 from typing import Annotated
 from fastapi import Depends
@@ -65,6 +69,7 @@ async def read_items(commons: CommonsDep):
 ```
 
 ### Database dependencies with cleanup
+
 ```python
 async def get_db():
     db = connect_to_database()
@@ -79,6 +84,7 @@ async def query_data(db: Annotated[dict, Depends(get_db)]):
 ```
 
 ### Error handling
+
 ```python
 from fastapi import HTTPException
 
@@ -90,6 +96,7 @@ async def read_item(item_id: int):
 ```
 
 ### Path and query validation
+
 ```python
 from typing import Annotated
 from fastapi import Path, Query
@@ -103,6 +110,7 @@ async def read_item(
 ```
 
 ### Response models
+
 ```python
 from pydantic import BaseModel
 

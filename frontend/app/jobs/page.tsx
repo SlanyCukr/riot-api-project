@@ -10,6 +10,7 @@ import {
   JobStatusResponseSchema,
 } from "@/lib/core/schemas";
 import { JobCard, JobExecutions, SystemStatus } from "@/features/jobs";
+import { ProtectedRoute } from "@/features/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,14 @@ import { z } from "zod";
 const REFRESH_INTERVAL = 15000; // 15 seconds
 
 export default function JobsPage() {
+  return (
+    <ProtectedRoute>
+      <JobsPageContent />
+    </ProtectedRoute>
+  );
+}
+
+function JobsPageContent() {
   const [secondsUntilRefresh, setSecondsUntilRefresh] = useState(15);
 
   // Fetch all job configurations

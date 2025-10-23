@@ -21,6 +21,7 @@ npm run dev
 ### Server vs Client Components
 
 **Server Components** (default):
+
 - Run on the server
 - Can access server-side resources (database, files)
 - No JavaScript sent to client
@@ -29,63 +30,67 @@ npm run dev
 ```tsx
 // app/page.tsx
 async function getPosts() {
-  const res = await fetch('https://api.example.com/posts')
-  return res.json()
+  const res = await fetch("https://api.example.com/posts");
+  return res.json();
 }
 
 export default async function Page() {
-  const posts = await getPosts()
-  return <PostList posts={posts} />
+  const posts = await getPosts();
+  return <PostList posts={posts} />;
 }
 ```
 
 **Client Components** (with 'use client'):
+
 - Run on client and server
 - Can use state, effects, browser APIs
 - JavaScript sent to client
 
 ```tsx
 // components/Counter.tsx
-'use client'
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
 export default function Counter() {
-  const [count, setCount] = useState(0)
-  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>Count: {count}</button>;
 }
 ```
 
 ### Data Fetching Patterns
 
 **Static Data (Default)**:
+
 ```tsx
 // Cached until manually invalidated
 export default async function Page() {
-  const data = await fetch('https://api.example.com/posts')
-  return <PostsList posts={await data.json()} />
+  const data = await fetch("https://api.example.com/posts");
+  return <PostsList posts={await data.json()} />;
 }
 ```
 
 **Dynamic Data (No Cache)**:
+
 ```tsx
 // Refetched on every request
 export default async function Page() {
-  const data = await fetch('https://api.example.com/posts', {
-    cache: 'no-store'
-  })
-  return <PostsList posts={await data.json()} />
+  const data = await fetch("https://api.example.com/posts", {
+    cache: "no-store",
+  });
+  return <PostsList posts={await data.json()} />;
 }
 ```
 
 **Revalidated Data**:
+
 ```tsx
 // Revalidated every 60 seconds
 export default async function Page() {
-  const data = await fetch('https://api.example.com/posts', {
-    next: { revalidate: 60 }
-  })
-  return <PostsList posts={await data.json()} />
+  const data = await fetch("https://api.example.com/posts", {
+    next: { revalidate: 60 },
+  });
+  return <PostsList posts={await data.json()} />;
 }
 ```
 
@@ -95,30 +100,31 @@ Create API endpoints in the `app` directory:
 
 ```tsx
 // app/api/posts/route.ts
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  const res = await fetch('https://api.example.com/posts')
-  const posts = await res.json()
-  return NextResponse.json(posts)
+  const res = await fetch("https://api.example.com/posts");
+  const posts = await res.json();
+  return NextResponse.json(posts);
 }
 
 export async function POST(request: Request) {
-  const body = await request.json()
+  const body = await request.json();
   // Create post logic
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true });
 }
 ```
 
 ### Layouts and Routing
 
 **Root Layout**:
+
 ```tsx
 // app/layout.tsx
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
@@ -128,30 +134,33 @@ export default function RootLayout({
         <Footer />
       </body>
     </html>
-  )
+  );
 }
 ```
 
 **Dynamic Routes**:
+
 ```tsx
 // app/blog/[slug]/page.tsx
-export default async function BlogPost({ params }: {
-  params: Promise<{ slug: string }>
+export default async function BlogPost({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params
-  const post = await getPost(slug)
-  return <article>{post.content}</article>
+  const { slug } = await params;
+  const post = await getPost(slug);
+  return <article>{post.content}</article>;
 }
 ```
 
 ### Navigation
 
 ```tsx
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function Navigation() {
-  const router = useRouter()
+  const router = useRouter();
 
   return (
     <nav>
@@ -159,42 +168,42 @@ function Navigation() {
       <Link href="/blog/[slug]" as="/blog/hello-world">
         Blog Post
       </Link>
-      <button onClick={() => router.push('/dashboard')}>
-        Dashboard
-      </button>
+      <button onClick={() => router.push("/dashboard")}>Dashboard</button>
     </nav>
-  )
+  );
 }
 ```
 
 ### Loading and Error States
 
 **Loading UI**:
+
 ```tsx
 // app/dashboard/loading.tsx
 export default function Loading() {
-  return <div>Loading dashboard...</div>
+  return <div>Loading dashboard...</div>;
 }
 ```
 
 **Error Handling**:
+
 ```tsx
 // app/dashboard/error.tsx
-'use client'
+"use client";
 
 export default function Error({
   error,
   reset,
 }: {
-  error: Error
-  reset: () => void
+  error: Error;
+  reset: () => void;
 }) {
   return (
     <div>
       <h2>Something went wrong!</h2>
       <button onClick={() => reset()}>Try again</button>
     </div>
-  )
+  );
 }
 ```
 
@@ -202,12 +211,12 @@ export default function Error({
 
 ```tsx
 // app/actions.ts
-'use server'
+"use server";
 
 export async function createPost(formData: FormData) {
-  const title = formData.get('title') as string
+  const title = formData.get("title") as string;
   // Database operation
-  revalidatePath('/blog') // Update cache
+  revalidatePath("/blog"); // Update cache
 }
 
 // Usage in component
@@ -217,7 +226,7 @@ export default function CreatePostForm() {
       <input name="title" />
       <button type="submit">Create Post</button>
     </form>
-  )
+  );
 }
 ```
 
@@ -227,19 +236,21 @@ export default function CreatePostForm() {
 
 ```tsx
 // app/products/[id]/page.tsx
-import Image from 'next/image'
-import AddToCart from './add-to-cart'
+import Image from "next/image";
+import AddToCart from "./add-to-cart";
 
 async function getProduct(id: string) {
-  const res = await fetch(`https://api.example.com/products/${id}`)
-  return res.json()
+  const res = await fetch(`https://api.example.com/products/${id}`);
+  return res.json();
 }
 
-export default async function ProductPage({ params }: {
-  params: Promise<{ id: string }>
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = await params
-  const product = await getProduct(id)
+  const { id } = await params;
+  const product = await getProduct(id);
 
   return (
     <div>
@@ -249,7 +260,7 @@ export default async function ProductPage({ params }: {
       <p>${product.price}</p>
       <AddToCart productId={product.id} />
     </div>
-  )
+  );
 }
 ```
 
@@ -257,23 +268,23 @@ export default async function ProductPage({ params }: {
 
 ```tsx
 // app/blog/page.tsx
-import BlogList from './blog-list'
-import SearchForm from './search-form'
+import BlogList from "./blog-list";
+import SearchForm from "./search-form";
 
 export default async function BlogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string }>
+  searchParams: Promise<{ query?: string }>;
 }) {
-  const { query } = await searchParams
-  const posts = await getPosts(query)
+  const { query } = await searchParams;
+  const posts = await getPosts(query);
 
   return (
     <div>
       <SearchForm initialQuery={query} />
       <BlogList posts={posts} />
     </div>
-  )
+  );
 }
 ```
 
@@ -281,9 +292,9 @@ export default async function BlogPage({
 
 ```tsx
 // app/dashboard/page.tsx
-import { Suspense } from 'react'
-import StatsCard from './stats-card'
-import RecentActivity from './recent-activity'
+import { Suspense } from "react";
+import StatsCard from "./stats-card";
+import RecentActivity from "./recent-activity";
 
 export default function Dashboard() {
   return (
@@ -296,7 +307,7 @@ export default function Dashboard() {
         <RecentActivity />
       </Suspense>
     </div>
-  )
+  );
 }
 ```
 

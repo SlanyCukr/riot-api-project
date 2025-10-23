@@ -108,7 +108,6 @@ For detailed build info and production deployment, see **`docker/AGENTS.md`** an
 The system runs two automated jobs:
 
 1. **Tracked Player Updater** (every 2 minutes)
-
    - Fetches new matches for monitored players
    - Updates ranks and statistics
 

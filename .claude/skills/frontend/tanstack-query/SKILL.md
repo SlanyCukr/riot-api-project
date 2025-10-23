@@ -24,9 +24,7 @@ const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 
@@ -36,7 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 function Users() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["users"],
-    queryFn: () => fetch("/api/users").then(res => res.json()),
+    queryFn: () => fetch("/api/users").then((res) => res.json()),
   });
 
   if (isLoading) return "Loading...";
@@ -49,9 +47,14 @@ function Users() {
 ## Common patterns
 
 ### Data fetching with loading states
+
 ```tsx
 function UserProfile({ userId }: { userId: string }) {
-  const { data: user, isLoading, error } = useQuery({
+  const {
+    data: user,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["user", userId],
     queryFn: () => fetchUser(userId),
     enabled: !!userId,
@@ -66,6 +69,7 @@ function UserProfile({ userId }: { userId: string }) {
 ```
 
 ### Mutations with optimistic updates
+
 ```tsx
 function LikeButton({ postId }: { postId: string }) {
   const queryClient = useQueryClient();
@@ -76,11 +80,9 @@ function LikeButton({ postId }: { postId: string }) {
       await queryClient.cancelQueries({ queryKey: ["posts"] });
       const previousPosts = queryClient.getQueryData(["posts"]);
       queryClient.setQueryData(["posts"], (old: any[]) =>
-        old?.map(post =>
-          post.id === postId
-            ? { ...post, likes: post.likes + 1 }
-            : post
-        )
+        old?.map((post) =>
+          post.id === postId ? { ...post, likes: post.likes + 1 } : post,
+        ),
       );
       return { previousPosts };
     },
@@ -101,6 +103,7 @@ function LikeButton({ postId }: { postId: string }) {
 ```
 
 ### Pagination
+
 ```tsx
 function PaginatedPosts() {
   const [page, setPage] = useState(1);
@@ -113,15 +116,17 @@ function PaginatedPosts() {
 
   return (
     <div>
-      {data?.posts.map(post => <Post key={post.id} post={post} />)}
+      {data?.posts.map((post) => (
+        <Post key={post.id} post={post} />
+      ))}
       <button
-        onClick={() => setPage(p => p - 1)}
+        onClick={() => setPage((p) => p - 1)}
         disabled={page === 1 || isLoading}
       >
         Previous
       </button>
       <button
-        onClick={() => setPage(p => p + 1)}
+        onClick={() => setPage((p) => p + 1)}
         disabled={!data?.hasNextPage || isLoading}
       >
         Next
@@ -132,23 +137,20 @@ function PaginatedPosts() {
 ```
 
 ### Infinite scroll
+
 ```tsx
 function InfinitePosts() {
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: ["posts"],
-    queryFn: ({ pageParam = 0 }) => fetchPosts(pageParam),
-    getNextPageParam: (lastPage, allPages) => lastPage.nextCursor,
-  });
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["posts"],
+      queryFn: ({ pageParam = 0 }) => fetchPosts(pageParam),
+      getNextPageParam: (lastPage, allPages) => lastPage.nextCursor,
+    });
 
   return (
     <div>
-      {data?.pages.map(page =>
-        page.posts.map(post => <Post key={post.id} post={post} />)
+      {data?.pages.map((page) =>
+        page.posts.map((post) => <Post key={post.id} post={post} />),
       )}
       <button
         onClick={() => fetchNextPage()}
@@ -162,6 +164,7 @@ function InfinitePosts() {
 ```
 
 ### Dependent queries
+
 ```tsx
 function UserProfile({ userId }: { userId: string }) {
   const { data: user } = useQuery({
@@ -178,7 +181,9 @@ function UserProfile({ userId }: { userId: string }) {
   return (
     <div>
       <h1>{user?.name}</h1>
-      {posts?.map(post => <Post key={post.id} post={post} />)}
+      {posts?.map((post) => (
+        <Post key={post.id} post={post} />
+      ))}
     </div>
   );
 }
@@ -187,6 +192,7 @@ function UserProfile({ userId }: { userId: string }) {
 ## Requirements
 
 ### Installation
+
 ```bash
 # Core package
 npm install @tanstack/react-query
@@ -196,13 +202,16 @@ npm install @tanstack/react-query-devtools
 ```
 
 ### Browser support
+
 - Supports all modern browsers
 - IE11+ with appropriate polyfills
 
 ### React version compatibility
+
 - React 16.8+ (hooks required)
 - React 18+ preferred for concurrent features
 
 ### TypeScript support
+
 - Built-in TypeScript definitions
 - Full type inference for queries and mutations

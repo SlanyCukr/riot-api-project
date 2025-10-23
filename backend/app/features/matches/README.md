@@ -7,21 +7,26 @@ Manages League of Legends match data, including match retrieval, storage, and an
 ## API Endpoints
 
 ### Match Data
+
 - `GET /api/v1/matches/{puuid}` - Get match history for a player
 - `GET /api/v1/matches/{match_id}/details` - Get detailed information for a specific match
 - `GET /api/v1/matches/{puuid}/recent` - Get recent matches with full details
 
 ### Match Statistics
+
 - `GET /api/v1/matches/{puuid}/stats` - Get aggregated match statistics
 - `GET /api/v1/matches/{puuid}/encounters` - Get encounter history with specific opponents
 
 ## Key Components
 
 ### Router (`router.py`)
+
 FastAPI router defining all match-related endpoints. Handles match data retrieval and filtering.
 
 ### Service (`service.py`)
+
 **MatchService** - Core business logic for match operations:
+
 - Match data fetching from Riot API
 - Match history retrieval and pagination
 - Match data storage and caching
@@ -29,37 +34,47 @@ FastAPI router defining all match-related endpoints. Handles match data retrieva
 - Opponent encounter tracking
 
 ### Models (`models.py`, `participants.py`)
+
 **SQLAlchemy Models:**
+
 - `Match` - Match entity (match ID, queue type, game mode, duration, creation time)
 - `MatchParticipant` - Participant data (PUUID, champion, stats, items, runes, performance metrics)
 
 ### Schemas (`schemas.py`, `participants_schemas.py`)
+
 **Pydantic Schemas:**
+
 - `MatchResponse` - API response format for match data
 - `MatchHistoryResponse` - List of matches with pagination
 - `MatchParticipantResponse` - Participant details response
 - `MatchStatsResponse` - Aggregated statistics
 
 ### Transformers (`transformers.py`)
+
 **MatchDTOTransformer** - Converts Riot API match DTOs to database models:
+
 - Transforms raw API data to structured models
 - Enriches match data with additional context
 - Handles data normalization and validation
 
 ### Dependencies (`dependencies.py`)
+
 - `get_match_service()` - Dependency injection for MatchService
 
 ## Dependencies
 
 ### Core Dependencies
+
 - `core.database` - Database session management
 - `core.riot_api` - Riot API client for match data
 - `core.config` - Application settings
 
 ### Feature Dependencies
+
 - None (matches feature is independent of other features)
 
 ### External Libraries
+
 - SQLAlchemy - ORM for database operations
 - Pydantic - Data validation and serialization
 - FastAPI - API routing and dependency injection
@@ -110,6 +125,7 @@ await session.commit()
 ## Data Model
 
 ### Match
+
 - `match_id` (str, PK) - Riot match ID
 - `queue_type` (str) - Queue type (e.g., RANKED_SOLO_5x5)
 - `game_mode` (str) - Game mode (e.g., CLASSIC)
@@ -118,6 +134,7 @@ await session.commit()
 - `participants` (relationship) - List of MatchParticipant
 
 ### MatchParticipant
+
 - `id` (int, PK) - Auto-increment ID
 - `match_id` (str, FK) - Reference to Match
 - `puuid` (str) - Player PUUID

@@ -258,9 +258,9 @@ def service_error_handler(
 
         # Return appropriate wrapper based on whether function is async
         if inspect.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore[return-value]
+            return async_wrapper  # type: ignore
         else:
-            return sync_wrapper  # type: ignore[return-value]
+            return sync_wrapper  # type: ignore
 
     return decorator
 
@@ -286,7 +286,7 @@ def input_validation(
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
@@ -315,9 +315,9 @@ def input_validation(
                         if value is not None:
                             validator(value)
 
-            return await func(*args, **kwargs)
+            return await func(*args, **kwargs)  # type: ignore
 
-        @functools.wraps(wrapper)
+        @functools.wraps(func)
         def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # Synchronous version for completeness
             sig = inspect.signature(func)
@@ -352,8 +352,8 @@ def input_validation(
 
         # Return appropriate wrapper based on whether function is async
         if inspect.iscoroutinefunction(func):
-            return wrapper  # type: ignore[return-value]
+            return async_wrapper  # type: ignore
         else:
-            return sync_wrapper  # type: ignore[return-value]
+            return sync_wrapper  # type: ignore
 
     return decorator

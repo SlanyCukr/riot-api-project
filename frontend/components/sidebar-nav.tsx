@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, Wrench } from "lucide-react";
+import { useAuth } from "@/features/auth";
 
 interface NavItem {
   name: string;
@@ -16,14 +17,17 @@ const navItems: NavItem[] = [
   { name: "Player Analysis", path: "/player-analysis" },
   { name: "Matchmaking Analysis", path: "/matchmaking-analysis" },
   { name: "Tracked Players", path: "/tracked-players" },
-  { name: "Jobs", path: "/jobs" },
-  { name: "Settings", path: "/settings" },
 ];
 
 export function SidebarNav() {
   const [menuOpen, setMenuOpen] = useState(false);
-  // Note: Removed mounted state - use suppressHydrationWarning on elements instead
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  // Hide sidebar on sign-in page
+  if (pathname === "/sign-in") {
+    return null;
+  }
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -46,7 +50,7 @@ export function SidebarNav() {
       {/* Sidebar Menu */}
       <aside
         suppressHydrationWarning
-        className={`fixed inset-y-0 left-0 z-40 w-[240px] transform bg-[#0a1428] shadow-xl transition-transform duration-300 ease-in-out md:static md:w-[220px] lg:w-[240px] ${
+        className={`fixed inset-y-0 left-0 z-40 w-[240px] transform bg-[#0a1428] shadow-xl transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:w-[220px] lg:w-[240px] ${
           menuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
@@ -75,7 +79,7 @@ export function SidebarNav() {
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 py-6" suppressHydrationWarning>
+          <nav className="flex-1 py-6 overflow-y-auto" suppressHydrationWarning>
             <ul className="space-y-2">
               {navItems.map((item) => (
                 <li key={item.name}>
@@ -103,6 +107,48 @@ export function SidebarNav() {
               ))}
             </ul>
           </nav>
+
+          {/* User Info and Bottom Links */}
+          {user && (
+            <div className="border-t border-white/10">
+              <div className="text-xs">
+                <div className="flex items-center gap-2 text-white p-4 pb-2">
+                  <User className="h-4 w-4 text-[#cfa93a]" />
+                  <p className="font-medium">{user.display_name}</p>
+                </div>
+
+                <Link
+                  href="/jobs"
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2 px-4 py-2 text-white cursor-pointer transition-colors duration-300 hover:text-[#cfa93a] ${
+                    isActive("/jobs") ? "text-[#cfa93a] font-medium" : ""
+                  }`}
+                >
+                  <Wrench className="h-4 w-4 text-[#cfa93a]" />
+                  Jobs
+                </Link>
+
+                <Link
+                  href="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className={`flex items-center gap-2 px-4 py-2 text-white cursor-pointer transition-colors duration-300 hover:text-[#cfa93a] ${
+                    isActive("/settings") ? "text-[#cfa93a] font-medium" : ""
+                  }`}
+                >
+                  <Settings className="h-4 w-4 text-[#cfa93a]" />
+                  Settings
+                </Link>
+
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-4 py-2 pb-4 text-white cursor-pointer transition-colors duration-300 hover:text-[#cfa93a] w-full text-left"
+                >
+                  <LogOut className="h-4 w-4 text-[#cfa93a] scale-x-[-1]" />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="border-t border-white/10 p-6">

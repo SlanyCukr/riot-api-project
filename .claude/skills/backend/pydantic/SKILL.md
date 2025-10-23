@@ -11,6 +11,7 @@ Pydantic is a data validation library that uses Python type annotations to defin
 ## Quick Start
 
 ### Basic Model Definition
+
 ```python
 from pydantic import BaseModel
 from datetime import datetime
@@ -33,6 +34,7 @@ user = User(
 ```
 
 ### Validation from Data Sources
+
 ```python
 # From dict
 user = User.model_validate({'id': 1, 'name': 'Alice', 'email': 'alice@test.com'})
@@ -48,6 +50,7 @@ print(user.model_dump_json())  # JSON string
 ## Common Patterns
 
 ### Field Configuration
+
 ```python
 from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from typing import Annotated
@@ -67,6 +70,7 @@ class User(BaseModel):
 ```
 
 ### Model Configuration
+
 ```python
 from pydantic import BaseModel, ConfigDict
 
@@ -86,6 +90,7 @@ class StrictModel(BaseModel):
 ```
 
 ### Custom Validation
+
 ```python
 from pydantic import BaseModel, model_validator, field_validator, ValidationError
 from typing import Any
@@ -118,6 +123,7 @@ except ValidationError as e:
 ```
 
 ### Serialization Control
+
 ```python
 from pydantic import BaseModel, Field, SecretStr
 from datetime import datetime
@@ -154,6 +160,7 @@ print(user.model_dump(by_alias=True))  # Use field aliases
 ```
 
 ### Custom Serialization
+
 ```python
 from typing import Annotated, Any
 from pydantic import BaseModel, field_serializer, PlainSerializer
@@ -174,6 +181,7 @@ class Model(BaseModel):
 ```
 
 ### Nested Models and Relationships
+
 ```python
 from pydantic import BaseModel
 from typing import Optional, List
@@ -203,6 +211,7 @@ user = User(
 ```
 
 ### Enum Integration
+
 ```python
 from enum import Enum, IntEnum
 from pydantic import BaseModel
@@ -230,6 +239,7 @@ task2 = Task(title='Task 2', status=Status.ACTIVE, priority=Priority.HIGH)
 ```
 
 ### TypeAdapter for Standalone Validation
+
 ```python
 from pydantic import TypeAdapter
 from typing import List, Optional
@@ -247,6 +257,7 @@ print(list_adapter.json_schema())
 ```
 
 ### Data Validation Patterns
+
 ```python
 from pydantic import BaseModel, ValidationError
 from typing import Union

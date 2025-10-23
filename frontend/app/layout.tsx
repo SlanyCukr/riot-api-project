@@ -36,7 +36,9 @@ export default function RootLayout({
           <Providers>
             <div className="flex min-h-screen">
               <SidebarNav />
-              <main className="flex-1 bg-background">{children}</main>
+              <main id="content" className="flex-1 bg-background">
+                {children}
+              </main>
             </div>
             <Toaster position="top-right" richColors />
           </Providers>

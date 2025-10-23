@@ -170,6 +170,7 @@ class PlayerService:
 ```
 
 **Service Guidelines:**
+
 - Async methods only (no blocking I/O)
 - Use RiotDataManager for Riot API calls
 - Log operations with structlog context keys
@@ -218,6 +219,7 @@ class Rank(BaseModel):
 ```
 
 **Model Guidelines:**
+
 - Inherit from `BaseModel` (provides `id`, `created_at`, `updated_at`)
 - Use proper indexes on frequently queried columns
 - Define relationships with `back_populates`
@@ -262,6 +264,7 @@ class PlayerResponse(PlayerBase):
 ```
 
 **Schema Guidelines:**
+
 - Use Pydantic v2 patterns (`ConfigDict`, field validators)
 - Separate schemas for create, update, and response
 - Use `Field()` for validation constraints
@@ -295,6 +298,7 @@ def get_player_service(
 ### Step-by-Step Guide
 
 1. **Create feature directory**:
+
    ```bash
    mkdir -p backend/app/features/my_feature
    cd backend/app/features/my_feature
@@ -303,6 +307,7 @@ def get_player_service(
 2. **Create `__init__.py`** with public exports
 3. **Create `models.py`** (if feature needs database tables)
 4. **Create database migration**:
+
    ```bash
    ./scripts/alembic.sh revision --autogenerate -m "Add my_feature tables"
    ./scripts/alembic.sh upgrade head
@@ -313,6 +318,7 @@ def get_player_service(
 7. **Create `dependencies.py`** with DI factories
 8. **Create `router.py`** with API endpoints
 9. **Register router** in `backend/app/main.py`:
+
    ```python
    from app.features.my_feature import my_feature_router
    app.include_router(my_feature_router, prefix="/api/v1", tags=["my_feature"])
@@ -324,6 +330,7 @@ def get_player_service(
 ## Import Patterns
 
 ### Within Feature (Internal)
+
 ```python
 # Import sibling modules directly
 from .models import Player, Rank
@@ -332,6 +339,7 @@ from .service import PlayerService
 ```
 
 ### From Core
+
 ```python
 from app.core.database import get_db
 from app.core.riot_api import RiotDataManager
@@ -340,6 +348,7 @@ from app.core.exceptions import RiotAPIError
 ```
 
 ### From Other Features (Use Public API)
+
 ```python
 # ✅ Correct: Import from public API
 from app.features.players import PlayerService, Player
@@ -349,6 +358,7 @@ from app.features.players.service import PlayerService
 ```
 
 ### In main.py (Router Registration)
+
 ```python
 from app.features.players import players_router
 from app.features.matches import matches_router
@@ -388,6 +398,7 @@ async def test_get_player(db: AsyncSession, test_client: AsyncClient):
 ## Common Patterns
 
 ### Pagination
+
 ```python
 @router.get("/players", response_model=list[PlayerResponse])
 async def list_players(
@@ -403,6 +414,7 @@ async def list_players(
 ```
 
 ### Error Handling
+
 ```python
 from app.core.exceptions import RiotAPIError, PlayerNotFoundError
 
@@ -416,6 +428,7 @@ except RiotAPIError as e:
 ```
 
 ### Background Tasks
+
 ```python
 from fastapi import BackgroundTasks
 
