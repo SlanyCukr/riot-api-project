@@ -82,10 +82,10 @@ OptionalDateTime = Annotated[Optional[datetime], mapped_column()]
 # Common field patterns with specific constraints
 PUUIDField = Annotated[str, mapped_column(String(78), primary_key=True, index=True)]
 PUUIDForeignKey = Annotated[
-    str, mapped_column(String(78), ForeignKey("app.players.puuid", ondelete="CASCADE"))
+    str, mapped_column(String(78), ForeignKey("core.players.puuid", ondelete="CASCADE"))
 ]
 MatchIDField = Annotated[str, mapped_column(String(64), primary_key=True, index=True)]
 MatchIDForeignKey = Annotated[
     str,
-    mapped_column(String(64), ForeignKey("app.matches.match_id", ondelete="CASCADE")),
+    mapped_column(String(64), ForeignKey("core.matches.match_id", ondelete="CASCADE")),
 ]

@@ -7,39 +7,50 @@ Analyzes League of Legends player accounts to detect potential smurfs (experienc
 ## API Endpoints
 
 ### Smurf Analysis
+
 - `POST /api/v1/player-analysis/{puuid}` - Analyze a player account for smurf indicators
 - `GET /api/v1/player-analysis/{puuid}/history` - Get historical smurf detection results
 - `GET /api/v1/player-analysis/{puuid}/latest` - Get the most recent analysis
 
 ### Detection Configuration
+
 - `GET /api/v1/player-analysis/config` - Get current detection thresholds and weights
 - `PUT /api/v1/player-analysis/config` - Update detection configuration (admin only)
 
 ## Key Components
 
 ### Router (`router.py`)
+
 FastAPI router defining smurf detection endpoints. Handles analysis requests and configuration management.
 
 ### Service (`service.py`)
+
 **SmurfDetectionService** - Core business logic for smurf detection:
+
 - Orchestrates multiple analyzers to evaluate accounts
 - Calculates weighted smurf scores
 - Stores detection results in database
 - Provides historical analysis tracking
 
 ### Models (`models.py`)
+
 **SQLAlchemy Models:**
+
 - `SmurfDetection` - Detection result entity (PUUID, overall score, factor scores, analysis timestamp)
 
 ### Schemas (`schemas.py`)
+
 **Pydantic Schemas:**
+
 - `SmurfDetectionRequest` - Request to analyze a player
 - `SmurfDetectionResponse` - Analysis results with factor breakdown
 - `FactorScore` - Individual factor score and weight
 - `DetectionConfig` - Configuration for thresholds and weights
 
 ### Configuration (`config.py`)
+
 Detection thresholds and weights for each analysis factor:
+
 - Win rate thresholds and weights
 - Account level thresholds
 - Performance metric weights
@@ -47,7 +58,9 @@ Detection thresholds and weights for each analysis factor:
 - Champion mastery weights
 
 ### Analyzers (`analyzers/`)
+
 Modular factor analyzers:
+
 - `base.py` - BaseAnalyzer abstract class
 - `win_rate.py` - Win rate analysis
 - `account_level.py` - Account age and level analysis
@@ -56,20 +69,24 @@ Modular factor analyzers:
 - `champion_mastery.py` - Champion pool diversity
 
 ### Dependencies (`dependencies.py`)
+
 - `get_smurf_detection_service()` - Dependency injection for SmurfDetectionService
 
 ## Dependencies
 
 ### Core Dependencies
+
 - `core.database` - Database session management
 - `core.riot_api` - Riot API data (via player and match services)
 - `core.config` - Application settings
 
 ### Feature Dependencies
+
 - `features.players` - Player data and rank information
 - `features.matches` - Match history for performance analysis
 
 ### External Libraries
+
 - SQLAlchemy - ORM for database operations
 - Pydantic - Data validation and serialization
 - FastAPI - API routing and dependency injection
@@ -101,11 +118,13 @@ The smurf detection system uses a multi-factor weighted scoring approach:
    - Dominant performance on specific champions
 
 **Final Score Calculation:**
+
 ```
 smurf_score = Σ(factor_score × factor_weight)
 ```
 
 Scores range from 0-100:
+
 - 0-30: Unlikely to be a smurf
 - 30-60: Possible smurf indicators
 - 60-100: High likelihood of smurf account

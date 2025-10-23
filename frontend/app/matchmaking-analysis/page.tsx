@@ -11,6 +11,7 @@ import {
   MatchmakingAnalysis,
   MatchmakingAnalysisResults,
 } from "@/features/matchmaking";
+import { ProtectedRoute } from "@/features/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
 import {
@@ -109,8 +110,10 @@ function MatchmakingAnalysisContent() {
 
 export default function MatchmakingAnalysisPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <MatchmakingAnalysisContent />
-    </Suspense>
+    <ProtectedRoute>
+      <Suspense fallback={<div>Loading...</div>}>
+        <MatchmakingAnalysisContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

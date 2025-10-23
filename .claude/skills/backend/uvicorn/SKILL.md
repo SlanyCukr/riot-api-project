@@ -15,7 +15,6 @@ Uvicorn is a lightning-fast ASGI server implementation, using uvloop and httptoo
 
 ## Quick Start
 
-
 ### Basic Usage
 
 ```bash
@@ -207,7 +206,6 @@ services:
       - .:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
 
 ## Troubleshooting
 

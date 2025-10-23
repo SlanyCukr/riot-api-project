@@ -5,7 +5,7 @@ It's in a separate module to avoid circular import issues.
 """
 
 from collections import deque
-from typing import Any, Dict
+from typing import Any, MutableMapping
 
 
 class BoundedLogCapture:
@@ -19,8 +19,8 @@ class BoundedLogCapture:
         self.entries = deque(maxlen=maxlen)
 
     def __call__(
-        self, _: Any, _method_name: str, event_dict: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, _: Any, _method_name: str, event_dict: MutableMapping[str, Any]
+    ) -> MutableMapping[str, Any]:
         """Capture log entry (structlog processor interface) and return unchanged."""
         self.entries.append(event_dict)
         return event_dict

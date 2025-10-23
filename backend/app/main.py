@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.core import get_global_settings, get_riot_api_key
+from app.features.auth import auth_router
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router
 from app.features.smurf_detection.router import router as smurf_detection_router
@@ -191,7 +192,7 @@ app = FastAPI(
 
 # Configure rate limiter for FastAPI app
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Configure CORS middleware
 app.add_middleware(
@@ -203,6 +204,7 @@ app.add_middleware(
 )
 
 # Include API routers
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
 app.include_router(smurf_detection_router, prefix="/api/v1", tags=["player-analysis"])

@@ -9,6 +9,7 @@ The jobs feature manages background task scheduling and execution using APSchedu
 ## Unique Architecture
 
 Unlike standard features, jobs has:
+
 - **`implementations/` subdirectory** - Concrete job implementations
 - **`base.py`** - Abstract BaseJob class and job registry
 - **`scheduler.py`** - APScheduler configuration and management
@@ -434,6 +435,7 @@ async def enable_job(job_id: str, db: AsyncSession = Depends(get_db)):
 ## Adding a New Job
 
 1. **Create job implementation** in `implementations/`:
+
    ```python
    class MyNewJob(BaseJob):
        job_id = "MY_NEW_JOB"
@@ -448,6 +450,7 @@ async def enable_job(job_id: str, db: AsyncSession = Depends(get_db)):
    ```
 
 2. **Register in `__init__.py`**:
+
    ```python
    from .implementations.my_new_job import MyNewJob
 
@@ -457,11 +460,13 @@ async def enable_job(job_id: str, db: AsyncSession = Depends(get_db)):
    ```
 
 3. **Create database migration** for job configuration:
+
    ```bash
    ./scripts/alembic.sh revision --autogenerate -m "Add MyNewJob configuration"
    ```
 
 4. **Seed configuration** in migration:
+
    ```python
    def upgrade():
        op.execute("""

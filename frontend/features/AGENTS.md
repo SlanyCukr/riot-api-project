@@ -48,14 +48,14 @@ Export the feature's public interface for use by pages:
 
 ```typescript
 // features/players/index.ts
-export { PlayerSearch } from './components/player-search'
-export { PlayerCard } from './components/player-card'
-export { PlayerStats } from './components/player-stats'
-export { AddTrackedPlayer } from './components/add-tracked-player'
-export { TrackedPlayersList } from './components/tracked-players-list'
+export { PlayerSearch } from "./components/player-search";
+export { PlayerCard } from "./components/player-card";
+export { PlayerStats } from "./components/player-stats";
+export { AddTrackedPlayer } from "./components/add-tracked-player";
+export { TrackedPlayersList } from "./components/tracked-players-list";
 
 // Export hooks if they're part of the public API
-export { usePlayerSearch } from './hooks/use-player-search'
+export { usePlayerSearch } from "./hooks/use-player-search";
 ```
 
 #### `components/` - Feature Components
@@ -111,6 +111,7 @@ export function PlayerSearch({ onPlayerSelect }: PlayerSearchProps) {
 ```
 
 **Component Guidelines:**
+
 - Use `"use client"` for interactivity/hooks/browser APIs
 - TypeScript interface for props
 - Handle loading, error, and success states
@@ -124,28 +125,28 @@ Reusable logic extracted into hooks:
 
 ```typescript
 // features/players/hooks/use-player-search.ts
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/core/api'
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/core/api";
 
-export function usePlayerSearch(initialQuery: string = '') {
-  const [searchTerm, setSearchTerm] = useState(initialQuery)
-  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery)
+export function usePlayerSearch(initialQuery: string = "") {
+  const [searchTerm, setSearchTerm] = useState(initialQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const query = useQuery({
-    queryKey: ['player-search', debouncedSearch],
+    queryKey: ["player-search", debouncedSearch],
     queryFn: () => api.get(`/players/suggestions?q=${debouncedSearch}`),
     enabled: debouncedSearch.length >= 3,
-  })
+  });
 
   return {
     searchTerm,
@@ -153,7 +154,7 @@ export function usePlayerSearch(initialQuery: string = '') {
     suggestions: query.data,
     isLoading: query.isLoading,
     error: query.error,
-  }
+  };
 }
 ```
 
@@ -164,11 +165,11 @@ Helper functions specific to the feature:
 ```typescript
 // features/players/utils/player-formatters.ts
 export function formatRiotId(gameName: string, tagLine: string): string {
-  return `${gameName}#${tagLine}`
+  return `${gameName}#${tagLine}`;
 }
 
 export function formatRank(tier: string, rank: string, lp: number): string {
-  return `${tier} ${rank} (${lp} LP)`
+  return `${tier} ${rank} (${lp} LP)`;
 }
 ```
 
@@ -177,11 +178,13 @@ export function formatRank(tier: string, rank: string, lp: number): string {
 ### Step-by-Step Guide
 
 1. **Create feature directory**:
+
    ```bash
    mkdir -p frontend/features/my-feature/components
    ```
 
 2. **Create components** in `components/`:
+
    ```typescript
    // features/my-feature/components/my-component.tsx
    "use client"
@@ -192,12 +195,14 @@ export function formatRank(tier: string, rank: string, lp: number): string {
    ```
 
 3. **Create `index.ts`** with exports:
+
    ```typescript
    // features/my-feature/index.ts
-   export { MyComponent } from './components/my-component'
+   export { MyComponent } from "./components/my-component";
    ```
 
 4. **Use in pages**:
+
    ```typescript
    // app/my-page/page.tsx
    import { MyComponent } from '@/features/my-feature'
@@ -210,37 +215,42 @@ export function formatRank(tier: string, rank: string, lp: number): string {
 ## Import Patterns
 
 ### Within Feature (Internal)
+
 ```typescript
 // Import sibling components/hooks/utils
-import { PlayerCard } from './player-card'
-import { usePlayerData } from '../hooks/use-player-data'
-import { formatRank } from '../utils/player-formatters'
+import { PlayerCard } from "./player-card";
+import { usePlayerData } from "../hooks/use-player-data";
+import { formatRank } from "../utils/player-formatters";
 ```
 
 ### From Core Lib
+
 ```typescript
-import { api } from '@/lib/core/api'
-import { playerSchema } from '@/lib/core/schemas'
-import { cn } from '@/lib/utils'
+import { api } from "@/lib/core/api";
+import { playerSchema } from "@/lib/core/schemas";
+import { cn } from "@/lib/utils";
 ```
 
 ### From Shared Components
+
 ```typescript
-import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import { SidebarNav } from '@/components/sidebar-nav'
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { SidebarNav } from "@/components/sidebar-nav";
 ```
 
 ### From Other Features (Use Public API)
+
 ```typescript
 // ✅ Correct: Import from public API
-import { PlayerCard } from '@/features/players'
+import { PlayerCard } from "@/features/players";
 
 // ❌ Wrong: Import internal components
-import { PlayerCard } from '@/features/players/components/player-card'
+import { PlayerCard } from "@/features/players/components/player-card";
 ```
 
 ### In Pages (Feature Composition)
+
 ```typescript
 // app/player-analysis/page.tsx
 import { PlayerSearch, PlayerStats } from '@/features/players'
@@ -442,16 +452,19 @@ export function Autocomplete({ suggestions }: { suggestions: string[] }) {
 ## Component Placement Rules
 
 ### Feature-Specific → `features/<feature>/components/`
+
 - Used by ONE feature only
 - Domain-specific business logic
 - Example: `PlayerSearch`, `SmurfAnalysisResults`
 
 ### Shared Layout/Infrastructure → `components/`
+
 - Used across multiple features
 - Generic layout components
 - Example: `SidebarNav`, `LoadingSkeleton`, `ThemeToggle`
 
 ### shadcn/ui Primitives → `components/ui/`
+
 - **Never edit manually** - use shadcn CLI
 - Generic UI primitives (Button, Card, Input, etc.)
 - Example: `Button`, `Card`, `Dialog`

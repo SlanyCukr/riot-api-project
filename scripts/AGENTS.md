@@ -13,6 +13,7 @@ Removes unused Docker resources to free up disk space:
 ```
 
 **What it cleans**:
+
 - Stopped containers
 - Dangling images (untagged)
 - Unused build cache
@@ -20,6 +21,7 @@ Removes unused Docker resources to free up disk space:
 - Dangling volumes
 
 **When to use**:
+
 - Disk space running low
 - Build cache causing issues
 - After major changes to Docker configuration
@@ -29,6 +31,7 @@ Removes unused Docker resources to free up disk space:
 **All Docker Compose commands are now executed directly from the project root.**
 
 See `docker/AGENTS.md` for comprehensive command reference including:
+
 - Development workflow (`docker compose watch`)
 - Production deployment (`docker compose -f compose.yaml -f compose.prod.yaml up -d`)
 - Database operations (`docker compose exec postgres psql ...`)
@@ -45,6 +48,7 @@ pre-commit run --all-files
 ```
 
 **Checks include**:
+
 - **pydocstyle**: All docstrings present and formatted correctly
 - **pyright**: No type errors (runs in Docker with full dependency access)
 - **ruff**: Code style and quality
@@ -58,12 +62,14 @@ pre-commit run --all-files
 ## Guidelines
 
 ✅ **Do**:
+
 - Use direct Docker Compose commands (see `docker/AGENTS.md`)
 - Run `./scripts/docker-cleanup.sh` when disk space is low
 - Run pre-commit hooks before every commit
 - Refer to `docker/AGENTS.md` for all Docker operations
 
 ❌ **Don't**:
+
 - Clear `/tmp/.buildx-cache` manually (use docker-cleanup.sh)
 - Skip pre-commit hooks with `--no-verify`
 - Create wrapper scripts (use direct Docker commands instead)

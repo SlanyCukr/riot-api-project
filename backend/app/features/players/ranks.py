@@ -21,7 +21,7 @@ class PlayerRank(Base):
     """Player rank model storing ranked information."""
 
     __tablename__ = "player_ranks"
-    __table_args__ = {"schema": "app"}
+    __table_args__ = {"schema": "core"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -31,7 +31,7 @@ class PlayerRank(Base):
     # Foreign key
     puuid: Mapped[str] = mapped_column(
         String(78),
-        ForeignKey("app.players.puuid", ondelete="CASCADE"),
+        ForeignKey("core.players.puuid", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the player (Riot PUUID)",

@@ -9,6 +9,7 @@ The smurf detection feature implements a multi-factor analysis algorithm to iden
 ## Unique Architecture
 
 Unlike standard features, smurf detection has:
+
 - **`analyzers/` subdirectory** - Modular factor analyzers
 - **`config.py`** - Detection thresholds and weights configuration
 - **Complex service layer** - Orchestrates multiple analyzers
@@ -52,11 +53,13 @@ Each analyzer evaluates one aspect of player behavior:
 9. **KDA Analysis** (3% weight) - Exceptional K/D/A ratios
 
 **Weighted Score:**
+
 ```
 final_score = Σ(factor_score × factor_weight)
 ```
 
 **Confidence Levels:**
+
 - **High (80%+)**: Very likely smurf
 - **Medium (60-79%)**: Probable smurf
 - **Low (40-59%)**: Possible smurf
@@ -286,6 +289,7 @@ class SmurfDetection(BaseModel):
 ## Adding a New Analyzer
 
 1. **Create analyzer file** in `analyzers/`:
+
    ```python
    # analyzers/new_factor.py
    class NewFactorAnalyzer:
@@ -297,6 +301,7 @@ class SmurfDetection(BaseModel):
    ```
 
 2. **Register in service** (`service.py`):
+
    ```python
    def _initialize_analyzers(self):
        return {
@@ -314,6 +319,7 @@ class SmurfDetection(BaseModel):
 ## Testing
 
 Smurf detection tests should verify:
+
 - Individual analyzer logic
 - Weighted score calculation
 - Configuration validation

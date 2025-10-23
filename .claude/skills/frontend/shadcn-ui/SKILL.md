@@ -54,8 +54,8 @@ Create a `components.json` file to customize your setup:
 ### Basic Usage
 
 ```tsx
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Example() {
   return (
@@ -67,7 +67,7 @@ export default function Example() {
         <Button>Get Started</Button>
       </CardContent>
     </Card>
-  )
+  );
 }
 ```
 
@@ -126,8 +126,8 @@ Add CSS variables for theming:
 ### Form Patterns
 
 ```tsx
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function FormField({ label, ...props }) {
   return (
@@ -135,14 +135,18 @@ function FormField({ label, ...props }) {
       <Label htmlFor={props.id}>{label}</Label>
       <Input {...props} />
     </div>
-  )
+  );
 }
 ```
 
 ### Component Composition
 
 ```tsx
-import { AlertDialog, AlertDialogAction, AlertDialogContent } from "@/components/ui/alert-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+} from "@/components/ui/alert-dialog";
 
 function ConfirmDialog() {
   return (
@@ -151,18 +155,20 @@ function ConfirmDialog() {
         <AlertDialogAction>Confirm</AlertDialogAction>
       </AlertDialogContent>
     </AlertDialog>
-  )
+  );
 }
 ```
 
 ## Popular Components
 
 ### Navigation
+
 - `breadcrumb` - Navigation breadcrumb
 - `navigation-menu` - Dropdown navigation
 - `menubar` - Application menu bar
 
 ### Forms
+
 - `input` - Text input field
 - `button` - Action button
 - `select` - Dropdown select
@@ -170,18 +176,21 @@ function ConfirmDialog() {
 - `radio-group` - Radio button group
 
 ### Layout
+
 - `card` - Content container
 - `dialog` - Modal dialog
 - `sheet` - Slide-out panel
 - `tabs` - Tabbed content
 
 ### Data Display
+
 - `table` - Data table
 - `badge` - Status indicator
 - `avatar` - User avatar
 - `separator` - Visual divider
 
 ### Feedback
+
 - `toast` - Notification message
 - `alert` - Alert message
 - `progress` - Progress indicator
@@ -192,18 +201,20 @@ function ConfirmDialog() {
 For projects not using the CLI:
 
 1. **Install dependencies**:
+
 ```bash
 npm install class-variance-authority clsx tailwind-merge lucide-react
 ```
 
 2. **Create utils file**:
+
 ```tsx
 // src/lib/utils.ts
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 ```
 

@@ -1,7 +1,6 @@
 {
   "recommendations": [
     "bierner.markdown-mermaid",
-    "eamodio.gitlens",
     "esbenp.prettier-vscode",
     "github.vscode-github-actions",
     "ms-azuretools.vscode-docker",

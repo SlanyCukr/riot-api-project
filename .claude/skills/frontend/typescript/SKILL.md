@@ -53,7 +53,7 @@ interface UserProfile {
 // Interface extending another
 interface AdminUser extends UserProfile {
   permissions: string[];
-  role: 'admin' | 'super_admin';
+  role: "admin" | "super_admin";
 }
 
 // Generic interface
@@ -67,7 +67,7 @@ interface ApiResponse<T> {
 const userResponse: ApiResponse<User> = {
   data: { id: 1, username: "john", email: "john@example.com" },
   status: 200,
-  message: "Success"
+  message: "Success",
 };
 ```
 
@@ -106,7 +106,7 @@ function createApiResponse<T>(data: T, status = 200): ApiResponse<T> {
   return {
     data,
     status,
-    message: status >= 400 ? 'Error' : 'Success'
+    message: status >= 400 ? "Error" : "Success",
   };
 }
 ```
@@ -115,10 +115,10 @@ function createApiResponse<T>(data: T, status = 200): ApiResponse<T> {
 
 ```typescript
 // Pick - select specific properties
-type UserContactInfo = Pick<User, 'email' | 'phone'>;
+type UserContactInfo = Pick<User, "email" | "phone">;
 
 // Omit - remove specific properties
-type CreateUserRequest = Omit<User, 'id' | 'createdAt'>;
+type CreateUserRequest = Omit<User, "id" | "createdAt">;
 
 // Partial - make all properties optional
 type PartialUser = Partial<User>;
@@ -127,7 +127,7 @@ type PartialUser = Partial<User>;
 type RequiredUser = Required<UserProfile>;
 
 // Record - create object type with specific keys
-type StatusMap = Record<'pending' | 'approved' | 'rejected', string>;
+type StatusMap = Record<"pending" | "approved" | "rejected", string>;
 
 // Extract properties that match a condition
 type StringProperties<T> = {
@@ -147,16 +147,16 @@ type FunctionProperties<T> = Pick<T, FunctionPropertyNames<T>>;
 ```typescript
 // Discriminated union
 interface LoadingState {
-  status: 'loading';
+  status: "loading";
 }
 
 interface SuccessState<T> {
-  status: 'success';
+  status: "success";
   data: T;
 }
 
 interface ErrorState {
-  status: 'error';
+  status: "error";
   error: string;
 }
 
@@ -164,21 +164,21 @@ type DataState<T> = LoadingState | SuccessState<T> | ErrorState;
 
 // Type guard function
 function isLoading<T>(state: DataState<T>): state is LoadingState {
-  return state.status === 'loading';
+  return state.status === "loading";
 }
 
 function isSuccess<T>(state: DataState<T>): state is SuccessState<T> {
-  return state.status === 'success';
+  return state.status === "success";
 }
 
 // Usage
 function handleDataState<T>(state: DataState<T>) {
   if (isLoading(state)) {
-    console.log('Loading...');
+    console.log("Loading...");
   } else if (isSuccess(state)) {
-    console.log('Data:', state.data);
+    console.log("Data:", state.data);
   } else {
-    console.log('Error:', state.error);
+    console.log("Error:", state.error);
   }
 }
 ```
@@ -245,7 +245,7 @@ class ApiClient {
     } catch (error) {
       return {
         success: false,
-        error: { code: 'NETWORK_ERROR', message: error.message }
+        error: { code: "NETWORK_ERROR", message: error.message },
       };
     }
   }

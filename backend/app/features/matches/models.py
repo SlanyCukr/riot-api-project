@@ -21,7 +21,7 @@ class Match(Base):
     """Match model storing League of Legends match data."""
 
     __tablename__ = "matches"
-    __table_args__ = {"schema": "app"}
+    __table_args__ = {"schema": "core"}
 
     # Primary key - match ID from Riot API
     match_id: Mapped[str] = mapped_column(

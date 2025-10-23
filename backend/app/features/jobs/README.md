@@ -7,6 +7,7 @@ Manages background job scheduling and execution for automated data updates, anal
 ## API Endpoints
 
 ### Job Management
+
 - `GET /api/v1/jobs/` - List all configured jobs
 - `GET /api/v1/jobs/{job_id}` - Get job configuration and status
 - `PUT /api/v1/jobs/{job_id}` - Update job configuration
@@ -14,65 +15,83 @@ Manages background job scheduling and execution for automated data updates, anal
 - `POST /api/v1/jobs/{job_id}/disable` - Disable a job
 
 ### Job Execution
+
 - `POST /api/v1/jobs/{job_id}/trigger` - Manually trigger a job
 - `GET /api/v1/jobs/{job_id}/executions` - Get execution history
 - `GET /api/v1/jobs/executions/recent` - Get recent executions across all jobs
 
 ### System Status
+
 - `GET /api/v1/jobs/status/overview` - Get system-wide job status
 - `GET /api/v1/jobs/scheduler/status` - Get APScheduler status
 
 ## Key Components
 
 ### Router (`router.py`)
+
 FastAPI router defining job control endpoints. Handles job configuration, triggering, and status retrieval.
 
 ### Service (`service.py`)
+
 **JobService** - Core business logic for job management:
+
 - Job configuration management
 - Execution history tracking
 - Job status monitoring
 - Integration with scheduler
 
 ### Models (`models.py`)
+
 **SQLAlchemy Models:**
+
 - `JobConfiguration` - Job settings (ID, name, schedule, enabled status)
 - `JobExecution` - Execution record (job ID, status, start/end times, logs, error messages)
 
 ### Schemas (`schemas.py`)
+
 **Pydantic Schemas:**
+
 - `JobConfigurationResponse` - Job configuration details
 - `JobExecutionResponse` - Execution result and logs
 - `JobStatusOverview` - System-wide job status summary
 - `TriggerJobRequest` - Manual trigger request
 
 ### Scheduler (`scheduler.py`)
+
 **APScheduler Setup:**
+
 - Job scheduler initialization and configuration
 - Cron schedule management
 - Job registration and lifecycle management
 
 ### Base Job (`base.py`)
+
 **BaseJob** - Abstract base class for all job implementations:
+
 - Common job execution patterns
 - Error handling integration
 - Logging standardization
 - Database session management
 
 ### Error Handling (`error_handling.py`)
+
 **@handle_riot_api_errors** - Decorator for Riot API error handling:
+
 - Rate limit management
 - Retry logic with exponential backoff
 - Error logging and tracking
 - Graceful degradation
 
 ### Log Capture (`log_capture.py`)
+
 Centralized job logging:
+
 - Captures stdout/stderr during job execution
 - Stores logs in database for historical review
 - Provides log streaming for real-time monitoring
 
 ### Dependencies (`dependencies.py`)
+
 - `get_job_service()` - Dependency injection for JobService
 - `get_scheduler()` - Access to APScheduler instance
 
@@ -81,6 +100,7 @@ Centralized job logging:
 All job implementations are located in `implementations/`:
 
 ### 1. Tracked Player Updater (`tracked_player_updater.py`)
+
 - **Purpose**: Updates data for all tracked players
 - **Schedule**: Every 15 minutes
 - **Operations**:
@@ -90,6 +110,7 @@ All job implementations are located in `implementations/`:
   - Triggers match fetcher if new matches found
 
 ### 2. Match Fetcher (`match_fetcher.py`)
+
 - **Purpose**: Retrieves new matches for tracked players
 - **Schedule**: Every 30 minutes
 - **Operations**:
@@ -99,6 +120,7 @@ All job implementations are located in `implementations/`:
   - Triggers smurf analysis for new matches
 
 ### 3. Smurf Analyzer (`smurf_analyzer.py`)
+
 - **Purpose**: Runs smurf detection on tracked players
 - **Schedule**: Daily at 2:00 AM
 - **Operations**:
@@ -108,6 +130,7 @@ All job implementations are located in `implementations/`:
   - Generates analysis reports
 
 ### 4. Ban Checker (`ban_checker.py`)
+
 - **Purpose**: Checks if tracked players are banned
 - **Schedule**: Daily at 3:00 AM
 - **Operations**:
@@ -119,16 +142,19 @@ All job implementations are located in `implementations/`:
 ## Dependencies
 
 ### Core Dependencies
+
 - `core.database` - Database session management
 - `core.config` - Application settings
 - `core.riot_api` - Riot API client
 
 ### Feature Dependencies
+
 - `features.players` - Player data management
 - `features.matches` - Match data storage
 - `features.smurf_detection` - Smurf analysis execution
 
 ### External Libraries
+
 - APScheduler - Job scheduling framework
 - SQLAlchemy - ORM for database operations
 - Pydantic - Data validation and serialization
@@ -243,16 +269,19 @@ BAN_CHECK_SCHEDULE="0 3 * * *"  # cron format
 ## Monitoring and Troubleshooting
 
 ### View Recent Executions
+
 ```bash
 curl http://localhost:8000/api/v1/jobs/executions/recent
 ```
 
 ### Check Specific Job
+
 ```bash
 curl http://localhost:8000/api/v1/jobs/tracked_player_updater
 ```
 
 ### View Execution Logs
+
 ```bash
 curl http://localhost:8000/api/v1/jobs/executions/{execution_id}
 ```
@@ -260,16 +289,19 @@ curl http://localhost:8000/api/v1/jobs/executions/{execution_id}
 ### Common Issues
 
 **Job Not Running**
+
 - Check if job is enabled: `GET /api/v1/jobs/{job_id}`
 - Verify scheduler is running: `GET /api/v1/jobs/scheduler/status`
 - Check execution logs for errors
 
 **Rate Limiting**
+
 - Jobs automatically handle Riot API rate limits
 - If persistent, increase job intervals
 - Check error handling configuration
 
 **Database Locks**
+
 - Jobs use separate database sessions
 - Long-running jobs may need connection pool tuning
 - Check for deadlocks in execution logs

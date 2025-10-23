@@ -25,12 +25,14 @@ All Docker builds and configurations are optimized for ARM64 architecture and th
 ### Build Performance
 
 Expected build times on RPi5:
+
 - **Full production build** (backend + frontend): 5-10 minutes
 - **Backend only**: 2-4 minutes
 - **Frontend only**: 3-6 minutes
 - **Rebuild with cache**: 1-3 minutes
 
 These times assume:
+
 - First build may take longer due to dependency downloads
 - SSD storage for optimal I/O
 - No other resource-intensive tasks running
@@ -38,6 +40,7 @@ These times assume:
 ### Storage Management
 
 With 2TB SSD, storage is not a constraint:
+
 - **Build cache**: 50GB allocated
 - **Docker images**: ~2-5GB per deployment
 - **Database volumes**: Grows with data (monitored via application)
@@ -57,6 +60,7 @@ git push origin main
 ```
 
 The workflow:
+
 1. Stops existing containers
 2. Pulls latest code
 3. Builds images with Docker Bake (parallel)
@@ -105,6 +109,7 @@ docker buildx bake -f docker/docker-bake.hcl backend-prod --load
 ### Build Args
 
 Environment variables for builds:
+
 - `NEXT_PUBLIC_API_URL`: Frontend API endpoint (set in `.env`)
 - `NODE_OPTIONS`: Node.js memory limit (default: 3GB)
 
@@ -113,6 +118,7 @@ Environment variables for builds:
 ### Memory Usage
 
 With 16GB RAM, the typical memory footprint is:
+
 - **PostgreSQL**: ~500MB-1GB
 - **Backend (FastAPI)**: ~200-500MB
 - **Frontend (Next.js)**: ~150-300MB
@@ -122,6 +128,7 @@ With 16GB RAM, the typical memory footprint is:
 ### CPU Usage
 
 The 4-core CPU is utilized efficiently:
+
 - **Parallel builds**: 2 simultaneous image builds
 - **Runtime**: All services share CPU dynamically
 - **Background jobs**: Scheduled tasks run without blocking
@@ -129,6 +136,7 @@ The 4-core CPU is utilized efficiently:
 ### Disk I/O
 
 SSD provides excellent performance:
+
 - **Build cache**: Stored on `/tmp/.buildx-cache` (SSD)
 - **Docker volumes**: Stored on SSD for fast database access
 - **No I/O bottlenecks**: 2TB provides ample space
@@ -165,6 +173,7 @@ docker system df
 ### Health Checks
 
 All services have health checks:
+
 - **Backend**: `http://localhost:8086/health`
 - **Frontend**: `http://localhost:8088/`
 - **PostgreSQL**: `pg_isready` command
@@ -174,6 +183,7 @@ All services have health checks:
 ### Build Failures
 
 **Issue**: Out of memory during build
+
 ```bash
 # Check available memory
 free -h
@@ -187,6 +197,7 @@ docker compose down
 ```
 
 **Issue**: Build cache issues
+
 ```bash
 # Clear build cache
 docker buildx prune -a
@@ -198,6 +209,7 @@ docker buildx prune -a
 ### Runtime Issues
 
 **Issue**: Container fails to start
+
 ```bash
 # Check logs
 docker compose logs <service-name>
@@ -210,6 +222,7 @@ docker compose restart <service-name>
 ```
 
 **Issue**: Database connection errors
+
 ```bash
 # Check PostgreSQL status
 docker compose exec postgres pg_isready -U riot_api_user -d riot_api_db
@@ -224,6 +237,7 @@ docker compose restart postgres
 ### Performance Issues
 
 **Issue**: Slow build times
+
 ```bash
 # Check SSD health
 sudo smartctl -a /dev/sda  # Adjust device path
@@ -237,6 +251,7 @@ vcgencmd get_throttled
 ```
 
 **Issue**: Memory pressure
+
 ```bash
 # Check memory usage
 free -h
@@ -251,6 +266,7 @@ docker compose down
 ### npm Deprecation Warnings
 
 You may see warnings about deprecated npm packages during builds:
+
 ```
 npm warn deprecated @babel/plugin-proposal-private-methods@7.18.6
 ```
@@ -260,14 +276,17 @@ npm warn deprecated @babel/plugin-proposal-private-methods@7.18.6
 ### cgroup Memory Warnings
 
 If you see:
+
 ```
 Your kernel does not support memory limit capabilities or the cgroup is not mounted.
 ```
 
 **Status**: Expected - resource limits have been removed from compose files. To enable, add to `/boot/firmware/cmdline.txt`:
+
 ```
 cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
 ```
+
 Then reboot. (Optional - not required for operation)
 
 ## Backup and Recovery
@@ -285,6 +304,7 @@ cat backup.sql | docker compose exec -T postgres psql -U riot_api_user -d riot_a
 ### Full System Backup
 
 The 2TB SSD should include regular backups:
+
 - Database volumes: `/var/lib/docker/volumes/`
 - Configuration: `/home/pi/riot-api/.env`
 - Code: Version controlled via Git
@@ -294,16 +314,19 @@ The 2TB SSD should include regular backups:
 ### Regular Tasks
 
 **Weekly**:
+
 - Check disk usage: `df -h`
 - Review logs for errors
 - Verify backups
 
 **Monthly**:
+
 - Update system packages: `sudo apt update && sudo apt upgrade`
 - Clean up old images: `docker image prune -a`
 - Review Docker disk usage: `docker system df`
 
 **As Needed**:
+
 - Update dependencies in `backend/` and `frontend/`
 - Review and optimize database queries
 - Monitor application performance
@@ -311,6 +334,7 @@ The 2TB SSD should include regular backups:
 ## Support
 
 For issues specific to this deployment:
+
 1. Check logs: `docker compose logs`
 2. Review GitHub Actions workflow runs
 3. Check system resources: `free -h`, `df -h`

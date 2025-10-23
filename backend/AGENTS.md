@@ -14,6 +14,7 @@
 The backend uses **feature-based organization** where related code is grouped by domain:
 
 ### Core Infrastructure (`app/core/`)
+
 - `database.py` - Database session management
 - `config.py` - Application settings and configuration
 - `exceptions.py` - Base exception classes
@@ -33,6 +34,7 @@ The backend uses **feature-based organization** where related code is grouped by
 Each feature is self-contained with all related code:
 
 **`features/players/`** - Player management
+
 - `router.py` - Player API endpoints
 - `service.py` - PlayerService (search, tracking, rank)
 - `models.py` - Player, Rank SQLAlchemy models
@@ -41,22 +43,26 @@ Each feature is self-contained with all related code:
 - `README.md` - Feature documentation
 
 **`features/matches/`** - Match data and statistics
+
 - Match history retrieval and storage
 - Match participant tracking
 - Statistics aggregation
 - MatchDTOTransformer for API data
 
 **`features/smurf_detection/`** - Smurf analysis
+
 - SmurfDetectionService with multi-factor analysis
 - `analyzers/` - Factor analyzers (win rate, account level, performance, etc.)
 - `config.py` - Detection thresholds and weights
 
 **`features/matchmaking_analysis/`** - Matchmaking fairness
+
 - Team composition analysis
 - Rank distribution evaluation
 - Fairness score calculation
 
 **`features/jobs/`** - Background job scheduling
+
 - `scheduler.py` - APScheduler setup
 - `base.py` - BaseJob abstract class
 - `error_handling.py` - Riot API error decorator
@@ -67,6 +73,7 @@ Each feature is self-contained with all related code:
   - `ban_checker.py` - Checks for banned accounts (daily)
 
 **`features/settings/`** - System configuration
+
 - Runtime settings management
 - Riot API key validation
 - Sensitive value masking
@@ -74,11 +81,13 @@ Each feature is self-contained with all related code:
 ## Architectural Principles
 
 ### 1. Core vs. Features Separation
+
 - **Core**: Infrastructure that all features depend on
 - **Features**: Domain-specific business logic
 - **Rule**: Features depend on core, never the reverse
 
 ### 2. Dependency Flow
+
 ```
 features/players/ ──┐
 features/matches/ ──┼─→ core/ ──→ External Libraries
@@ -86,7 +95,9 @@ features/jobs/ ─────┘
 ```
 
 ### 3. Feature Structure
+
 Every feature follows the same pattern:
+
 ```
 features/<feature_name>/
 ├── __init__.py          # Public API exports
@@ -100,7 +111,9 @@ features/<feature_name>/
 ```
 
 ### 4. Public API Exports
+
 Features expose clean public APIs:
+
 ```python
 # features/players/__init__.py
 from .router import router as players_router
@@ -114,6 +127,7 @@ __all__ = ["players_router", "PlayerService", "Player", "Rank", ...]
 ## Import Patterns
 
 ### Importing from Core
+
 ```python
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -122,6 +136,7 @@ from app.core.enums import Tier, Platform
 ```
 
 ### Importing from Features
+
 ```python
 # Import from feature's public API
 from app.features.players import PlayerService, Player, PlayerResponse
@@ -133,6 +148,7 @@ from app.features.players.models import Player
 ```
 
 ### Dependency Injection
+
 ```python
 from fastapi import APIRouter, Depends
 from app.features.players.dependencies import get_player_service

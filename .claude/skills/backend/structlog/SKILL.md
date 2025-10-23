@@ -8,7 +8,6 @@ when_to_use: "When you need structured logging with context, JSON output, or enh
 
 ## Quick Start
 
-
 ```python
 import structlog
 
@@ -246,7 +245,6 @@ logging.config.dictConfig({
     }
 })
 ```
-
 
 ## Key Features
 

@@ -14,7 +14,9 @@ requirements: ["Node.js", "Tailwind CSS installed", "PostCSS configuration"]
 <div class="max-w-sm mx-auto bg-white rounded-xl shadow-md p-6">
   <h2 class="text-xl font-bold text-gray-800 mb-2">Card Title</h2>
   <p class="text-gray-600">Card content goes here</p>
-  <button class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+  <button
+    class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+  >
     Action
   </button>
 </div>
@@ -22,18 +24,18 @@ requirements: ["Node.js", "Tailwind CSS installed", "PostCSS configuration"]
 
 ```jsx
 // React component example
-function Button({ variant = 'primary', children, ...props }) {
-  const baseClasses = 'font-semibold py-2 px-4 rounded transition-colors'
+function Button({ variant = "primary", children, ...props }) {
+  const baseClasses = "font-semibold py-2 px-4 rounded transition-colors";
   const variantClasses = {
-    primary: 'bg-blue-500 hover:bg-blue-700 text-white',
-    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-  }
+    primary: "bg-blue-500 hover:bg-blue-700 text-white",
+    secondary: "bg-gray-200 hover:bg-gray-300 text-gray-800",
+  };
 
   return (
     <button className={`${baseClasses} ${variantClasses[variant]}`} {...props}>
       {children}
     </button>
-  )
+  );
 }
 ```
 
@@ -64,9 +66,7 @@ function Button({ variant = 'primary', children, ...props }) {
 
 ```html
 <!-- Responsive text sizing -->
-<h1 class="text-2xl md:text-3xl lg:text-4xl font-bold">
-  Responsive Heading
-</h1>
+<h1 class="text-2xl md:text-3xl lg:text-4xl font-bold">Responsive Heading</h1>
 
 <!-- Responsive spacing -->
 <div class="py-4 sm:py-6 lg:py-8">
@@ -102,16 +102,24 @@ function Button({ variant = 'primary', children, ...props }) {
 <div class="space-y-4">
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+    <input
+      type="email"
+      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+    />
   </div>
   <div>
     <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
-    <textarea class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows="4"></textarea>
+    <textarea
+      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      rows="4"
+    ></textarea>
   </div>
 </div>
 
 <!-- Card with hover effects -->
-<div class="transform transition-all duration-200 hover:scale-105 hover:shadow-xl">
+<div
+  class="transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+>
   <div class="bg-white rounded-lg overflow-hidden shadow-lg">
     <img src="image.jpg" alt="Card image" class="w-full h-48 object-cover" />
     <div class="p-6">
@@ -126,7 +134,9 @@ function Button({ variant = 'primary', children, ...props }) {
 
 ```html
 <!-- Text with gradient -->
-<div class="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+<div
+  class="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent"
+>
   Gradient Text
 </div>
 
@@ -136,9 +146,7 @@ function Button({ variant = 'primary', children, ...props }) {
 </div>
 
 <!-- Custom spacing with arbitrary values -->
-<div class="p-[2.5rem] m-[1.75rem]">
-  Custom padding and margin
-</div>
+<div class="p-[2.5rem] m-[1.75rem]">Custom padding and margin</div>
 
 <!-- Aspect ratio containers -->
 <div class="aspect-w-16 aspect-h-9">
@@ -150,7 +158,9 @@ function Button({ variant = 'primary', children, ...props }) {
 
 ```html
 <!-- Dark mode aware component -->
-<div class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-6">
+<div
+  class="bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg p-6"
+>
   <h2 class="text-xl font-bold mb-4">Dark Mode Compatible</h2>
   <p class="text-gray-600 dark:text-gray-300">
     This content adapts to dark/light theme
@@ -158,7 +168,9 @@ function Button({ variant = 'primary', children, ...props }) {
 </div>
 
 <!-- Toggle button -->
-<button class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white px-4 py-2 rounded">
+<button
+  class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white px-4 py-2 rounded"
+>
   Toggle Theme
 </button>
 ```
@@ -167,16 +179,22 @@ function Button({ variant = 'primary', children, ...props }) {
 
 ```html
 <!-- Buttons with states -->
-<button class="bg-blue-500 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-4 rounded transition-colors">
+<button
+  class="bg-blue-500 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-4 rounded transition-colors"
+>
   Interactive Button
 </button>
 
 <!-- Dropdown menu -->
 <div class="relative">
-  <button class="bg-white border border-gray-300 rounded-md px-4 py-2 text-left">
+  <button
+    class="bg-white border border-gray-300 rounded-md px-4 py-2 text-left"
+  >
     Select Option
   </button>
-  <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
+  <div
+    class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg"
+  >
     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Option 1</a>
     <a href="#" class="block px-4 py-2 hover:bg-gray-100">Option 2</a>
   </div>
@@ -223,12 +241,8 @@ module.exports = {
 
 ```html
 <!-- Using custom theme values -->
-<div class="bg-brand text-white p-4">
-  Custom brand color
-</div>
-<div class="p-72">
-  Custom spacing
-</div>
+<div class="bg-brand text-white p-4">Custom brand color</div>
+<div class="p-72">Custom spacing</div>
 ```
 
 ## Best Practices

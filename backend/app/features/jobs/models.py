@@ -44,7 +44,7 @@ class JobConfiguration(Base):
     """Job configuration model storing job scheduling and settings."""
 
     __tablename__ = "job_configurations"
-    __table_args__ = {"schema": "app"}
+    __table_args__ = {"schema": "jobs"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -56,7 +56,7 @@ class JobConfiguration(Base):
 
     # Job identification
     job_type: Mapped[JobType] = mapped_column(
-        ENUM(JobType, name="job_type_enum", create_type=False, schema="app"),
+        ENUM(JobType, name="job_type_enum", create_type=False, schema="jobs"),
         nullable=False,
         index=True,
         comment="Type of job (tracked_player_updater, player_analyzer)",
@@ -125,7 +125,7 @@ class JobExecution(Base):
     """Job execution model storing job run history and metrics."""
 
     __tablename__ = "job_executions"
-    __table_args__ = {"schema": "app"}
+    __table_args__ = {"schema": "jobs"}
 
     # Primary key
     id: Mapped[int] = mapped_column(
@@ -138,7 +138,7 @@ class JobExecution(Base):
     # Foreign key to job configuration
     job_config_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("app.job_configurations.id", ondelete="CASCADE"),
+        ForeignKey("jobs.job_configurations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         comment="Reference to the job configuration",
@@ -162,7 +162,7 @@ class JobExecution(Base):
 
     # Execution status
     status: Mapped[JobStatus] = mapped_column(
-        ENUM(JobStatus, name="job_status_enum", create_type=False, schema="app"),
+        ENUM(JobStatus, name="job_status_enum", create_type=False, schema="jobs"),
         nullable=False,
         default=JobStatus.PENDING,
         index=True,

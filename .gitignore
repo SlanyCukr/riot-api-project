@@ -263,3 +263,6 @@ code-reviews/
 
 docs/production-rpi.md
 SQLMODEL_REFACTORING_GUIDE.md
+
+# GitHub Copilot environment-specific instructions
+.github/copilot-instructions.md

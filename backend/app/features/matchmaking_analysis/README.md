@@ -7,21 +7,26 @@ Evaluates the fairness and balance of League of Legends matchmaking by analyzing
 ## API Endpoints
 
 ### Matchmaking Analysis
+
 - `GET /api/v1/matchmaking-analysis/{puuid}` - Analyze matchmaking fairness for a player
 - `GET /api/v1/matchmaking-analysis/{match_id}` - Analyze fairness for a specific match
 - `POST /api/v1/matchmaking-analysis/batch` - Analyze multiple matches in batch
 
 ### Fairness Metrics
+
 - `GET /api/v1/matchmaking-analysis/{puuid}/trends` - Get matchmaking fairness trends over time
 - `GET /api/v1/matchmaking-analysis/{puuid}/summary` - Get aggregated fairness summary
 
 ## Key Components
 
 ### Router (`router.py`)
+
 FastAPI router defining matchmaking analysis endpoints. Handles analysis requests and result retrieval.
 
 ### Service (`service.py`)
+
 **MatchmakingAnalysisService** - Core business logic for fairness evaluation:
+
 - Team composition analysis
 - Rank distribution comparison
 - Historical performance evaluation
@@ -29,30 +34,38 @@ FastAPI router defining matchmaking analysis endpoints. Handles analysis request
 - Trend analysis over multiple matches
 
 ### Models (`models.py`)
+
 **SQLAlchemy Models:**
+
 - `MatchmakingAnalysis` - Analysis result entity (match ID, PUUID, fairness score, team metrics, timestamp)
 
 ### Schemas (`schemas.py`)
+
 **Pydantic Schemas:**
+
 - `MatchmakingAnalysisRequest` - Request to analyze matchmaking
 - `MatchmakingAnalysisResponse` - Analysis results with fairness metrics
 - `TeamMetrics` - Team-level statistics and composition
 - `FairnessScore` - Overall fairness score with breakdown
 
 ### Dependencies (`dependencies.py`)
+
 - `get_matchmaking_analysis_service()` - Dependency injection for MatchmakingAnalysisService
 
 ## Dependencies
 
 ### Core Dependencies
+
 - `core.database` - Database session management
 - `core.config` - Application settings
 
 ### Feature Dependencies
+
 - `features.players` - Player rank and account information
 - `features.matches` - Match data and participant details
 
 ### External Libraries
+
 - SQLAlchemy - ORM for database operations
 - Pydantic - Data validation and serialization
 - FastAPI - API routing and dependency injection
@@ -62,31 +75,37 @@ FastAPI router defining matchmaking analysis endpoints. Handles analysis request
 The matchmaking analysis evaluates several factors:
 
 ### 1. Rank Distribution (40% weight)
+
 - Average rank difference between teams
 - Rank spread within each team
 - Presence of outliers (players significantly above/below team average)
 
 ### 2. Historical Performance (30% weight)
+
 - Recent win rates for each team
 - Average KDA for each team
 - Performance trends (improving vs. declining players)
 
 ### 3. Team Composition (20% weight)
+
 - Role distribution balance
 - Champion synergy (basic analysis)
 - Experience with champions played
 
 ### 4. Account Factors (10% weight)
+
 - Account age distribution
 - Smurf likelihood impact
 - Queue type experience
 
 **Fairness Score Calculation:**
+
 ```
 fairness_score = 100 - Σ(deviation × weight)
 ```
 
 Scores range from 0-100:
+
 - 90-100: Excellent matchmaking (very balanced)
 - 75-89: Good matchmaking (minor imbalances)
 - 60-74: Fair matchmaking (noticeable imbalances)
@@ -156,6 +175,7 @@ async def get_fairness_trends(
 ## Data Model
 
 ### MatchmakingAnalysis
+
 - `id` (int, PK) - Auto-increment ID
 - `match_id` (str, FK) - Reference to Match
 - `puuid` (str) - Player analyzed
@@ -172,24 +192,28 @@ async def get_fairness_trends(
 ### Fairness Score Ranges
 
 **90-100: Excellent**
+
 - Teams are very evenly matched
 - Minimal rank differences
 - Similar historical performance
 - Balanced compositions
 
 **75-89: Good**
+
 - Generally balanced teams
 - Minor rank variations (1-2 divisions)
 - Reasonable performance parity
 - Minor composition advantages
 
 **60-74: Fair**
+
 - Noticeable imbalances
 - Rank differences of 2-3 divisions
 - Performance gaps present
 - Some composition mismatches
 
 **0-59: Poor**
+
 - Significant imbalances
 - Large rank disparities
 - Major performance differences

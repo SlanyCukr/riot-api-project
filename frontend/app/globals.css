@@ -92,6 +92,17 @@
     font-family: var(--font-sans);
   }
 
+  #content {
+    position: relative;
+    background-image:
+      linear-gradient(rgba(0, 9, 26, 0.5), rgba(0, 9, 26, 0.5)),
+      url(/background.jpg);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
   /* Header card background gradient */
   #header-card {
     background: linear-gradient(180deg, #233d72 0%, #152b56 100%) !important;
@@ -165,6 +176,7 @@
 
   /* Left sidebar gradient (both light and dark themes) */
   aside {
+    border-right: 1px #00091a;
     background: linear-gradient(
       180deg,
       #0f1f3a 0%,
@@ -195,5 +207,28 @@
   button:disabled:hover {
     transform: none !important;
     opacity: 0.6 !important;
+  }
+
+  /* Override browser autofill styles */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #e5e7eb inset !important;
+    -webkit-text-fill-color: #111827 !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* Force light grey background for sign-in form inputs even in dark mode */
+  #sign-in-form input,
+  #sign-in-form input[type="email"],
+  #sign-in-form input[type="password"] {
+    background-color: #e5e7eb !important;
+  }
+
+  .dark #sign-in-form input,
+  .dark #sign-in-form input[type="email"],
+  .dark #sign-in-form input[type="password"] {
+    background-color: #e5e7eb !important;
   }
 }

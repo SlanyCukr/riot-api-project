@@ -4,16 +4,39 @@ PostgreSQL database schema for Riot API project tracking League of Legends playe
 
 **Database**: PostgreSQL 18
 **ORM**: SQLAlchemy with automatic schema creation
+**Schemas**: `auth`, `core`, `jobs` (PostgreSQL schema separation)
 
 ---
 
 ## Entity Relationship Diagram
 
-### Core Entities
+### Authentication Schema (`auth.*`)
 
 ```mermaid
 ---
-title: Riot API Database Schema - Core Entities
+title: Authentication Schema
+---
+erDiagram
+    USERS {
+        bigint id PK "Auto-increment"
+        string email "Email address"
+        string password_hash "Hashed password"
+        string display_name "Display name"
+        bool is_active "Account active"
+        bool is_admin "Admin flag"
+        bool email_verified "Email verified"
+        timestamp email_verified_at "Verification time"
+        timestamp last_login "Last login"
+        timestamp created_at "Record creation"
+        timestamp updated_at "Last update"
+    }
+```
+
+### Core Schema (`core.*`)
+
+```mermaid
+---
+title: Core Schema - Player & Match Data
 ---
 erDiagram
     PLAYERS ||--o{ MATCH_PARTICIPANTS : "participates in"
@@ -21,7 +44,6 @@ erDiagram
     PLAYERS ||--o{ SMURF_DETECTIONS : "has detection results"
     PLAYERS ||--o{ MATCHMAKING_ANALYSES : "has matchmaking insights"
     MATCHES ||--o{ MATCH_PARTICIPANTS : "contains"
-    JOB_CONFIGURATIONS ||--o{ JOB_EXECUTIONS : "executes"
 
     PLAYERS {
         string puuid PK "Riot PUUID"
@@ -161,13 +183,15 @@ erDiagram
     }
 ```
 
-### Data Tracking & API Management
+### Jobs Schema (`jobs.*`)
 
 ```mermaid
 ---
-title: Job Management & System Configuration
+title: Jobs Schema - Background Tasks & System Configuration
 ---
 erDiagram
+    JOB_CONFIGURATIONS ||--o{ JOB_EXECUTIONS : "executes"
+
     JOB_CONFIGURATIONS {
         int id PK "Auto-increment"
         string job_type "Job type"
@@ -205,9 +229,70 @@ erDiagram
 
 ---
 
+## Schema Organization
+
+The database is organized into three PostgreSQL schemas for logical separation:
+
+### `auth` Schema
+
+- **Purpose**: User authentication and authorization
+- **Tables**: `users`
+- **Access**: Admin management, authentication services
+
+### `core` Schema
+
+- **Purpose**: League of Legends game data (players, matches, analyses)
+- **Tables**: `players`, `matches`, `match_participants`, `player_ranks`, `smurf_detections`, `matchmaking_analyses`
+- **Access**: Main application logic, API endpoints
+
+### `jobs` Schema
+
+- **Purpose**: Background job management and system configuration
+- **Tables**: `job_configurations`, `job_executions`, `system_settings`
+- **Access**: Job scheduler, admin tools
+
+---
+
 ## Table Details
 
-### 1. players
+### Auth Schema (`auth.*`)
+
+#### auth.users
+
+**Purpose**: User authentication and authorization for platform access.
+
+**Primary Key**: `id` (BigInt, auto-increment)
+
+**Key Features**:
+
+- Admin-only access initially (via `is_admin` flag)
+- Email-based authentication with password hashing
+- Email verification workflow support
+- Soft account deletion via `is_active` flag
+- Activity tracking via `last_login`
+
+**Indexes**:
+
+- `id` (primary key, automatic index)
+- `email` (indexed, unique)
+- `is_active` (indexed)
+- `is_admin` (indexed)
+- `last_login` (indexed)
+- `created_at` (indexed)
+
+**Relationships**:
+
+- None (standalone for now; future: one-to-many with `core.players` via `linked_accounts` table)
+
+**Future Extensions**:
+
+See `docs/auth-extended.md` for planned OAuth integration, per-user tracked players, and role-based permissions system.
+
+---
+
+### Core Schema (`core.*`)
+
+#### core.players
 
 **Purpose**: Central player registry using Riot's PUUID system.
 
@@ -243,13 +328,14 @@ erDiagram
 
 **Relationships**:
 
-- One-to-many with `match_participants`
-- One-to-many with `player_ranks` (historical)
-- One-to-many with `smurf_detections` (historical)
+- One-to-many with `core.match_participants`
+- One-to-many with `core.player_ranks` (historical)
+- One-to-many with `core.smurf_detections` (historical)
+- One-to-many with `core.matchmaking_analyses` (historical)
 
 ---
 
-### 2. matches
+#### core.matches
 
 **Purpose**: Store match metadata and game information.
 
@@ -280,11 +366,11 @@ erDiagram
 
 **Relationships**:
 
-- One-to-many with `match_participants`
+- One-to-many with `core.match_participants`
 
 ---
 
-### 3. match_participants
+#### core.match_participants
 
 **Purpose**: Link players to matches with detailed performance statistics.
 
@@ -292,8 +378,8 @@ erDiagram
 
 **Foreign Keys**:
 
-- `match_id` → `matches.match_id` (CASCADE DELETE)
-- `puuid` → `players.puuid` (CASCADE DELETE)
+- `match_id` → `core.matches.match_id` (CASCADE DELETE)
+- `puuid` → `core.players.puuid` (CASCADE DELETE)
 
 **Key Features**:
 
@@ -325,12 +411,12 @@ erDiagram
 
 **Relationships**:
 
-- Many-to-one with `matches`
-- Many-to-one with `players`
+- Many-to-one with `core.matches`
+- Many-to-one with `core.players`
 
 ---
 
-### 4. player_ranks
+#### core.player_ranks
 
 **Purpose**: Historical rank tracking for progression analysis.
 
@@ -338,7 +424,7 @@ erDiagram
 
 **Foreign Keys**:
 
-- `puuid` → `players.puuid` (CASCADE DELETE)
+- `puuid` → `core.players.puuid` (CASCADE DELETE)
 
 **Key Features**:
 
@@ -382,11 +468,11 @@ erDiagram
 
 **Relationships**:
 
-- Many-to-one with `players`
+- Many-to-one with `core.players`
 
 ---
 
-### 5. smurf_detections
+#### core.smurf_detections
 
 **Purpose**: Store player analysis analysis results and confidence scores.
 
@@ -394,7 +480,7 @@ erDiagram
 
 **Foreign Keys**:
 
-- `puuid` → `players.puuid` (CASCADE DELETE)
+- `puuid` → `core.players.puuid` (CASCADE DELETE)
 
 **Key Features**:
 
@@ -450,7 +536,7 @@ erDiagram
 
 ---
 
-### 6. matchmaking_analyses
+#### core.matchmaking_analyses
 
 **Purpose**: Track matchmaking analysis progress and store teammate vs opponent win rate results.
 
@@ -458,7 +544,7 @@ erDiagram
 
 **Foreign Keys**:
 
-- `puuid` → `players.puuid` (CASCADE DELETE)
+- `puuid` → `core.players.puuid` (CASCADE DELETE)
 
 **Key Features**:
 
@@ -497,7 +583,7 @@ erDiagram
 
 ---
 
-### 7. job_configurations
+#### jobs.job_configurations
 
 **Purpose**: Store job scheduling and configuration settings for automated tasks.
 
@@ -532,7 +618,7 @@ erDiagram
 
 ---
 
-### 8. job_executions
+#### jobs.job_executions
 
 **Purpose**: Track job execution history, metrics, and detailed logs.
 
@@ -540,7 +626,7 @@ erDiagram
 
 **Foreign Keys**:
 
-- `job_config_id` → `job_configurations.id` (CASCADE DELETE)
+- `job_config_id` → `jobs.job_configurations.id` (CASCADE DELETE)
 
 **Key Features**:
 
@@ -573,7 +659,7 @@ erDiagram
 
 ---
 
-### 9. system_settings
+#### jobs.system_settings
 
 **Purpose**: Store runtime configuration and system settings.
 
@@ -634,10 +720,11 @@ docker volume rm riot-api-project_postgres_data
 All table definitions are in SQLAlchemy models:
 
 - Location: `backend/app/models/`
-- Models: `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `MatchmakingAnalysis`, `JobConfiguration`, `JobExecution`, `SystemSetting`
+- Models: `User`, `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `MatchmakingAnalysis`, `JobConfiguration`, `JobExecution`, `SystemSetting`
 
 **Model Files**:
 
+- `users.py` - User authentication and authorization (future: see `docs/auth-extended.md`)
 - `players.py` - Player model with tracking and analysis flags
 - `matches.py` - Match metadata and processing flags
 - `participants.py` - Match participant performance and historical data
@@ -651,6 +738,7 @@ All table definitions are in SQLAlchemy models:
 
 ## See Also
 
+- [Extended Auth Schema](/docs/auth-extended.md) - Future OAuth, RBAC, and per-user tracking
 - [Docker Guide](/docker/AGENTS.md) - Database operations and container management
 - [Backend Guide](/backend/AGENTS.md) - SQLAlchemy models and database interactions
 - [Alembic Guide](/backend/alembic/AGENTS.md) - Database migration workflows

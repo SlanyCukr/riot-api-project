@@ -26,6 +26,7 @@ app/
 ## Application Initialization
 
 **`main.py`** handles:
+
 - FastAPI app creation with CORS, middleware
 - Router registration from features
 - Startup/shutdown lifecycle (database, scheduler)
@@ -62,7 +63,9 @@ async def shutdown_event():
 ## Core vs Features
 
 ### Core (`app/core/`)
+
 **Infrastructure that all features depend on:**
+
 - Database session management
 - Configuration and settings
 - Riot API client and rate limiting
@@ -73,7 +76,9 @@ async def shutdown_event():
 **Rule:** Features depend on core, never the reverse.
 
 ### Features (`app/features/`)
+
 **Domain-specific business logic:**
+
 - Each feature is self-contained
 - Standard structure: `router.py`, `service.py`, `models.py`, `schemas.py`, `dependencies.py`
 - Features expose public APIs via `__init__.py`
@@ -82,6 +87,7 @@ async def shutdown_event():
 ## Import Patterns
 
 ### From Core
+
 ```python
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -91,6 +97,7 @@ from app.core.exceptions import RiotAPIError
 ```
 
 ### From Features (Public API)
+
 ```python
 from app.features.players import PlayerService, Player, PlayerResponse
 from app.features.matches import MatchService, Match
@@ -98,6 +105,7 @@ from app.features.smurf_detection import SmurfDetectionService
 ```
 
 ### From Features (Direct)
+
 ```python
 # Internal feature use
 from app.features.players.service import PlayerService

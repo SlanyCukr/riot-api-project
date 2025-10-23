@@ -61,6 +61,17 @@ class Settings(BaseSettings):
     # Player Tracking Configuration
     max_tracked_players: int = Field(default=100)
 
+    # JWT Authentication Configuration
+    jwt_secret_key: str = Field(
+        default="dev_secret_key_please_change_in_production",
+        description="Secret key for JWT token signing - MUST be changed in production",
+    )
+    jwt_algorithm: str = Field(default="HS256", description="JWT signing algorithm")
+    jwt_access_token_expire_minutes: int = Field(
+        default=10080,  # 7 days
+        description="JWT access token expiration time in minutes",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
@@ -102,11 +113,11 @@ async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
             If not provided, uses environment variable only.
     """
     if db is not None:
-        try:
-            from sqlalchemy import select
-            from sqlalchemy.exc import SQLAlchemyError, DatabaseError
-            from app.features.settings.models import SystemSetting
+        from sqlalchemy import select
+        from sqlalchemy.exc import SQLAlchemyError, DatabaseError
+        from app.features.settings.models import SystemSetting
 
+        try:
             stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
             result = await db.execute(stmt)
             setting = result.scalar_one_or_none()

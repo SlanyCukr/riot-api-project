@@ -11,6 +11,7 @@ Alembic is a database migration tool for SQLAlchemy projects that provides versi
 ## Quick Start
 
 ### Create Migration (Autogenerate)
+
 ```bash
 # Generate migration from model changes
 alembic revision --autogenerate -m "Add user table"
@@ -20,6 +21,7 @@ alembic check
 ```
 
 ### Apply Migrations
+
 ```bash
 # Upgrade to latest version
 alembic upgrade head
@@ -35,6 +37,7 @@ alembic downgrade base
 ```
 
 ### Check Status
+
 ```bash
 # Show current database revision
 alembic current
@@ -51,6 +54,7 @@ alembic show ae1027a6acf
 ### Autogenerate Configuration
 
 **env.py setup for async SQLAlchemy:**
+
 ```python
 import asyncio
 from logging.config import fileConfig
@@ -107,6 +111,7 @@ else:
 ### Manual Migration Operations
 
 **Common schema changes:**
+
 ```python
 from alembic import op
 import sqlalchemy as sa
@@ -135,6 +140,7 @@ def downgrade():
 ### Batch Mode (for SQLite)
 
 **Configure batch mode in env.py:**
+
 ```python
 context.configure(
     connection=connection,
@@ -144,6 +150,7 @@ context.configure(
 ```
 
 **Generated batch migration:**
+
 ```python
 def upgrade():
     with op.batch_alter_table('users', schema=None) as batch_op:
@@ -154,6 +161,7 @@ def upgrade():
 ### Filtering Objects
 
 **Skip certain objects in autogenerate:**
+
 ```python
 def include_object(object, name, type_, reflected, compare_to):
     # Skip temporary tables
@@ -175,6 +183,7 @@ context.configure(
 ```
 
 **Filter by schema:**
+
 ```python
 def include_name(name, type_, parent_names):
     if type_ == "schema":
@@ -194,6 +203,7 @@ context.configure(
 ### Custom Migration Processing
 
 **Modify generated migrations:**
+
 ```python
 def process_revision_directives(context, revision, directives):
     script = directives[0]
@@ -216,6 +226,7 @@ context.configure(
 ### Data Migrations
 
 **Migrate data during schema change:**
+
 ```python
 def upgrade():
     # Add new column
@@ -237,6 +248,7 @@ def downgrade():
 ### Branch Migrations
 
 **Work with multiple branches:**
+
 ```bash
 # Create branch
 alembic revision -m "Create feature branch" --head=base --branch-label=feature_x
@@ -251,6 +263,7 @@ alembic merge -m "Merge feature_x into main" feature_x@head main@head
 ## Practical Code Snippets
 
 ### Check if Database is Up-to-Date
+
 ```python
 from alembic import config, script
 from alembic.runtime import migration
@@ -270,6 +283,7 @@ def is_database_up_to_date(alembic_cfg_path, database_url):
 ```
 
 ### Programmatically Run Migrations
+
 ```python
 from alembic import command
 from alembic.config import Config
@@ -286,6 +300,7 @@ def create_migration(alembic_ini_path, message, autogenerate=True):
 ```
 
 ### Custom Migration Operations
+
 ```python
 from alembic.autogenerate import rewriter
 from alembic.operations import ops

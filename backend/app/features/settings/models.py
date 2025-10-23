@@ -18,7 +18,7 @@ class SystemSetting(Base):
     """System settings model for runtime configuration."""
 
     __tablename__ = "system_settings"
-    __table_args__ = {"schema": "app"}
+    __table_args__ = {"schema": "jobs"}
 
     # Primary key
     key: Mapped[str] = mapped_column(

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { validatedGet, validatedPut, validatedPost } from "@/lib/core/api";
 import { SettingSchema, SettingTestResponseSchema } from "@/lib/core/schemas";
+import { ProtectedRoute } from "@/features/auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,14 @@ import { Loader2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
+  return (
+    <ProtectedRoute requireAdmin>
+      <SettingsPageContent />
+    </ProtectedRoute>
+  );
+}
+
+function SettingsPageContent() {
   const [apiKey, setApiKey] = useState("");
   const [testingKey, setTestingKey] = useState(false);
   const [testResult, setTestResult] = useState<{
