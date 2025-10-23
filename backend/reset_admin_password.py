@@ -10,7 +10,7 @@ import sys
 from getpass import getpass
 
 from sqlalchemy import select
-from app.core.database import AsyncSessionLocal
+from app.core.database import db_manager
 from app.features.auth.models import User
 from app.features.auth.service import AuthService
 
@@ -39,7 +39,7 @@ async def reset_admin_password():
         sys.exit(1)
 
     # Update password in database
-    async with AsyncSessionLocal() as db:
+    async with db_manager.get_session() as db:
         # Find user
         result = await db.execute(select(User).where(User.email == admin_email))
         user = result.scalar_one_or_none()
