@@ -50,7 +50,8 @@ export function SidebarNav() {
       {/* Sidebar Menu */}
       <aside
         suppressHydrationWarning
-        className={`fixed inset-y-0 left-0 z-40 w-[240px] transform bg-[#0a1428] shadow-xl transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:w-[220px] lg:w-[240px] ${
+        style={{ backgroundColor: "#0a1428" }}
+        className={`fixed inset-y-0 left-0 z-40 w-[240px] transform shadow-xl transition-transform duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:w-[220px] lg:w-[240px] ${
           menuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
