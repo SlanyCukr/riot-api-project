@@ -1,4 +1,4 @@
-# League Eye Spy - Analyze Player, Detect Smurfs & More
+# League Analysis - Analyze Player, Detect Smurfs & More
 
 A League of Legends player analysis platform that identifies potential smurf accounts using advanced algorithms and Riot API data.
 
@@ -108,6 +108,7 @@ For detailed build info and production deployment, see **`docker/AGENTS.md`** an
 The system runs two automated jobs:
 
 1. **Tracked Player Updater** (every 2 minutes)
+
    - Fetches new matches for monitored players
    - Updates ranks and statistics
 

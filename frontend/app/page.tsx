@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProtectedRoute } from "@/features/auth";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -8,29 +9,28 @@ export default function Home() {
   return (
     <ProtectedRoute>
       <div className="container mx-auto max-w-4xl px-4 py-8">
-        <div className="mb-8 flex justify-end">
-          <ThemeToggle />
-        </div>
-
-        <Card>
-          <CardHeader>
-            <h1
-              className="text-4xl font-bold mb-4"
-              style={{
-                backgroundImage:
-                  "linear-gradient(180deg, #f2d777 0%, #cfa93a 60%, #9d7d22 100%)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-              }}
-            >
-              League Eye Spy
-            </h1>
-            <h2 className="text-2xl font-semibold">Welcome</h2>
-          </CardHeader>
-          <CardContent className="prose prose-lg max-w-none space-y-4">
+        <Card id="header-card" className="py-2">
+          <div className="flex flex-col">
+            <div className="px-8 pt-4 pb-2 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <h1 className="text-4xl font-[family-name:var(--font-league)]">
+                  League Analysis
+                </h1>
+                <div className="relative h-[3.5rem] w-[3.5rem] -m-t-2 -m-b-3">
+                  <Image
+                    src="/magnifier.png"
+                    alt="Magnifier"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              </div>
+              <ThemeToggle />
+            </div>
+          </div>
+          <CardContent className="px-8 pt-0 pb-4 prose prose-lg max-w-none space-y-4">
             <p className="leading-relaxed">
-              Welcome to League Eye Spy - your comprehensive tool for analyzing
+              Welcome to League Analysis - your comprehensive tool for analyzing
               League of Legends match data and detecting suspicious player
               behavior. Our advanced algorithms help identify smurfs, boosted
               accounts, and unusual gameplay patterns.
@@ -40,7 +40,7 @@ export default function Home() {
               metrics, match history, and rank progression to provide detailed
               insights into player behavior. Whether you&apos;re curious about a
               teammate, investigating a suspicious opponent, or just exploring
-              match data, League Eye Spy gives you the tools you need.
+              match data, League Analysis gives you the tools you need.
             </p>
             <p className="leading-relaxed">
               Our player analysis system examines multiple factors including win

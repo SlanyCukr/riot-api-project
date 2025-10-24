@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -13,8 +14,14 @@ const montserrat = Montserrat({
   variable: "--font-sans",
 });
 
+const leagueFont = localFont({
+  src: "./fonts/League.otf",
+  variable: "--font-league",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "League Eye Spy",
+  title: "League Analysis",
   description:
     "Analyze League of Legends players for smurf behavior using match history and performance metrics",
 };
@@ -26,7 +33,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${montserrat.variable} font-sans antialiased`}>
+      <body
+        className={`${montserrat.variable} ${leagueFont.variable} font-sans antialiased`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -36,10 +45,7 @@ export default function RootLayout({
           <Providers>
             <div className="flex min-h-screen">
               <SidebarNav />
-              <main
-                id="content"
-                className="flex-1 bg-background md:ml-56 lg:ml-60"
-              >
+              <main id="content" className="flex-1 bg-background">
                 {children}
               </main>
             </div>

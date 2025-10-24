@@ -83,8 +83,8 @@ export const config = {
      * - /api routes (if any)
      * - /_next/static (static files)
      * - /_next/image (image optimization files)
-     * - /favicon.ico, /logo.png (metadata files)
+     * - /favicon.ico, /logo-v3.png (metadata files)
      */
-    "/((?!sign-in|api|_next/static|_next/image|favicon.ico|logo.png).*)",
+    "/((?!sign-in|api|_next/static|_next/image|favicon.ico|logo-v3.png).*)",
   ],
 };

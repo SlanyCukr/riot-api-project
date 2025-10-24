@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Matchmaking Analysis - League Eye Spy",
+  title: "Matchmaking Analysis - League Analysis",
   description: "Advanced matchmaking analysis for League of Legends",
 };
 

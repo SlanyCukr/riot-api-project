@@ -286,7 +286,7 @@ The database is organized into three PostgreSQL schemas for logical separation:
 
 **Future Extensions**:
 
-See `docs/auth-extended.md` for planned OAuth integration, per-user tracked players, and role-based permissions system.
+See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players, and role-based permissions system.
 
 ---
 
@@ -724,7 +724,7 @@ All table definitions are in SQLAlchemy models:
 
 **Model Files**:
 
-- `users.py` - User authentication and authorization (future: see `docs/auth-extended.md`)
+- `users.py` - User authentication and authorization (future: see `docs/tasks/auth.md`)
 - `players.py` - Player model with tracking and analysis flags
 - `matches.py` - Match metadata and processing flags
 - `participants.py` - Match participant performance and historical data
@@ -738,7 +738,7 @@ All table definitions are in SQLAlchemy models:
 
 ## See Also
 
-- [Extended Auth Schema](/docs/auth-extended.md) - Future OAuth, RBAC, and per-user tracking
+- [Extended Auth Schema](/docs/tasks/auth.md) - Future OAuth, RBAC, and per-user tracking
 - [Docker Guide](/docker/AGENTS.md) - Database operations and container management
 - [Backend Guide](/backend/AGENTS.md) - SQLAlchemy models and database interactions
 - [Alembic Guide](/backend/alembic/AGENTS.md) - Database migration workflows

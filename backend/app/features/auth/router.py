@@ -68,7 +68,7 @@ async def logout(
     logout is currently handled client-side by deleting the token.
 
     For proper logout functionality, implement token revocation/blacklisting.
-    See docs/technical-debt.md for implementation details.
+    See docs/tasks/technical-debt.md for implementation details.
 
     TODO:
     - Implement JWT token blacklist (Redis cache recommended)
