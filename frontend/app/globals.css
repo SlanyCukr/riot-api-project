@@ -5,7 +5,7 @@
 
 /* Define theme tokens as CSS custom properties */
 @theme {
-  /* LeaguEyeSpy Custom Colors */
+  /* League Analysis Custom Colors */
   --color-navy-darkest: #03005b;
   --color-navy-dark: #00017a;
   --color-navy-base: #0a1428;
@@ -95,7 +95,7 @@
   #content {
     position: relative;
     background-image:
-      linear-gradient(rgba(0, 9, 26, 0.3), rgba(0, 9, 26, 0.3)),
+      linear-gradient(rgba(0, 9, 26, 0.6), rgba(0, 9, 26, 0.6)),
       url(/background.jpg);
     background-size: cover;
     background-position: center;
@@ -175,8 +175,8 @@
   }
 
   /* Left sidebar gradient (both light and dark themes) */
-  aside {
-    border-right: 1px #00091a;
+  aside > div {
+    border-right: 1.5px solid #00091a;
     background: linear-gradient(
       180deg,
       #0f1f3a 0%,

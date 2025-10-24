@@ -65,8 +65,8 @@ export function SidebarNav() {
             >
               <div className="relative mx-auto hidden h-[60px] w-full max-w-[200px] md:block md:max-w-[180px]">
                 <Image
-                  src="/logo.png"
-                  alt="LeaguEyeSpy Logo"
+                  src="/logo-v3.png"
+                  alt="League Analysis Logo"
                   fill
                   sizes="(max-width: 768px) 200px, 180px"
                   className="object-contain"
@@ -74,7 +74,7 @@ export function SidebarNav() {
                 />
               </div>
               <div className="text-center text-xl font-bold text-white md:hidden">
-                LeaguEyeSpy
+                League Analysis
               </div>
             </Link>
           </div>
@@ -157,14 +157,14 @@ export function SidebarNav() {
               © 2025 All rights reserved.
               <br />
               <Link
-                href="#"
+                href="/license"
                 className="underline transition-colors duration-300 hover:text-[#cfa93a]"
               >
                 License
               </Link>
               {" | "}
               <Link
-                href="#"
+                href="/privacy-policy"
                 className="underline transition-colors duration-300 hover:text-[#cfa93a]"
               >
                 Privacy Policy

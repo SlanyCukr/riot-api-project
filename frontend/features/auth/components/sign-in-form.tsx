@@ -55,8 +55,8 @@ export function SignInForm() {
         <div className="hidden lg:block flex-shrink-0">
           <div className="relative w-[300px] h-[300px]">
             <Image
-              src="/logo.png"
-              alt="LeaguEyeSpy Logo"
+              src="/logo-v3.png"
+              alt="League Analysis Logo"
               fill
               sizes="300px"
               className="object-contain"

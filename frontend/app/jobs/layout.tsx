@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Jobs - League Eye Spy",
+  title: "Jobs - League Analysis",
   description:
     "Monitor and manage background jobs for player tracking and data updates",
 };

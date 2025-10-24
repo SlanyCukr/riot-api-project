@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Player Analysis - League Eye Spy",
+  title: "Player Analysis - League Analysis",
   description:
     "Analyze League of Legends players for smurf behavior using match history and performance metrics",
 };
