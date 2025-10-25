@@ -10,6 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core import get_global_settings, get_riot_api_key
+from app.core.database import AsyncSessionLocal
 from app.core.rate_limiter import limiter
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
@@ -60,20 +61,27 @@ structlog.configure(
 async def _validate_api_key_configuration() -> None:
     """Validate and log Riot API key configuration status."""
     try:
-        api_key = await get_riot_api_key()
-        if not api_key or api_key == "your_riot_api_key_here":
-            logger.warning(
-                "⚠️  RIOT_API_KEY not configured! Set it in .env file or update via /settings.",
-                hint="Get your key from https://developer.riotgames.com",
-            )
-        elif api_key.startswith("RGAPI-"):
-            logger.info("✓ Riot API key configured (development key detected)")
-            logger.warning(
-                "⚠️  Development API keys expire every 24 hours!",
-                hint="Update via web UI at /settings or with ./scripts/update-riot-api-key.sh",
-            )
-        else:
-            logger.info("✓ Riot API key configured")
+        async with AsyncSessionLocal() as db:
+            api_key = await get_riot_api_key(db)
+            if not api_key or api_key == "your_riot_api_key_here":
+                logger.warning(
+                    "⚠️  Riot API key not configured! Set it via web UI at /settings.",
+                    hint="Get your key from https://developer.riotgames.com",
+                )
+            elif api_key.startswith("RGAPI-"):
+                logger.info("✓ Riot API key configured (development key detected)")
+                logger.warning(
+                    "⚠️  Development API keys expire every 24 hours!",
+                    hint="Update via web UI at /settings",
+                )
+            else:
+                logger.info("✓ Riot API key configured")
+    except ValueError:
+        # API key not in database - this is expected for fresh deployments
+        logger.warning(
+            "⚠️  Riot API key not configured! Set it via web UI at /settings.",
+            hint="Get your key from https://developer.riotgames.com",
+        )
     except Exception as e:
         logger.warning("Could not validate API key configuration", error=str(e))
 

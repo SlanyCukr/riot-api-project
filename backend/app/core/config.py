@@ -6,7 +6,7 @@ import os
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Riot API Configuration
-    riot_api_key: str = Field(default="dev_api_key")
     riot_region: str = Field(default="europe")
     riot_platform: str = Field(default="eun1")
 
@@ -155,34 +154,28 @@ def get_global_settings() -> Settings:
     return settings
 
 
-async def get_riot_api_key(db: Optional[AsyncSession] = None) -> str:
+async def get_riot_api_key(db: AsyncSession) -> str:
+    """Get Riot API key from database only.
+
+    NOTE: RIOT_API_KEY environment variable is no longer supported.
+    Set API key via web UI at /settings or directly in database.
+
+    :param db: Database session
+    :returns: Riot API key from database
+    :raises ValueError: If API key not configured in database
     """
-    Get the Riot API key from database or environment.
+    from sqlalchemy import select
+    from app.features.settings.models import SystemSetting
 
-    Priority:
-    1. Database (runtime configuration) - if db session provided
-    2. Environment variable
-    3. Default value
+    stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
+    result = await db.execute(stmt)
+    setting = result.scalar_one_or_none()
 
-    Args:
-        db: Optional database session. If provided, will query database first.
-            If not provided, uses environment variable only.
-    """
-    if db is not None:
-        from sqlalchemy import select
-        from sqlalchemy.exc import SQLAlchemyError, DatabaseError
-        from app.features.settings.models import SystemSetting
+    if not setting or not setting.value:
+        raise ValueError(
+            "Riot API key not configured! Set it via web UI at /settings or database:\n"
+            "INSERT INTO jobs.system_settings (key, value, category, is_sensitive) "
+            "VALUES ('riot_api_key', 'YOUR_KEY', 'riot_api', true);"
+        )
 
-        try:
-            stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
-            result = await db.execute(stmt)
-            setting = result.scalar_one_or_none()
-
-            if setting:
-                return setting.value
-        except (DatabaseError, SQLAlchemyError):
-            # Database error - fall back to environment variable
-            pass
-
-    settings = get_global_settings()
-    return settings.riot_api_key
+    return setting.value

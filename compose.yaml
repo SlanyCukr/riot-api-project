@@ -64,7 +64,6 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      RIOT_API_KEY: ${RIOT_API_KEY}
       LOG_LEVEL: ${LOG_LEVEL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       POSTGRES_DB: ${POSTGRES_DB}
