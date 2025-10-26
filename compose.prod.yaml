@@ -36,7 +36,12 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    command: postgres -c shared_preload_libraries=pg_stat_statements
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c wal_level=logical
+      -c max_replication_slots=30
+      -c max_wal_senders=30
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -46,7 +51,8 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./docker/postgres/configure_replication.sh:/docker-entrypoint-initdb.d/02-configure_replication.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
