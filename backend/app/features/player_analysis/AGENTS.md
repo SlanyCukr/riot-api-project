@@ -1,14 +1,14 @@
-# Smurf Detection Feature
+# Player Analysis Feature
 
 ## Overview
 
-The smurf detection feature implements a multi-factor analysis algorithm to identify likely smurf accounts (experienced players using low-level accounts). This feature has unique architecture with modular analyzers and weighted scoring.
+The player analysis feature implements a multi-factor analysis algorithm to identify likely smurf accounts (experienced players using low-level accounts). This feature has unique architecture with modular analyzers and weighted scoring.
 
 **See `README.md` for comprehensive API documentation and component descriptions.**
 
 ## Unique Architecture
 
-Unlike standard features, smurf detection has:
+Unlike standard features, player analysis has:
 
 - **`analyzers/` subdirectory** - Modular factor analyzers
 - **`config.py`** - Detection thresholds and weights configuration
@@ -17,11 +17,11 @@ Unlike standard features, smurf detection has:
 ### Directory Structure
 
 ```
-smurf_detection/
+player_analysis/
 ├── __init__.py
 ├── router.py
 ├── service.py              # Orchestrates analyzers, calculates weighted scores
-├── models.py               # SmurfDetection model
+├── models.py               # PlayerAnalysis model
 ├── schemas.py
 ├── dependencies.py
 ├── config.py               # Factor weights and thresholds
@@ -69,7 +69,7 @@ final_score = Σ(factor_score × factor_weight)
 
 ```python
 # 1. Service orchestrates analyzers
-service = SmurfDetectionService(riot_data_manager)
+service = PlayerAnalysisService(riot_data_manager)
 result = await service.analyze_player(puuid, platform, db)
 
 # 2. Each analyzer evaluates its factor
@@ -82,7 +82,7 @@ for analyzer in self.analyzers:
 final_score = sum(score * weight for score, weight in factor_scores)
 
 # 4. Result stored in database
-detection = SmurfDetection(
+detection = PlayerAnalysis(
     player_id=player.id,
     overall_score=final_score,
     factor_scores=factor_scores,
@@ -99,7 +99,7 @@ Each analyzer in `analyzers/` follows this interface:
 ```python
 # analyzers/base.py (conceptual)
 class BaseAnalyzer(ABC):
-    """Base class for smurf detection analyzers."""
+    """Base class for player analysis analyzers."""
 
     weight: float  # Factor weight (0.0 to 1.0)
 
@@ -165,7 +165,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DetectionConfig:
-    """Smurf detection configuration."""
+    """Player analysis configuration."""
 
     # Thresholds
     high_win_rate_threshold: float = 0.70
@@ -203,11 +203,11 @@ curl -X PUT http://localhost:8000/api/v1/player-analysis/config \
 
 ## Service Layer
 
-**`SmurfDetectionService`** orchestrates the detection process:
+**`PlayerAnalysisService`** orchestrates the detection process:
 
 ```python
-class SmurfDetectionService:
-    """Service for smurf detection operations."""
+class PlayerAnalysisService:
+    """Service for player analysis operations."""
 
     def __init__(self, riot_data_manager: RiotDataManager):
         self.riot_data_manager = riot_data_manager
@@ -219,8 +219,8 @@ class SmurfDetectionService:
         puuid: str,
         platform: Platform,
         db: AsyncSession
-    ) -> SmurfDetection:
-        """Perform comprehensive smurf analysis.
+    ) -> PlayerAnalysis:
+        """Perform comprehensive player analysis.
 
         :param puuid: Player's unique ID
         :param platform: Riot platform
@@ -248,7 +248,7 @@ class SmurfDetectionService:
         )
 
         # 4. Store result
-        detection = SmurfDetection(
+        detection = PlayerAnalysis(
             player_id=player.id,
             overall_score=final_score,
             factor_scores=factor_scores,
@@ -259,7 +259,7 @@ class SmurfDetectionService:
         await db.commit()
 
         logger.info(
-            "smurf_analysis_complete",
+            "player_analysis_complete",
             puuid=puuid,
             score=final_score,
             confidence=detection.confidence_level
@@ -271,10 +271,10 @@ class SmurfDetectionService:
 ## Database Model
 
 ```python
-class SmurfDetection(BaseModel):
-    """Smurf detection result."""
+class PlayerAnalysis(BaseModel):
+    """Player analysis result."""
 
-    __tablename__ = "smurf_detections"
+    __tablename__ = "player_analysis"
 
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     overall_score = Column(Float, nullable=False)
@@ -283,7 +283,7 @@ class SmurfDetection(BaseModel):
     analysis_timestamp = Column(DateTime, nullable=False)
 
     # Relationships
-    player = relationship("Player", back_populates="smurf_detections")
+    player = relationship("Player", back_populates="player_analysis")
 ```
 
 ## Adding a New Analyzer
@@ -318,7 +318,7 @@ class SmurfDetection(BaseModel):
 
 ## Testing
 
-Smurf detection tests should verify:
+Player analysis tests should verify:
 
 - Individual analyzer logic
 - Weighted score calculation
@@ -345,13 +345,13 @@ async def test_win_rate_analyzer():
 ## Import Patterns
 
 ```python
-# Using smurf detection from other features
-from app.features.smurf_detection import SmurfDetectionService, SmurfDetection
+# Using player analysis from other features
+from app.features.player_analysis import PlayerAnalysisService, PlayerAnalysis
 
 # Internal imports within feature
 from .analyzers.win_rate import WinRateAnalyzer
 from .config import DetectionConfig
-from .service import SmurfDetectionService
+from .service import PlayerAnalysisService
 ```
 
 ## See Also
@@ -359,4 +359,4 @@ from .service import SmurfDetectionService
 - `README.md` - Comprehensive API documentation and component descriptions
 - `backend/app/features/AGENTS.md` - General feature development guide
 - `backend/app/core/AGENTS.md` - Core infrastructure
-- `openspec/project.md` - Project context and smurf detection algorithm overview
+- `openspec/project.md` - Project context and player analysis algorithm overview

@@ -6,7 +6,7 @@ import { Player, PlayerSchema } from "@/lib/core/schemas";
 import { validatedGet } from "@/lib/core/api";
 import { PlayerSearch, PlayerCard, PlayerStats } from "@/features/players";
 import { MatchHistory, RecentOpponents } from "@/features/matches";
-import { PlayerAnalysis } from "@/features/smurf-detection";
+import { PlayerAnalysis } from "@/features/player-analysis";
 import { ProtectedRoute } from "@/features/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

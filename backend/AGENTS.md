@@ -49,9 +49,9 @@ Each feature is self-contained with all related code:
 - Statistics aggregation
 - MatchDTOTransformer for API data
 
-**`features/smurf_detection/`** - Smurf analysis
+**`features/player_analysis/`** - Player analysis
 
-- SmurfDetectionService with multi-factor analysis
+- PlayerAnalysisService with multi-factor analysis
 - `analyzers/` - Factor analyzers (win rate, account level, performance, etc.)
 - `config.py` - Detection thresholds and weights
 
@@ -69,7 +69,7 @@ Each feature is self-contained with all related code:
 - `implementations/` - Job implementations
   - `tracked_player_updater.py` - Updates tracked player data (every 15 min)
   - `match_fetcher.py` - Fetches new matches (every 30 min)
-  - `smurf_analyzer.py` - Runs smurf detection (daily)
+  - `player_analyzer.py` - Runs player analysis (daily)
   - `ban_checker.py` - Checks for banned accounts (daily)
 
 **`features/settings/`** - System configuration

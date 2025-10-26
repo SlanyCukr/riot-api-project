@@ -41,7 +41,9 @@ export default function PrivacyPolicyPage() {
               The data collected is used exclusively to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
-              <li>Provide player analysis and smurf detection services</li>
+              <li>
+                Provide player analysis and account anomaly detection services
+              </li>
               <li>Display match history and performance statistics</li>
               <li>Track player rank progression and metrics</li>
               <li>Generate matchmaking analysis reports</li>

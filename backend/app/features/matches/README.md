@@ -148,6 +148,6 @@ await session.commit()
 ## Related Features
 
 - **Players** - Match history is associated with players
-- **Smurf Detection** - Analyzes match performance for smurf indicators
+- **Player Analysis** - Analyzes match performance for smurf indicators
 - **Matchmaking Analysis** - Uses match data for fairness evaluation
 - **Jobs** - Background jobs fetch and update match data

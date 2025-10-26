@@ -15,7 +15,7 @@ from app.core.rate_limiter import limiter
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router
-from app.features.smurf_detection.router import router as smurf_detection_router
+from app.features.player_analysis.router import router as player_analysis_router
 from app.features.jobs import (
     jobs_router,
     start_scheduler,
@@ -228,7 +228,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
-app.include_router(smurf_detection_router, prefix="/api/v1", tags=["player-analysis"])
+app.include_router(player_analysis_router, prefix="/api/v1", tags=["player-analysis"])
 app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
 app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
 app.include_router(matchmaking_router, prefix="/api/v1", tags=["matchmaking-analysis"])
@@ -236,7 +236,7 @@ app.include_router(matchmaking_router, prefix="/api/v1", tags=["matchmaking-anal
 # Legacy route compatibility (tests and existing clients expect root-level paths)
 app.include_router(players_router)
 app.include_router(matches_router)
-app.include_router(smurf_detection_router)
+app.include_router(player_analysis_router)
 app.include_router(jobs_router)
 
 

@@ -1,5 +1,5 @@
 """
-Win rate trend factor analyzer for smurf detection.
+Win rate trend factor analyzer for player analysis.
 
 This module analyzes win rate trends over time to detect sudden improvements
 that may indicate smurfing behavior.
@@ -54,7 +54,7 @@ class WinRateTrendFactorAnalyzer(BaseFactorAnalyzer):
         db: Any,
     ) -> DetectionFactor:
         """
-        Analyze win rate trend for smurf detection.
+        Analyze win rate trend for player analysis.
 
         :param puuid: Player UUID
         :type puuid: str

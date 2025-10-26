@@ -1,5 +1,5 @@
 """
-Performance consistency factor analyzer for smurf detection.
+Performance consistency factor analyzer for player analysis.
 
 This module analyzes player performance metrics (KDA, CS, vision) to identify
 unusually consistent high performance that may indicate smurfing behavior.
@@ -38,7 +38,7 @@ class PerformanceFactorAnalyzer(BaseFactorAnalyzer):
         db: Any,
     ) -> DetectionFactor:
         """
-        Analyze performance consistency for smurf detection.
+        Analyze performance consistency for player analysis.
 
         :param puuid: Player UUID
         :type puuid: str

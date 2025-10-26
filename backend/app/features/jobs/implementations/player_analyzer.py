@@ -1,4 +1,4 @@
-"""Smurf Analyzer Job - Analyzes players for smurf/boosted behavior.
+"""Player Analyzer Job - Analyzes players for smurf/boosted/troll behavior.
 
 This job analyzes players using existing database data. It makes NO Riot API calls,
 so it can run frequently without rate limit concerns.
@@ -14,24 +14,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..base import BaseJob
 from ..error_handling import handle_riot_api_errors
 from app.core.riot_api.data_manager import RiotDataManager
-from app.features.smurf_detection.service import SmurfDetectionService
+from app.features.player_analysis.service import PlayerAnalysisService
 from app.features.players.service import PlayerService
 from app.core import get_global_settings
 
 logger = structlog.get_logger(__name__)
 
 
-class SmurfAnalyzerJob(BaseJob):
-    """Job that analyzes players for smurf/boosted behavior (NO API CALLS)."""
+class PlayerAnalyzerJob(BaseJob):
+    """Job that analyzes players for smurf/boosted/troll behavior (NO API CALLS)."""
 
     def __init__(self, job_config_id: int):
-        """Initialize the smurf analyzer job."""
+        """Initialize the player analyzer job."""
         super().__init__(job_config_id)
         self.settings = get_global_settings()
 
         self.data_manager: Optional[RiotDataManager] = None
         self.player_service: Optional[PlayerService] = None
-        self.detection_service: Optional[SmurfDetectionService] = None
+        self.detection_service: Optional[PlayerAnalysisService] = None
         self.db: Optional[AsyncSession] = None
 
     def _load_configuration(self) -> None:
@@ -68,7 +68,7 @@ class SmurfAnalyzerJob(BaseJob):
             # We pass None for api_client in RiotDataManager (it won't make API calls)
             self.data_manager = RiotDataManager(db, None)
             self.player_service = PlayerService(db)
-            self.detection_service = SmurfDetectionService(db, self.data_manager)
+            self.detection_service = PlayerAnalysisService(db, self.data_manager)
 
             yield
 
@@ -80,14 +80,14 @@ class SmurfAnalyzerJob(BaseJob):
             self.db = None
 
     async def execute(self, db: AsyncSession) -> None:
-        """Execute the smurf analyzer job.
+        """Execute the player analyzer job.
 
         :param db: Database session for job execution.
         """
         # Load configuration from database
         self._load_configuration()
 
-        logger.info("Starting smurf analyzer job", job_id=self.job_config.id)
+        logger.info("Starting player analyzer job", job_id=self.job_config.id)
 
         execution_summary = {
             "players_analyzed": 0,
@@ -98,7 +98,7 @@ class SmurfAnalyzerJob(BaseJob):
             await self._analyze_phase(execution_summary)
 
         self._log_execution_summary(execution_summary)
-        logger.info("Smurf analyzer completed", **execution_summary)
+        logger.info("Player analyzer completed", **execution_summary)
 
     def _update_analysis_summary(self, execution_summary: dict, result) -> None:
         """Update execution summary with analysis result."""

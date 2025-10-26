@@ -157,7 +157,7 @@ export type DetectionRequest = z.infer<typeof DetectionRequestSchema>;
 export const JobTypeSchema = z.enum([
   "TRACKED_PLAYER_UPDATER",
   "MATCH_FETCHER",
-  "SMURF_ANALYZER",
+  "PLAYER_ANALYZER",
   "BAN_CHECKER",
 ]);
 

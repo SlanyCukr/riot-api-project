@@ -17,7 +17,7 @@ The `frontend/features/` directory contains domain-specific UI components, hooks
 
 - **`players/`** - Player search, cards, stats, tracked players management
 - **`matches/`** - Match history, opponent statistics
-- **`smurf-detection/`** - Smurf analysis results display
+- **`player-analysis/`** - Player analysis results display
 - **`matchmaking/`** - Matchmaking fairness analysis
 - **`jobs/`** - Background job management and monitoring
 - **`settings/`** - System settings UI
@@ -254,13 +254,13 @@ import { PlayerCard } from "@/features/players/components/player-card";
 ```typescript
 // app/player-analysis/page.tsx
 import { PlayerSearch, PlayerStats } from '@/features/players'
-import { SmurfAnalysis } from '@/features/smurf-detection'
+import { PlayerAnalysisComponent } from '@/features/player-analysis'
 
 export default function PlayerAnalysisPage() {
   return (
     <div>
       <PlayerSearch />
-      <SmurfAnalysis />
+      <PlayerAnalysisComponent />
     </div>
   )
 }
@@ -455,7 +455,7 @@ export function Autocomplete({ suggestions }: { suggestions: string[] }) {
 
 - Used by ONE feature only
 - Domain-specific business logic
-- Example: `PlayerSearch`, `SmurfAnalysisResults`
+- Example: `PlayerSearch`, `PlayerAnalysisComponentResults`
 
 ### Shared Layout/Infrastructure → `components/`
 

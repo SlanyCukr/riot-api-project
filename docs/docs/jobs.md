@@ -7,7 +7,7 @@ This document describes the automated background jobs that run in the Riot API p
 The system uses two main automated jobs:
 
 1. **Tracked Player Updater** - Updates match history for manually tracked players
-2. **Player Analyzer** - Analyzes discovered players for smurf detection
+2. **Player Analyzer** - Analyzes discovered players for player analysis
 
 Both jobs are managed by APScheduler and use the same base infrastructure for error handling, logging, and metrics collection.
 
@@ -66,10 +66,10 @@ flowchart TD
 flowchart TD
     A[Phase 2 starts] --> B[Query players table<br/>is_tracked=False, is_analyzed=False, is_active=True<br/>HAVING count matches >= 20]
     B --> C{Players ready for analysis?}
-    C -- Yes --> D[For each player:<br/>Call SmurfDetectionService.analyze_player]
+    C -- Yes --> D[For each player:<br/>Call PlayerAnalysisService.analyze_player]
     C -- No --> E[Phase 2 completes]
     D --> F[Calculate 9 detection scores:<br/>win_rate, kda, account_level,<br/>rank_discrepancy, rank_progression,<br/>win_rate_trend, performance_consistency,<br/>performance_trends, role_performance]
-    F --> G[Store detection result in smurf_detections table]
+    F --> G[Store detection result in player_analysis table]
     G --> H[UPDATE player SET is_analyzed=True<br/>and updated_at=now]
     H --> I{More players?}
     I -- Yes --> D
@@ -87,7 +87,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Phase 3 starts] --> B[Query players table joined with smurf_detections<br/>WHERE is_smurf=True AND<br/>last_ban_check IS NULL OR last_ban_check < cutoff_date]
+    A[Phase 3 starts] --> B[Query players table joined with player_analysis<br/>WHERE is_smurf=True AND<br/>last_ban_check IS NULL OR last_ban_check < cutoff_date]
     B --> C{Smurfs need ban check?}
     C -- Yes --> D[For each player:<br/>Riot API: GET /lol/summoner/v4/summoners/by-puuid/puuid]
     C -- No --> E[Phase 3 completes]
@@ -160,7 +160,7 @@ flowchart TD
 ```mermaid
 erDiagram
     players ||--o{ match_participants : "participates in"
-    players ||--o{ smurf_detections : "analyzed by"
+    players ||--o{ player_analysis : "analyzed by"
     players ||--o{ player_ranks : "has ranks"
 ```
 
@@ -169,7 +169,7 @@ erDiagram
 - **READ**:
   - SELECT players needing matches (insufficient match count)
   - SELECT players ready for analysis (sufficient matches, not analyzed)
-  - SELECT smurfs needing ban check (join with smurf_detections)
+  - SELECT smurfs needing ban check (join with player_analysis)
 - **UPDATE**:
   - SET `is_analyzed = True` after successful analysis
   - UPDATE `last_ban_check` after ban status verification
@@ -183,7 +183,7 @@ erDiagram
 
 - **CREATE**: INSERT new matches fetched during Phase 1
 
-#### **smurf_detections** table
+#### **player_analysis** table
 
 - **CREATE**: INSERT new detection results with 9 scoring components
 
@@ -193,10 +193,10 @@ erDiagram
 | --------- | -------------------------- | ----------------------------------- | ----------- |
 | SELECT    | players                    | Get players needing matches         | Phase 1     |
 | SELECT    | players                    | Get players ready for analysis      | Phase 2     |
-| SELECT    | players + smurf_detections | Get smurfs for ban check            | Phase 3     |
+| SELECT    | players + player_analysis | Get smurfs for ban check            | Phase 3     |
 | SELECT    | match_participants         | Count player matches                | Phase 1 & 2 |
 | INSERT    | matches                    | Store fetched matches               | Phase 1     |
-| INSERT    | smurf_detections           | Store analysis results              | Phase 2     |
+| INSERT    | player_analysis           | Store analysis results              | Phase 2     |
 | UPDATE    | players                    | Mark as analyzed, update timestamps | Phase 2 & 3 |
 
 ---

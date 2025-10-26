@@ -379,10 +379,10 @@ flowchart TD
 
     WEIGHTED --> THRESHOLD{Overall Score?}
 
-    THRESHOLD -->|≥ 0.8| HIGH[High Confidence<br/>Smurf Detected]
-    THRESHOLD -->|≥ 0.6| MEDIUM[Medium Confidence<br/>Likely Smurf]
-    THRESHOLD -->|≥ 0.4| LOW[Low Confidence<br/>Possibly Smurf]
-    THRESHOLD -->|< 0.4| NOT_SMURF[Not a Smurf]
+    THRESHOLD -->|≥ 0.8| HIGH[High Confidence<br/>Anomaly Detected]
+    THRESHOLD -->|≥ 0.6| MEDIUM[Medium Confidence<br/>Likely Anomaly]
+    THRESHOLD -->|≥ 0.4| LOW[Low Confidence<br/>Possible Anomaly]
+    THRESHOLD -->|< 0.4| NOT_SMURF[Normal Account]
 
     HIGH --> STORE[Store Detection Result]
     MEDIUM --> STORE

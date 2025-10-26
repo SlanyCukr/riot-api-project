@@ -1,5 +1,5 @@
 """
-Rank progression factor analyzer for smurf detection.
+Rank progression factor analyzer for player analysis.
 
 This module analyzes player rank progression to identify unusually
 rapid climbing that may indicate smurf behavior.
@@ -54,7 +54,7 @@ class RankProgressionFactorAnalyzer(BaseFactorAnalyzer):
         db: Any,
     ) -> DetectionFactor:
         """
-        Analyze rank progression for smurf detection.
+        Analyze rank progression for player analysis.
 
         :param puuid: Player UUID
         :type puuid: str
