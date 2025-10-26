@@ -87,7 +87,7 @@ def create_dev_jobs() -> None:
     """
     )
 
-    # Smurf Analyzer - 5 min interval, no API calls
+    # Player Analyzer - 5 min interval, no API calls
     op.execute(  # nosec B608
         f"""
         INSERT INTO app.job_configurations
@@ -197,7 +197,7 @@ def create_prod_jobs() -> None:
     """
     )
 
-    # Smurf Analyzer - 2 min interval, no API calls
+    # Player Analyzer - 2 min interval, no API calls
     op.execute(  # nosec B608
         f"""
         INSERT INTO app.job_configurations

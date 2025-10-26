@@ -10,6 +10,15 @@ from alembic import context
 # Import all models for autogenerate support
 from app.core import Base, get_global_settings
 
+# Import all feature models so Alembic can detect them
+from app.features.players.models import Player  # noqa: F401
+from app.features.matches.models import Match  # noqa: F401
+from app.features.player_analysis.models import PlayerAnalysis  # noqa: F401
+from app.features.matchmaking_analysis.models import MatchmakingAnalysis  # noqa: F401
+from app.features.jobs.models import JobConfiguration, JobExecution  # noqa: F401
+from app.features.settings.models import SystemSetting  # noqa: F401
+from app.features.auth.models import User  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -53,8 +62,14 @@ def include_object(object, name, type_, reflected, compare_to):
     Returns:
         False to exclude the object from autogenerate, True to include it.
     """
+    # Exclude tables owned by APScheduler (external library manages its own schema)
+    if type_ == "table" and name.startswith("apscheduler_"):
+        return False
+
+    # Exclude objects marked with skip_autogenerate
     if type_ == "table" and object.info.get("skip_autogenerate", False):
         return False
+
     return True
 
 

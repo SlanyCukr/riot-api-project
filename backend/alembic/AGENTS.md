@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `backend/alembic/` directory contains database migration scripts managed by Alembic. All database schema changes MUST go through Alembic migrations - never use `create_all()`, `--reset-db`, or manual SQL.
+The `backend/alembic/` directory contains database migration scripts managed by Alembic. All database schema changes MUST go through Alembic migrations - never use `create_all()` or manual SQL.
 
 ## Directory Structure
 

@@ -281,18 +281,16 @@ async def get_job_system_status(
         running executions, and last execution details.
     """
     try:
-        from app.core import get_global_settings
-
-        settings = get_global_settings()
+        from .scheduler import get_scheduler
 
         # Get metrics
         active_jobs = await job_service.get_active_job_count()
         running_executions = await job_service.get_running_execution_count()
         last_execution = await job_service.get_latest_execution()
 
-        # TODO: Get actual scheduler status and next run time from scheduler
-        # For now, use config setting
-        scheduler_running = settings.job_scheduler_enabled
+        # Get actual scheduler status
+        scheduler = get_scheduler()
+        scheduler_running = scheduler is not None and scheduler.running
 
         return JobStatusResponse(
             scheduler_running=scheduler_running,

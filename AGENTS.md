@@ -103,7 +103,7 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
 
 # Database Migrations
 
-**ALWAYS use Alembic** for all database schema changes. Never use `create_all()`, `--reset-db`, or manual SQL.
+**ALWAYS use Alembic** for all database schema changes. Never use `create_all()`, or manual SQL.
 
 ```bash
 # Create migration after changing models
@@ -128,7 +128,7 @@ See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
 # Constraints
 
-- ❌ **Never** use `create_all()`, `--reset-db`, or manual SQL — **ALWAYS use Alembic migrations**
+- ❌ **Never** use `create_all()` or manual SQL — **ALWAYS use Alembic migrations**
 - ❌ Don't commit API keys or secrets
 - ❌ Don't modify Riot API rate limiting
 - ❌ Don't touch legacy code without explicit request

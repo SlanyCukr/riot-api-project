@@ -37,7 +37,7 @@ FROM base AS deps
 COPY pyproject.toml uv.lock* README.md ./
 
 # Create non-root user
-RUN useradd --create-home --shell /bin/bash --uid 1001 app \
+RUN useradd --create-home --shell /bin/bash --uid 1000 app \
     && chown -R app:app /app
 
 USER app
@@ -137,7 +137,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Create non-root user
-RUN useradd --create-home --shell /bin/bash --uid 1001 app \
+RUN useradd --create-home --shell /bin/bash --uid 1000 app \
     && chown -R app:app /app
 
 # Copy virtual environment and app from builder
