@@ -148,8 +148,8 @@ class Player(Base):
     match_participations = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
         "MatchParticipant", back_populates="player", cascade="all, delete-orphan"
     )
-    smurf_detections = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
-        "SmurfDetection", back_populates="player", cascade="all, delete-orphan"
+    player_analysis = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
+        "PlayerAnalysis", back_populates="player", cascade="all, delete-orphan"
     )
     ranks = relationship(  # noqa: F841 - Used by SQLAlchemy ORM
         "PlayerRank", back_populates="player", cascade="all, delete-orphan"

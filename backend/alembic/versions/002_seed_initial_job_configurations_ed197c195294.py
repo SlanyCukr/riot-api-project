@@ -93,7 +93,7 @@ def create_dev_jobs() -> None:
         INSERT INTO app.job_configurations
         (job_type, name, schedule, is_active, config_json, created_at, updated_at)
         VALUES (
-            'SMURF_ANALYZER', 'Smurf Analyzer', 'interval:300', true,
+            'PLAYER_ANALYZER', 'Player Analyzer', 'interval:300', true,
             '{
             json.dumps(
                 {
@@ -203,7 +203,7 @@ def create_prod_jobs() -> None:
         INSERT INTO app.job_configurations
         (job_type, name, schedule, is_active, config_json, created_at, updated_at)
         VALUES (
-            'SMURF_ANALYZER', 'Smurf Analyzer', 'interval:120', true,
+            'PLAYER_ANALYZER', 'Player Analyzer', 'interval:120', true,
             '{
             json.dumps(
                 {
@@ -254,5 +254,5 @@ def downgrade() -> None:
     """Remove seeded job configurations."""
     op.execute("""
         DELETE FROM app.job_configurations
-        WHERE job_type IN ('TRACKED_PLAYER_UPDATER', 'MATCH_FETCHER', 'SMURF_ANALYZER', 'BAN_CHECKER')
+        WHERE job_type IN ('TRACKED_PLAYER_UPDATER', 'MATCH_FETCHER', 'PLAYER_ANALYZER', 'BAN_CHECKER')
     """)

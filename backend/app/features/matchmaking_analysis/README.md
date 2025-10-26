@@ -230,7 +230,7 @@ async def get_fairness_trends(
 
 - **Players** - Requires player rank and account data
 - **Matches** - Analyzes match data and participant stats
-- **Smurf Detection** - Smurf likelihood affects fairness evaluation
+- **Player Analysis** - Smurf likelihood affects fairness evaluation
 - **Jobs** - Background jobs can run periodic fairness analysis
 
 ## Future Enhancements

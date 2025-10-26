@@ -48,10 +48,10 @@ class UserCreate(UserBase):
 
         # Expanded special character set to support password managers
         # Includes common symbols: !@#$%^&*(),.?":{}|<>-_+=[]\/;'`~
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\\/;'`~]", v):
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\\\/;'`~]", v):
             raise ValueError(
                 "Password must contain at least one special character "
-                "(!@#$%^&*(),.?\":{}|<>-_+=[]\\\/;'`~)"
+                r"(!@#$%^&*(),.?\":{}|<>-_+=[]\/;'`~)"
             )
 
         return v

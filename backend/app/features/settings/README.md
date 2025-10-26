@@ -100,7 +100,7 @@ Settings are organized into logical categories:
 
 ### 3. Analysis Settings (`analysis`)
 
-- Smurf detection thresholds
+- Player analysis thresholds
 - Matchmaking analysis weights
 - Statistical calculation parameters
 
@@ -126,7 +126,7 @@ from app.features.settings.dependencies import get_settings_service
 async def get_setting_example(
     settings_service = Depends(get_settings_service)
 ):
-    setting = await settings_service.get_setting("smurf_detection_threshold")
+    setting = await settings_service.get_setting("player_analysis_threshold")
     print(f"Value: {setting.value}")
     print(f"Type: {setting.data_type}")
 ```
@@ -189,7 +189,7 @@ async def bulk_update_example(
     updates = {
         "job_interval_player_update": "20",
         "job_interval_match_fetch": "35",
-        "smurf_detection_enabled": "true"
+        "player_analysis_enabled": "true"
     }
 
     results = await settings_service.bulk_update(updates)
@@ -265,7 +265,7 @@ Settings support automatic type conversion:
 ### Naming Conventions
 
 - Use lowercase with underscores: `job_interval_player_update`
-- Prefix by category: `riot_api_timeout`, `smurf_detection_threshold`
+- Prefix by category: `riot_api_timeout`, `player_analysis_threshold`
 - Be descriptive: `enable_experimental_feature_x` not `exp_feat_x`
 
 ### Default Values
@@ -297,7 +297,7 @@ def validate_threshold(value: str) -> bool:
 ## Related Features
 
 - **Jobs** - Jobs read configuration from settings
-- **Smurf Detection** - Detection thresholds configurable via settings
+- **Player Analysis** - Detection thresholds configurable via settings
 - **Matchmaking Analysis** - Analysis weights configurable via settings
 - All features can use settings for runtime configuration
 

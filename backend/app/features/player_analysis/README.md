@@ -1,4 +1,4 @@
-# Smurf Detection Feature
+# Player Analysis Feature
 
 ## Purpose
 
@@ -6,10 +6,10 @@ Analyzes League of Legends player accounts to detect potential smurfs (experienc
 
 ## API Endpoints
 
-### Smurf Analysis
+### Player Analysis
 
 - `POST /api/v1/player-analysis/{puuid}` - Analyze a player account for smurf indicators
-- `GET /api/v1/player-analysis/{puuid}/history` - Get historical smurf detection results
+- `GET /api/v1/player-analysis/{puuid}/history` - Get historical player analysis results
 - `GET /api/v1/player-analysis/{puuid}/latest` - Get the most recent analysis
 
 ### Detection Configuration
@@ -21,11 +21,11 @@ Analyzes League of Legends player accounts to detect potential smurfs (experienc
 
 ### Router (`router.py`)
 
-FastAPI router defining smurf detection endpoints. Handles analysis requests and configuration management.
+FastAPI router defining player analysis endpoints. Handles analysis requests and configuration management.
 
 ### Service (`service.py`)
 
-**SmurfDetectionService** - Core business logic for smurf detection:
+**PlayerAnalysisService** - Core business logic for player analysis:
 
 - Orchestrates multiple analyzers to evaluate accounts
 - Calculates weighted smurf scores
@@ -36,14 +36,14 @@ FastAPI router defining smurf detection endpoints. Handles analysis requests and
 
 **SQLAlchemy Models:**
 
-- `SmurfDetection` - Detection result entity (PUUID, overall score, factor scores, analysis timestamp)
+- `PlayerAnalysis` - Detection result entity (PUUID, overall score, factor scores, analysis timestamp)
 
 ### Schemas (`schemas.py`)
 
 **Pydantic Schemas:**
 
-- `SmurfDetectionRequest` - Request to analyze a player
-- `SmurfDetectionResponse` - Analysis results with factor breakdown
+- `PlayerAnalysisRequest` - Request to analyze a player
+- `PlayerAnalysisResponse` - Analysis results with factor breakdown
 - `FactorScore` - Individual factor score and weight
 - `DetectionConfig` - Configuration for thresholds and weights
 
@@ -70,7 +70,7 @@ Modular factor analyzers:
 
 ### Dependencies (`dependencies.py`)
 
-- `get_smurf_detection_service()` - Dependency injection for SmurfDetectionService
+- `get_player_analysis_service()` - Dependency injection for PlayerAnalysisService
 
 ## Dependencies
 
@@ -93,7 +93,7 @@ Modular factor analyzers:
 
 ## Detection Algorithm
 
-The smurf detection system uses a multi-factor weighted scoring approach:
+The player analysis system uses a multi-factor weighted scoring approach:
 
 1. **Win Rate Analysis** (Weight: 25%)
    - Abnormally high win rates (>65% over 20+ games)
@@ -134,11 +134,11 @@ Scores range from 0-100:
 ### Analyzing a Player Account
 
 ```python
-from app.features.smurf_detection.dependencies import get_smurf_detection_service
+from app.features.player_analysis.dependencies import get_player_analysis_service
 
 async def analyze_player(
     puuid: str,
-    detection_service = Depends(get_smurf_detection_service)
+    detection_service = Depends(get_player_analysis_service)
 ):
     result = await detection_service.analyze_player(puuid)
     print(f"Smurf Score: {result.overall_score}")
@@ -149,7 +149,7 @@ async def analyze_player(
 ### Creating a Custom Analyzer
 
 ```python
-from app.features.smurf_detection.analyzers.base import BaseAnalyzer
+from app.features.player_analysis.analyzers.base import BaseAnalyzer
 
 class CustomAnalyzer(BaseAnalyzer):
     async def analyze(self, puuid: str) -> float:
@@ -170,7 +170,7 @@ class CustomAnalyzer(BaseAnalyzer):
 ### Updating Detection Configuration
 
 ```python
-from app.features.smurf_detection.config import DetectionConfig
+from app.features.player_analysis.config import DetectionConfig
 
 config = DetectionConfig(
     win_rate_threshold=0.65,
@@ -185,13 +185,13 @@ config = DetectionConfig(
 
 - **Players** - Requires player data and rank information
 - **Matches** - Analyzes match performance metrics
-- **Jobs** - Background jobs can run periodic smurf analysis on tracked players
-- **Matchmaking Analysis** - Smurf detection feeds into matchmaking fairness evaluation
+- **Jobs** - Background jobs can run periodic player analysis on tracked players
+- **Matchmaking Analysis** - Player analysis feeds into matchmaking fairness evaluation
 
 ## Future Enhancements
 
 - Machine learning model integration
 - Historical trend analysis
 - Comparison with known smurf patterns
-- Integration with Riot's smurf detection systems
+- Integration with Riot's player analysis systems
 - Real-time analysis as matches complete

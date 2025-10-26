@@ -41,7 +41,7 @@ title: Core Schema - Player & Match Data
 erDiagram
     PLAYERS ||--o{ MATCH_PARTICIPANTS : "participates in"
     PLAYERS ||--o{ PLAYER_RANKS : "has rank history"
-    PLAYERS ||--o{ SMURF_DETECTIONS : "has detection results"
+    PLAYERS ||--o{ PLAYER_ANALYSIS : "has detection results"
     PLAYERS ||--o{ MATCHMAKING_ANALYSES : "has matchmaking insights"
     MATCHES ||--o{ MATCH_PARTICIPANTS : "contains"
 
@@ -133,10 +133,10 @@ erDiagram
         bool is_current "Current rank"
     }
 
-    SMURF_DETECTIONS {
+    PLAYER_ANALYSIS {
         int id PK "Auto-increment"
         string puuid FK "Player ref"
-        bool is_smurf "Smurf detected"
+        bool is_smurf "Anomaly detected"
         string confidence "Confidence level"
         decimal smurf_score "Overall score"
         decimal win_rate_score "Win rate component"
@@ -242,7 +242,7 @@ The database is organized into three PostgreSQL schemas for logical separation:
 ### `core` Schema
 
 - **Purpose**: League of Legends game data (players, matches, analyses)
-- **Tables**: `players`, `matches`, `match_participants`, `player_ranks`, `smurf_detections`, `matchmaking_analyses`
+- **Tables**: `players`, `matches`, `match_participants`, `player_ranks`, `player_analysiss`, `matchmaking_analyses`
 - **Access**: Main application logic, API endpoints
 
 ### `jobs` Schema
@@ -330,7 +330,7 @@ See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players
 
 - One-to-many with `core.match_participants`
 - One-to-many with `core.player_ranks` (historical)
-- One-to-many with `core.smurf_detections` (historical)
+- One-to-many with `core.player_analysiss` (historical)
 - One-to-many with `core.matchmaking_analyses` (historical)
 
 ---
@@ -472,7 +472,7 @@ See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players
 
 ---
 
-#### core.smurf_detections
+#### core.player_analysiss
 
 **Purpose**: Store player analysis analysis results and confidence scores.
 
@@ -600,7 +600,7 @@ See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players
 **Job Types** (Enum):
 
 - `tracked_player_updater` - Updates tracked player data
-- `player_analyzer` - Analyzes players for smurf detection
+- `player_analyzer` - Analyzes players for player analysis
 - `matchmaking_analyzer` - Performs matchmaking analysis for tracked players
 
 **Indexes**:
@@ -720,7 +720,7 @@ docker volume rm riot-api-project_postgres_data
 All table definitions are in SQLAlchemy models:
 
 - Location: `backend/app/models/`
-- Models: `User`, `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `SmurfDetection`, `MatchmakingAnalysis`, `JobConfiguration`, `JobExecution`, `SystemSetting`
+- Models: `User`, `Player`, `Match`, `MatchParticipant`, `PlayerRank`, `PlayerAnalysis`, `MatchmakingAnalysis`, `JobConfiguration`, `JobExecution`, `SystemSetting`
 
 **Model Files**:
 
@@ -729,7 +729,7 @@ All table definitions are in SQLAlchemy models:
 - `matches.py` - Match metadata and processing flags
 - `participants.py` - Match participant performance and historical data
 - `ranks.py` - Player rank tracking with tier enums
-- `smurf_detection.py` - Enhanced detection with 9 scoring components
+- `player_analysis.py` - Enhanced detection with 9 scoring components
 - `matchmaking_analysis.py` - Teammate vs opponent win rate analysis
 - `job_tracking.py` - Job configuration and execution tracking
 - `settings.py` - System settings with sensitive data masking

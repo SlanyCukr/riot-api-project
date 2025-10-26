@@ -34,7 +34,7 @@ jobs/
 ├── implementations/        # Concrete job implementations
 │   ├── tracked_player_updater.py
 │   ├── match_fetcher.py
-│   ├── smurf_analyzer.py
+│   ├── player_analyzer.py
 │   └── ban_checker.py
 ├── tests/
 └── README.md
@@ -48,7 +48,7 @@ Four specialized background jobs:
 
 1. **Tracked Player Updater** - Updates tracked player data (every 15 min)
 2. **Match Fetcher** - Fetches new matches for tracked players (every 30 min)
-3. **Smurf Analyzer** - Runs smurf detection on tracked players (daily)
+3. **Player Analyzer** - Runs player analysis on tracked players (daily)
 4. **Ban Checker** - Checks for banned accounts (daily)
 
 ### Job States
@@ -219,7 +219,7 @@ Register jobs in `__init__.py`:
 from .base import job_registry
 from .implementations.tracked_player_updater import TrackedPlayerUpdater
 from .implementations.match_fetcher import MatchFetcher
-from .implementations.smurf_analyzer import SmurfAnalyzer
+from .implementations.player_analyzer import PlayerAnalyzer
 from .implementations.ban_checker import BanChecker
 
 # Register all job implementations
@@ -230,7 +230,7 @@ def initialize_jobs(riot_data_manager: RiotDataManager):
     """
     job_registry.register(TrackedPlayerUpdater(riot_data_manager))
     job_registry.register(MatchFetcher(riot_data_manager))
-    job_registry.register(SmurfAnalyzer(riot_data_manager))
+    job_registry.register(PlayerAnalyzer(riot_data_manager))
     job_registry.register(BanChecker(riot_data_manager))
 ```
 

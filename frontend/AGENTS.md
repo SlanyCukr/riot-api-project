@@ -18,7 +18,7 @@ The frontend uses **feature-based organization** where related components, hooks
 Next.js App Router pages (routing structure unchanged):
 
 - `app/page.tsx` - Home/dashboard
-- `app/player-analysis/page.tsx` - Smurf detection analysis
+- `app/player-analysis/page.tsx` - Player analysis analysis
 - `app/matchmaking-analysis/page.tsx` - Matchmaking fairness
 - `app/tracked-players/page.tsx` - Tracked players management
 - `app/jobs/page.tsx` - Background jobs control
@@ -45,9 +45,9 @@ Each feature contains components, hooks, and utilities specific to that domain:
 - `components/encounter-stats.tsx` - Opponent encounter statistics
 - `components/recent-opponents.tsx` - Recent opponents list
 
-**`features/smurf-detection/`** - Smurf analysis
+**`features/player-analysis/`** - Player analysis
 
-- `components/player-analysis.tsx` - Smurf detection results
+- `components/player-analysis.tsx` - Player analysis results
 
 **`features/matchmaking/`** - Matchmaking analysis
 
@@ -149,13 +149,13 @@ import { SidebarNav } from "@/components/sidebar-nav";
 ```typescript
 // app/player-analysis/page.tsx
 import { PlayerSearch, PlayerAnalysis } from '@/features/players'
-import { SmurfDetectionResults } from '@/features/smurf-detection'
+import { PlayerAnalysisResults } from '@/features/player-analysis'
 
 export default function PlayerAnalysisPage() {
   return (
     <div>
       <PlayerSearch />
-      <SmurfDetectionResults />
+      <PlayerAnalysisResults />
     </div>
   )
 }

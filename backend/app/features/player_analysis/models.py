@@ -1,4 +1,4 @@
-"""Smurf detection model for storing player analysis results and signals."""
+"""Player analysis model for storing player analysis results and signals."""
 
 from decimal import Decimal
 from datetime import datetime
@@ -20,10 +20,10 @@ from sqlalchemy.sql import func
 from app.core.models import Base
 
 
-class SmurfDetection(Base):
-    """Smurf detection model storing detection results and signals."""
+class PlayerAnalysis(Base):
+    """Player analysis model storing detection results and signals for smurfs, boosted accounts, and trolls."""
 
-    __tablename__ = "smurf_detections"
+    __tablename__ = "player_analysis"
     __table_args__ = {"schema": "core"}
 
     # Primary key
@@ -214,40 +214,40 @@ class SmurfDetection(Base):
     )
 
     # Relationships
-    player = relationship("Player", back_populates="smurf_detections")
+    player = relationship("Player", back_populates="player_analysis")
 
     def __repr__(self) -> str:
         """Return string representation of the player analysis."""
-        return f"<SmurfDetection(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
+        return f"<PlayerAnalysis(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
 
 
 # Create composite indexes for common queries
 Index(
-    "idx_smurf_detection_puuid_confidence",
-    SmurfDetection.puuid,
-    SmurfDetection.confidence,
+    "idx_player_analysis_puuid_confidence",
+    PlayerAnalysis.puuid,
+    PlayerAnalysis.confidence,
 )
 
 Index(
-    "idx_smurf_detection_is_smurf_score",
-    SmurfDetection.is_smurf,
-    SmurfDetection.smurf_score,
+    "idx_player_analysis_is_smurf_score",
+    PlayerAnalysis.is_smurf,
+    PlayerAnalysis.smurf_score,
 )
 
 Index(
-    "idx_smurf_detection_queue_score",
-    SmurfDetection.queue_type,
-    SmurfDetection.smurf_score,
+    "idx_player_analysis_queue_score",
+    PlayerAnalysis.queue_type,
+    PlayerAnalysis.smurf_score,
 )
 
 Index(
-    "idx_smurf_detection_analysis_time",
-    SmurfDetection.last_analysis,
-    SmurfDetection.is_smurf,
+    "idx_player_analysis_analysis_time",
+    PlayerAnalysis.last_analysis,
+    PlayerAnalysis.is_smurf,
 )
 
 Index(
-    "idx_smurf_detection_false_positive",
-    SmurfDetection.false_positive_reported,
-    SmurfDetection.is_smurf,
+    "idx_player_analysis_false_positive",
+    PlayerAnalysis.false_positive_reported,
+    PlayerAnalysis.is_smurf,
 )

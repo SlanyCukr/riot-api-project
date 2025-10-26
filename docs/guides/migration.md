@@ -38,7 +38,7 @@ backend/app/
 └── features/     # Domain features
     ├── players/
     ├── matches/
-    ├── smurf_detection/
+    ├── player_analysis/
     ├── matchmaking_analysis/
     ├── jobs/
     └── settings/
@@ -153,10 +153,10 @@ Only layout/infrastructure components remain in `components/`:
 
 - Everything in: `backend/app/features/matches/`
 
-**Smurf detection:**
+**Player analysis:**
 
-- Everything in: `backend/app/features/smurf_detection/`
-- Analyzers: `backend/app/features/smurf_detection/analyzers/`
+- Everything in: `backend/app/features/player_analysis/`
+- Analyzers: `backend/app/features/player_analysis/analyzers/`
 
 **Background jobs:**
 
@@ -576,7 +576,7 @@ frontend/
 - Feature READMEs:
   - [Players Feature](/backend/app/features/players/README.md)
   - [Matches Feature](/backend/app/features/matches/README.md)
-  - [Smurf Detection](/backend/app/features/smurf_detection/README.md)
+  - [Player Analysis](/backend/app/features/player_analysis/README.md)
   - [Matchmaking Analysis](/backend/app/features/matchmaking_analysis/README.md)
   - [Jobs Feature](/backend/app/features/jobs/README.md)
   - [Settings Feature](/backend/app/features/settings/README.md)

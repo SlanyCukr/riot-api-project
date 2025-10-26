@@ -1,5 +1,5 @@
 """
-Configuration for smurf detection service.
+Configuration for player analysis service.
 
 This module contains thresholds, weights, and other configuration
 parameters used in the player analysis algorithms.

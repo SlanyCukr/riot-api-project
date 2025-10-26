@@ -160,7 +160,7 @@ riot-api-project/
 │   └── features/              # Domain features
 │       ├── players/           # Player management (search, tracking, rank info)
 │       ├── matches/           # Match data and statistics
-│       ├── smurf_detection/   # Smurf analysis algorithms
+│       ├── player_analysis/   # Player analysis algorithms
 │       ├── matchmaking_analysis/  # Matchmaking fairness evaluation
 │       ├── jobs/              # Background job scheduling
 │       └── settings/          # System configuration
@@ -169,7 +169,7 @@ riot-api-project/
 │   ├── features/              # Feature modules
 │   │   ├── players/           # Player components, hooks, utilities
 │   │   ├── matches/           # Match components
-│   │   ├── smurf-detection/   # Analysis components
+│   │   ├── player-analysis/   # Analysis components
 │   │   ├── matchmaking/       # Matchmaking analysis components
 │   │   ├── jobs/              # Job management components
 │   │   └── settings/          # Settings components

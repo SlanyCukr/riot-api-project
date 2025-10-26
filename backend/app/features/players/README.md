@@ -122,6 +122,6 @@ from app.features.players.schemas import PlayerResponse
 ## Related Features
 
 - **Matches** - Player match history and game data
-- **Smurf Detection** - Analyzes player accounts for smurf indicators
+- **Player Analysis** - Analyzes player accounts for smurf indicators
 - **Matchmaking Analysis** - Evaluates matchmaking fairness for players
 - **Jobs** - Background jobs update tracked player data

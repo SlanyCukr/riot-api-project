@@ -14,10 +14,10 @@ app/
 │   ├── config.py
 │   ├── riot_api/
 │   └── ...
-└── features/            # Domain features (players, matches, smurf_detection, etc.)
+└── features/            # Domain features (players, matches, player_analysis, etc.)
     ├── players/
     ├── matches/
-    ├── smurf_detection/
+    ├── player_analysis/
     ├── matchmaking_analysis/
     ├── jobs/
     └── settings/
@@ -101,7 +101,7 @@ from app.core.exceptions import RiotAPIError
 ```python
 from app.features.players import PlayerService, Player, PlayerResponse
 from app.features.matches import MatchService, Match
-from app.features.smurf_detection import SmurfDetectionService
+from app.features.player_analysis import PlayerAnalysisService
 ```
 
 ### From Features (Direct)

@@ -17,7 +17,7 @@ The `backend/app/features/` directory contains domain-specific business logic or
 
 - **`players/`** - Player management (search, tracking, rank info)
 - **`matches/`** - Match data and statistics
-- **`smurf_detection/`** - Smurf analysis algorithms (see feature-specific AGENTS.md)
+- **`player_analysis/`** - Player analysis algorithms (see feature-specific AGENTS.md)
 - **`matchmaking_analysis/`** - Matchmaking fairness evaluation
 - **`jobs/`** - Background job scheduling and execution (see feature-specific AGENTS.md)
 - **`settings/`** - System configuration management
@@ -362,7 +362,7 @@ from app.features.players.service import PlayerService
 ```python
 from app.features.players import players_router
 from app.features.matches import matches_router
-from app.features.smurf_detection import smurf_detection_router
+from app.features.player_analysis import player_analysis_router
 ```
 
 ## Testing Features
@@ -448,5 +448,5 @@ async def refresh_player(
 - `backend/app/AGENTS.md` - FastAPI application structure
 - `backend/app/core/AGENTS.md` - Core infrastructure details
 - `backend/AGENTS.md` - Overall backend architecture
-- `backend/app/features/smurf_detection/AGENTS.md` - Smurf detection feature details
+- `backend/app/features/player_analysis/AGENTS.md` - Player analysis feature details
 - `backend/app/features/jobs/AGENTS.md` - Background jobs feature details

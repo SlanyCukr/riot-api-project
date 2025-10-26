@@ -117,15 +117,15 @@ All job implementations are located in `implementations/`:
   - Queries match history for tracked players
   - Fetches match details from Riot API
   - Stores match data and participant stats
-  - Triggers smurf analysis for new matches
+  - Triggers player analysis for new matches
 
-### 3. Smurf Analyzer (`smurf_analyzer.py`)
+### 3. Player Analyzer (`player_analyzer.py`)
 
-- **Purpose**: Runs smurf detection on tracked players
+- **Purpose**: Runs player analysis on tracked players
 - **Schedule**: Daily at 2:00 AM
 - **Operations**:
   - Analyzes all tracked players for smurf indicators
-  - Updates smurf detection scores
+  - Updates player analysis scores
   - Flags high-confidence smurf accounts
   - Generates analysis reports
 
@@ -151,7 +151,7 @@ All job implementations are located in `implementations/`:
 
 - `features.players` - Player data management
 - `features.matches` - Match data storage
-- `features.smurf_detection` - Smurf analysis execution
+- `features.player_analysis` - Player analysis execution
 
 ### External Libraries
 
@@ -262,7 +262,7 @@ Job schedules can be configured via environment variables or database settings:
 # Environment variables
 TRACKED_PLAYER_UPDATE_INTERVAL=15  # minutes
 MATCH_FETCH_INTERVAL=30  # minutes
-SMURF_ANALYSIS_SCHEDULE="0 2 * * *"  # cron format
+PLAYER_ANALYSIS_SCHEDULE="0 2 * * *"  # cron format
 BAN_CHECK_SCHEDULE="0 3 * * *"  # cron format
 ```
 
@@ -310,7 +310,7 @@ curl http://localhost:8000/api/v1/jobs/executions/{execution_id}
 
 - **Players** - Jobs update tracked player data
 - **Matches** - Jobs fetch and store match data
-- **Smurf Detection** - Jobs run periodic smurf analysis
+- **Player Analysis** - Jobs run periodic player analysis
 - All features can be integrated with the job system
 
 ## Future Enhancements
