@@ -86,16 +86,6 @@ repos:
         pass_filenames: false
         verbose: true
 
-      # Pyright - Fast static type checker for Python (runs in Docker for dep access)
-      # Non-blocking: shows warnings/errors but doesn't fail commits
-      - id: pyright
-        name: Pyright - Type Checker (non-blocking)
-        entry: bash -c 'export LC_ALL=C.UTF-8 && docker compose exec -T backend bash -c "cd /app && uvx pyright app/" > /dev/null 2>&1 || true'
-        language: system
-        files: ^backend/.*\.py$
-        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
-        pass_filenames: false
-
   # Frontend linting with Next.js (local hook for better compatibility)
   - repo: local
     hooks:
