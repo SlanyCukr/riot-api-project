@@ -18,7 +18,7 @@ The frontend uses **feature-based organization** where related components, hooks
 Next.js App Router pages (routing structure unchanged):
 
 - `app/page.tsx` - Home/dashboard
-- `app/player-analysis/page.tsx` - Player analysis analysis
+- `app/player-analysis/page.tsx` - Player analysis
 - `app/matchmaking-analysis/page.tsx` - Matchmaking fairness
 - `app/tracked-players/page.tsx` - Tracked players management
 - `app/jobs/page.tsx` - Background jobs control

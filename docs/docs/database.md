@@ -242,7 +242,7 @@ The database is organized into three PostgreSQL schemas for logical separation:
 ### `core` Schema
 
 - **Purpose**: League of Legends game data (players, matches, analyses)
-- **Tables**: `players`, `matches`, `match_participants`, `player_ranks`, `player_analysiss`, `matchmaking_analyses`
+- **Tables**: `players`, `matches`, `match_participants`, `player_ranks`, `player_analysis`, `matchmaking_analyses`
 - **Access**: Main application logic, API endpoints
 
 ### `jobs` Schema
@@ -330,7 +330,7 @@ See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players
 
 - One-to-many with `core.match_participants`
 - One-to-many with `core.player_ranks` (historical)
-- One-to-many with `core.player_analysiss` (historical)
+- One-to-many with `core.player_analysis` (historical)
 - One-to-many with `core.matchmaking_analyses` (historical)
 
 ---
@@ -472,9 +472,9 @@ See `docs/tasks/auth.md` for planned OAuth integration, per-user tracked players
 
 ---
 
-#### core.player_analysiss
+#### core.player_analysis
 
-**Purpose**: Store player analysis analysis results and confidence scores.
+**Purpose**: Store player analysis results and confidence scores.
 
 **Primary Key**: `id` (Integer, auto-increment)
 

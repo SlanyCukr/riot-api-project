@@ -274,7 +274,7 @@ class PlayerAnalysisService:
 class PlayerAnalysis(BaseModel):
     """Player analysis result."""
 
-    __tablename__ = "player_analysiss"
+    __tablename__ = "player_analysis"
 
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     overall_score = Column(Float, nullable=False)
@@ -283,7 +283,7 @@ class PlayerAnalysis(BaseModel):
     analysis_timestamp = Column(DateTime, nullable=False)
 
     # Relationships
-    player = relationship("Player", back_populates="player_analysiss")
+    player = relationship("Player", back_populates="player_analysis")
 ```
 
 ## Adding a New Analyzer

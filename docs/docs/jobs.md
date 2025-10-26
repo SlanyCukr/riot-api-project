@@ -69,7 +69,7 @@ flowchart TD
     C -- Yes --> D[For each player:<br/>Call PlayerAnalysisService.analyze_player]
     C -- No --> E[Phase 2 completes]
     D --> F[Calculate 9 detection scores:<br/>win_rate, kda, account_level,<br/>rank_discrepancy, rank_progression,<br/>win_rate_trend, performance_consistency,<br/>performance_trends, role_performance]
-    F --> G[Store detection result in player_analysiss table]
+    F --> G[Store detection result in player_analysis table]
     G --> H[UPDATE player SET is_analyzed=True<br/>and updated_at=now]
     H --> I{More players?}
     I -- Yes --> D
@@ -87,7 +87,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Phase 3 starts] --> B[Query players table joined with player_analysiss<br/>WHERE is_smurf=True AND<br/>last_ban_check IS NULL OR last_ban_check < cutoff_date]
+    A[Phase 3 starts] --> B[Query players table joined with player_analysis<br/>WHERE is_smurf=True AND<br/>last_ban_check IS NULL OR last_ban_check < cutoff_date]
     B --> C{Smurfs need ban check?}
     C -- Yes --> D[For each player:<br/>Riot API: GET /lol/summoner/v4/summoners/by-puuid/puuid]
     C -- No --> E[Phase 3 completes]
@@ -160,7 +160,7 @@ flowchart TD
 ```mermaid
 erDiagram
     players ||--o{ match_participants : "participates in"
-    players ||--o{ player_analysiss : "analyzed by"
+    players ||--o{ player_analysis : "analyzed by"
     players ||--o{ player_ranks : "has ranks"
 ```
 
@@ -169,7 +169,7 @@ erDiagram
 - **READ**:
   - SELECT players needing matches (insufficient match count)
   - SELECT players ready for analysis (sufficient matches, not analyzed)
-  - SELECT smurfs needing ban check (join with player_analysiss)
+  - SELECT smurfs needing ban check (join with player_analysis)
 - **UPDATE**:
   - SET `is_analyzed = True` after successful analysis
   - UPDATE `last_ban_check` after ban status verification
@@ -183,7 +183,7 @@ erDiagram
 
 - **CREATE**: INSERT new matches fetched during Phase 1
 
-#### **player_analysiss** table
+#### **player_analysis** table
 
 - **CREATE**: INSERT new detection results with 9 scoring components
 
@@ -193,10 +193,10 @@ erDiagram
 | --------- | -------------------------- | ----------------------------------- | ----------- |
 | SELECT    | players                    | Get players needing matches         | Phase 1     |
 | SELECT    | players                    | Get players ready for analysis      | Phase 2     |
-| SELECT    | players + player_analysiss | Get smurfs for ban check            | Phase 3     |
+| SELECT    | players + player_analysis | Get smurfs for ban check            | Phase 3     |
 | SELECT    | match_participants         | Count player matches                | Phase 1 & 2 |
 | INSERT    | matches                    | Store fetched matches               | Phase 1     |
-| INSERT    | player_analysiss           | Store analysis results              | Phase 2     |
+| INSERT    | player_analysis           | Store analysis results              | Phase 2     |
 | UPDATE    | players                    | Mark as analyzed, update timestamps | Phase 2 & 3 |
 
 ---
