@@ -5,13 +5,17 @@ services:
   frontend:
     build:
       target: development
-    container_name: ${COMPOSE_PROJECT_NAME}_frontend_dev
+    container_name: riot_api_app_frontend_dev
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     ports:
-      - "${FRONTEND_PORT}:3000"
+      - "3000:3000"
     command: ["npm", "run", "dev"]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     networks:
       - app-network
     healthcheck:
@@ -20,32 +24,25 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    # Docker Compose Watch for automatic syncing
-    develop:
-      watch:
-        # Hot reload for code changes
-        - path: ./frontend
-          action: sync+restart
-          target: /app
-          ignore:
-            - node_modules/
-            - .next/
 
   backend:
     build:
       target: development
-    container_name: ${COMPOSE_PROJECT_NAME}_backend_dev
+    container_name: riot_api_app_backend_dev
+    user: "1001:1001"
     environment:
       LOG_LEVEL: DEBUG
-      DATABASE_URL: ${DATABASE_URL}
-      RIOT_API_KEY: ${RIOT_API_KEY}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      JOB_SCHEDULER_ENABLED: ${JOB_SCHEDULER_ENABLED}
       ENVIRONMENT: dev
+      WATCHFILES_FORCE_POLLING: "true"
+      UV_CACHE_DIR: /tmp/.uv-cache
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
     networks:
       - app-network
     healthcheck:
@@ -54,21 +51,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    # Docker Compose Watch for automatic syncing
-    develop:
-      watch:
-        # Sync code changes (FastAPI auto-reload handles restart)
-        - path: ./backend
-          action: sync
-          target: /app
-          ignore:
-            - .venv/
-            - __pycache__/
-            - "*.pyc"
 
   postgres:
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

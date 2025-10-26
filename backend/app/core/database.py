@@ -18,18 +18,11 @@ class DatabaseManager:
     def __init__(self):
         """Initialize database manager with async engine."""
         settings = get_global_settings()
-        # Convert synchronous database URL to asynchronous
-        self.database_url = settings.database_url.replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+        self.database_url = settings.database_url
 
-        # Create async engine with connection pooling
+        # Create async engine with default connection pool settings
         self.engine = create_async_engine(
             self.database_url,
-            pool_size=settings.db_pool_size,
-            max_overflow=settings.db_max_overflow,
-            pool_timeout=settings.db_pool_timeout,
-            pool_recycle=settings.db_pool_recycle,
             echo=settings.debug,  # Enable SQL logging in debug mode
             future=True,
         )

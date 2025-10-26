@@ -28,19 +28,27 @@ async def example(db: AsyncSession = Depends(get_db)):
 - **Configuration sources**: `.env` file, environment variables
 
 ```python
-from app.core.config import get_settings
+from app.core.config import get_settings, get_riot_api_key
 
 settings = get_settings()
-print(settings.DATABASE_URL)
-print(settings.RIOT_API_KEY)
+print(settings.database_url)  # Constructed from POSTGRES_* components
+
+# Riot API key is stored in database, not settings
+async with get_db() as db:
+    api_key = await get_riot_api_key(db)
 ```
 
 **Key settings:**
 
-- `DATABASE_URL` - PostgreSQL connection string
-- `RIOT_API_KEY` - Riot API authentication key
-- `CORS_ORIGINS` - Allowed CORS origins for frontend
-- `LOG_LEVEL` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
+- `postgres_db`, `postgres_user`, `postgres_password`, `postgres_host`, `postgres_port` - Database connection components (constructed into `database_url` property)
+- `cors_origins` - Allowed CORS origins for frontend
+- `log_level` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
+- `jwt_secret_key` - JWT token signing secret
+
+**Notes**:
+- Riot API key is stored in database only. Use `get_riot_api_key(db)` function to retrieve it.
+- Database URL is constructed from POSTGRES_* components, not set directly
+- Region/platform hardcoded to europe/eun1 in backend code
 
 ### `logging.py` - Structured Logging
 

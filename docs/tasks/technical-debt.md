@@ -369,14 +369,15 @@ def get_database_url(self) -> str:
 ### Deprecate Riot API Key from Environment Variables
 
 **Priority:** Medium
-**Status:** Planned
-**Description:** Remove Riot API key from `.env` file; use database-only storage.
+**Status:** ✅ Completed (2025-10-26)
+**Description:** Removed Riot API key from `.env` file; now uses database-only storage.
 
-**Current State:**
+**Implementation Details:**
 
-- Riot API key stored in both `.env` and database (`core.system_settings` table)
-- `backend/app/core/config.py` has fallback logic: database → environment → default
-- Dual storage creates confusion and security risk
+- Removed `riot_api_key` field from `Settings` class in `backend/app/core/config.py`
+- `get_riot_api_key(db)` function now retrieves from database only
+- Updated all documentation to reflect database-only storage
+- Removed `RIOT_API_KEY` from `.env.example`
 
 **Rationale for Database-Only Storage:**
 
@@ -386,85 +387,40 @@ def get_database_url(self) -> str:
 4. **Centralized Management**: Single source of truth for API key
 5. **Development Keys Expire**: Riot development keys expire every 24 hours, need frequent updates
 
-**Proposed Migration:**
+**What Was Changed:**
 
-**Phase 1: Deprecation Warning**
+1. **Backend Configuration** (`backend/app/core/config.py`):
+   - Removed `riot_api_key` field from `Settings` class
+   - `get_riot_api_key(db)` function retrieves from database only
+   - Raises clear error if API key not configured in database
 
-- Add deprecation warning if `RIOT_API_KEY` environment variable is set
-- Update documentation to recommend database-only storage
-- Log warning on startup: "RIOT_API_KEY environment variable is deprecated"
+2. **Documentation Updates**:
+   - Removed `RIOT_API_KEY` from `.env.example`
+   - Updated `README.md` setup instructions
+   - Updated `docker/AGENTS.md` environment variables section
+   - Updated `docs/guides/deployment.md` secrets section
+   - Updated `backend/README.md` key variables list
+   - Updated `backend/app/core/AGENTS.md` configuration docs
 
-**Phase 2: Remove Fallback Logic**
+3. **User Experience**:
+   - API key set via web UI at `/settings` page
+   - Startup logs warn if API key not configured
+   - Clear error messages guide users to settings page
 
-- Remove `riot_api_key` field from `Settings` class
-- Update `get_riot_api_key()` to only read from database
-- Remove `RIOT_API_KEY` from compose files and documentation
-- **Breaking Change**: Requires API key to be set via web UI or database
+**Benefits Achieved:**
 
-**Phase 3: Production Readiness**
+- ✅ Single source of truth for API key (database)
+- ✅ Runtime key updates without container restarts
+- ✅ No sensitive data in `.env` files
+- ✅ Simpler deployment process
+- ✅ Supports 24-hour dev key rotation workflow
 
-- Update deployment scripts to seed initial API key via database
-- Add migration guide for existing deployments
-- Update `docs/guides/deployment.md` with new setup instructions
+**Migration for Existing Users:**
 
-**Implementation:**
-
-```python
-# backend/app/core/config.py
-# Remove riot_api_key field entirely
-
-# backend/app/core/config.py (get_riot_api_key function)
-async def get_riot_api_key(db: AsyncSession) -> str:
-    """Get the Riot API key from database only.
-
-    NOTE: Environment variable RIOT_API_KEY is deprecated.
-    Set API key via web UI at /settings or directly in database.
-    """
-    # Warn if env var is still set
-    if os.getenv("RIOT_API_KEY"):
-        logger.warning(
-            "RIOT_API_KEY environment variable is deprecated and will be ignored. "
-            "Set API key via web UI at /settings or database system_settings table."
-        )
-
-    # Database-only retrieval
-    from sqlalchemy import select
-    from app.features.settings.models import SystemSetting
-
-    stmt = select(SystemSetting).where(SystemSetting.key == "riot_api_key")
-    result = await db.execute(stmt)
-    setting = result.scalar_one_or_none()
-
-    if not setting or not setting.value:
-        raise ValueError(
-            "Riot API key not configured! Set it via web UI at /settings "
-            "or insert into database: "
-            "INSERT INTO core.system_settings (key, value) VALUES ('riot_api_key', 'YOUR_KEY');"
-        )
-
-    return setting.value
-```
-
-**Benefits:**
-
-- Eliminates dual storage confusion
-- Forces best practice (database storage)
-- Enables runtime key updates without restarts
-- Reduces `.env` file complexity
-
-**Migration Guide for Existing Deployments:**
-
-1. Ensure API key is set in database via web UI
-2. Remove `RIOT_API_KEY` from `.env` file
-3. Remove `RIOT_API_KEY` from `compose.prod.yaml`
-4. Restart application
-5. Verify API key loads from database (check logs)
-
-**Timeline:**
-
-- Phase 1 (Deprecation Warning): Next minor version
-- Phase 2 (Remove Fallback): Next major version
-- Phase 3 (Production Ready): After thorough testing
+Users with API key in `.env` should:
+1. Set API key via web UI at `/settings`
+2. Remove `RIOT_API_KEY` line from `.env`
+3. Restart services
 
 ---
 
@@ -524,22 +480,19 @@ _No current testing-related technical debt items._
 
 ## Documentation
 
-### Admin User Creation
+### Admin User Management
 
 **Status:** Completed
-**Description:** Created `scripts/create_admin_user.py` to replace hardcoded passwords in migrations.
+**Description:** Created unified `backend/scripts/manage_admin.py` to manage admin user accounts.
 
 **Usage:**
 
 ```bash
-# Interactive mode
-docker compose exec backend uv run python scripts/create_admin_user.py
+# Create a new admin user
+docker compose exec backend uv run python scripts/manage_admin.py create
 
-# Environment variables mode
-ADMIN_EMAIL="admin@example.com" \
-ADMIN_DISPLAY_NAME="Admin User" \
-ADMIN_PASSWORD="SecurePassword123!" \
-docker compose exec backend uv run python scripts/create_admin_user.py
+# Reset an existing admin user's password
+docker compose exec backend uv run python scripts/manage_admin.py reset
 ```
 
 ---

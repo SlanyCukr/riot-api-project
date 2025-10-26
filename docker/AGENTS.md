@@ -5,8 +5,7 @@
 **Development** (from project root):
 
 ```bash
-docker compose watch                    # Start with hot reload (recommended)
-docker compose up                       # Start without watch
+docker compose up -d                    # Start services (recommended)
 docker compose down                     # Stop all services
 docker compose logs -f                  # Follow all logs
 docker compose logs -f backend          # Follow backend logs only
@@ -74,18 +73,19 @@ When you run `docker compose` commands **without** the `-f` flag in the project 
 
 ```bash
 # This automatically loads both compose.yaml AND compose.override.yaml:
-docker compose watch
+docker compose up -d
 
 # Equivalent to:
-docker compose -f compose.yaml -f compose.override.yaml watch
+docker compose -f compose.yaml -f compose.override.yaml up -d
 ```
 
 **What's in `compose.override.yaml`**:
 
 - Development build targets (`target: development`)
-- Hot reload configuration (`develop.watch` sections)
+- Volume mounts for two-way sync (`./backend:/app`, `./frontend:/app`)
+- User mapping hardcoded to `1000:1000` (prevents root-owned files in volumes on WSL2/Linux)
 - Debug logging (`LOG_LEVEL: DEBUG`)
-- Development-specific environment variables
+- Development-specific environment variables (`WATCHFILES_FORCE_POLLING`, `UV_CACHE_DIR`)
 
 ### Production (Explicit Override)
 
@@ -104,27 +104,38 @@ docker compose -f compose.yaml -f compose.prod.yaml up -d
 
 ---
 
-## Docker Compose Watch (Hot Reload)
+## Hot Reload with Volume Mounts
 
-The `compose.override.yaml` file includes `develop.watch` configuration that enables hot reload for both backend and frontend.
+The `compose.override.yaml` file uses volume mounts to provide two-way file synchronization between your host and containers, enabling automatic hot reload.
 
-**Start watch mode**:
+**Start services**:
 
 ```bash
-docker compose watch
+docker compose up -d
 ```
 
-**What happens**:
+**How it works**:
 
-- **Frontend**: Changes to `./frontend` → sync to container → Next.js hot reloads
-- **Backend**: Changes to `./backend` → sync to container → FastAPI auto-reloads
-- **No rebuild needed**: Code changes are synced in real-time
+- **Volume Mounts**: `./backend:/app` and `./frontend:/app` create two-way sync
+  - Host → Container: Code changes visible immediately
+  - Container → Host: Generated files (e.g., Alembic migrations) appear on host
+- **Built-in Hot Reload**:
+  - **Backend**: `uvicorn --reload` watches Python files and auto-restarts
+  - **Frontend**: `next dev` watches TypeScript/JSX files and hot reloads
+- **No Manual Restart**: Save files and changes apply automatically
 
 **When to rebuild**:
 
-- Dependency changes (`package.json`, `pyproject.toml`)
+- Dependency changes (`package.json`, `pyproject.toml`, `uv.lock`)
 - Dockerfile modifications
 - System package changes
+
+**Why Volume Mounts Instead of Docker Watch:**
+
+- ✅ Two-way sync (watch is one-way only)
+- ✅ Simpler configuration (no ignore patterns needed)
+- ✅ No conflicts or warnings
+- ✅ Works reliably with file generation (Alembic, code generation, etc.)
 
 ---
 
@@ -187,16 +198,10 @@ docker buildx bake -f docker/docker-bake.hcl dev --print
 
 ### Starting Services
 
-**Development (recommended)**:
+**Development**:
 
 ```bash
-docker compose watch
-```
-
-**Development (without watch)**:
-
-```bash
-docker compose up
+docker compose up -d
 ```
 
 **Production**:
@@ -429,7 +434,7 @@ Both backend and frontend use optimized multi-stage builds:
 
 ✅ **Do**:
 
-- Run `docker compose watch` for development (automatic hot reload)
+- Run `docker compose up -d` for development (automatic hot reload via volume mounts)
 - Use service names (`backend`, `frontend`, `postgres`) not container names
 - Let automatic override loading handle development configuration
 - Use Docker Bake for all builds (parallel backend + frontend)
@@ -437,10 +442,10 @@ Both backend and frontend use optimized multi-stage builds:
 
 ❌ **Don't**:
 
-- Restart containers after code changes (hot reload handles it)
+- Restart containers after code changes (hot reload handles it automatically)
 - Manually specify `compose.override.yaml` with `-f` (auto-loaded)
 - Clear `/tmp/.buildx-cache` unless troubleshooting build issues
-- Remove volumes without backup confirmation
+- Remove volumes without backup confirmation (volume mounts contain your code!)
 - Use `docker run` for services (use `docker compose` instead)
 
 ---
@@ -468,15 +473,19 @@ curl http://localhost:8088          # Frontend check
 
 ## Environment Variables
 
-Required `.env` file variables:
+Required `.env` file variables (application configuration only):
 
-- `RIOT_API_KEY` - Riot API key
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials
-- `DATABASE_URL` - Full PostgreSQL connection string
-- `COMPOSE_PROJECT_NAME` - Project name (prefixes containers/networks/volumes)
-- `BACKEND_PORT`, `FRONTEND_PORT`, `POSTGRES_PORT` - Port mappings
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials (automatically constructed into connection URL)
 - `NEXT_PUBLIC_API_URL` - Frontend API URL
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
-- `JOB_SCHEDULER_ENABLED` - Enable background jobs (true/false)
+- `JWT_SECRET_KEY` - JWT signing secret (generate with: `python -c 'import secrets; print(secrets.token_hex(32))'`)
+
+**Notes**:
+- Riot API key is stored in database only (not in `.env`). Set via web UI at `/settings` after first startup.
+- Region/platform hardcoded to europe/eun1 in backend code
+- Database URL is constructed from POSTGRES_* components, not set directly
+- Job scheduler always runs (individual jobs controlled via database)
+
+**Docker infrastructure** (project name, ports, user mapping) is configured in compose files, not in `.env`.
 
 Copy `.env.example` to `.env` and configure before first run.

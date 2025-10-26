@@ -203,10 +203,6 @@ async def start_scheduler() -> AsyncIOScheduler:
 
     settings = get_global_settings()
 
-    if not settings.job_scheduler_enabled:
-        logger.info("Job scheduler is disabled via configuration")
-        return None
-
     if _scheduler is not None:
         logger.warning("Scheduler already initialized")
         return _scheduler
@@ -214,11 +210,9 @@ async def start_scheduler() -> AsyncIOScheduler:
     try:
         logger.info("Initializing job scheduler")
 
-        # Convert synchronous database URL to SQLAlchemy format for job store
-        # APScheduler's SQLAlchemyJobStore uses synchronous connections
-        jobstore_url = settings.database_url.replace(
-            "postgresql+asyncpg://", "postgresql+psycopg2://"
-        )
+        # Construct synchronous database URL for APScheduler's SQLAlchemyJobStore
+        # APScheduler uses synchronous psycopg2, not async asyncpg
+        jobstore_url = f"postgresql+psycopg2://{settings.postgres_user}:{settings.postgres_password}@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"
 
         # Configure job stores (where APScheduler stores its internal state)
         jobstores = {

@@ -32,7 +32,7 @@ Removes unused Docker resources to free up disk space:
 
 See `docker/AGENTS.md` for comprehensive command reference including:
 
-- Development workflow (`docker compose watch`)
+- Development workflow (`docker compose up -d`)
 - Production deployment (`docker compose -f compose.yaml -f compose.prod.yaml up -d`)
 - Database operations (`docker compose exec postgres psql ...`)
 - Alembic migrations (`docker compose exec backend uv run alembic ...`)

@@ -1,6 +1,8 @@
 # Modern Docker Compose configuration (no version field needed in Compose v2)
 # Base configuration for all environments
 
+name: riot_api_app
+
 services:
   frontend:
     image: riot-api-frontend:latest
@@ -63,18 +65,13 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       LOG_LEVEL: ${LOG_LEVEL}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      JOB_SCHEDULER_ENABLED: ${JOB_SCHEDULER_ENABLED}
-      JOB_INTERVAL_SECONDS: ${JOB_INTERVAL_SECONDS}
-      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS}
-      MAX_TRACKED_PLAYERS: ${MAX_TRACKED_PLAYERS}
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "8000:8000"
     volumes:
       - backend-logs:/app/logs
     healthcheck:
@@ -100,7 +97,7 @@ services:
       # Performance tuning
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -113,10 +110,10 @@ services:
 networks:
   app-network:
     driver: bridge
-    name: ${COMPOSE_PROJECT_NAME}_network
+    name: riot_api_app_network
 
 volumes:
   postgres-data:
-    name: ${COMPOSE_PROJECT_NAME}_postgres_data
+    name: riot_api_app_postgres_data
   backend-logs:
-    name: ${COMPOSE_PROJECT_NAME}_backend_logs
+    name: riot_api_app_backend_logs

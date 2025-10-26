@@ -23,13 +23,14 @@ A League of Legends player analysis platform that identifies potential smurf acc
 git clone <repository-url>
 cd riot-api-project
 cp .env.example .env
-# Edit .env with your Riot API key
+# Edit .env with database credentials and JWT secret
+# Riot API key will be set via web UI after startup
 ```
 
 ### 2. Start Development
 
 ```bash
-./scripts/dev.sh
+docker compose up -d                    # Start services with hot reload
 ```
 
 ### 3. Access the App
@@ -37,6 +38,8 @@ cp .env.example .env
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+
+**Hot reload is automatic:** Changes to Python files auto-restart the backend via `uvicorn --reload`. Changes to TypeScript/JSX files hot reload the frontend via `next dev`. No manual restart needed!
 
 ## 🎯 Key Features
 
@@ -91,15 +94,25 @@ Analyzes players using 9 weighted factors:
 
 ## 🛠️ Development
 
-Both frontend and backend support hot reload—just save files, no restart needed:
+Both frontend and backend support automatic hot reload via volume mounts—just save files, no restart needed:
 
 ```bash
-./scripts/dev.sh                # Start with hot reload
-./scripts/dev.sh --build        # Rebuild containers
-./scripts/dev.sh --down         # Stop services
-./scripts/logs.sh               # View logs (all services)
-./scripts/alembic.sh current    # Check migration status
+docker compose up -d                                # Start services
+docker compose logs -f                              # View all logs
+docker compose logs -f backend                      # View backend logs only
+docker compose exec backend uv run alembic current  # Check migration status
+docker compose down                                 # Stop services
 ```
+
+**How hot reload works:**
+- **Backend**: `uvicorn --reload` watches Python files and auto-restarts on changes
+- **Frontend**: `next dev` watches TypeScript/JSX files and hot reloads on changes
+- **Two-way sync**: Volume mounts (`./backend:/app`, `./frontend:/app`) sync code changes to containers and generated files (like Alembic migrations) back to host
+
+**When to rebuild containers:**
+- Dependency changes (`pyproject.toml`, `package.json`)
+- Dockerfile modifications
+- System package changes
 
 For detailed build info and production deployment, see **`docker/AGENTS.md`** and **`scripts/AGENTS.md`**.
 
@@ -141,15 +154,19 @@ Monitor jobs at: http://localhost:3000/jobs
 Key environment variables in `.env`:
 
 ```bash
-RIOT_API_KEY=your_api_key      # Required: Get from Riot Developer Portal
-RIOT_REGION=europe             # Your region
-RIOT_PLATFORM=eun1             # Your platform
-POSTGRES_PASSWORD=secure_pass  # Database password
-JOB_SCHEDULER_ENABLED=true     # Enable background jobs
-MAX_TRACKED_PLAYERS=10         # Max players to track
+# Application Configuration
+POSTGRES_DB=riot_api_db
+POSTGRES_USER=riot_api_user
+POSTGRES_PASSWORD=secure_pass         # Database password
+JWT_SECRET_KEY=<generate-64-char-hex> # JWT signing secret (run: python -c 'import secrets; print(secrets.token_hex(32))')
 ```
 
-**⚠️ Important**: Development API keys expire every 24 hours. Update your key in `.env` and restart services when expired.
+**Notes**:
+- **Riot API Key**: Stored in database only, not in `.env`. Set via web UI at http://localhost:3000/settings after first startup.
+- **Region/Platform**: Hardcoded to europe/eun1 in backend code
+- **Database URL**: Automatically constructed from POSTGRES_* variables
+
+**⚠️ Important**: Development API keys expire every 24 hours. Update your key via the settings page when expired.
 
 ## 🗂️ Project Structure
 

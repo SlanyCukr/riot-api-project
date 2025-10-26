@@ -12,7 +12,7 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     restart: always
     ports:
-      - "${FRONTEND_PORT}:3000"
+      - "3000:3000"
     # Security: read-only root filesystem where possible
     read_only: true
     tmpfs:
@@ -32,7 +32,7 @@ services:
       ENVIRONMENT: production
     restart: always
     ports:
-      - "${BACKEND_PORT}:8000"
+      - "8000:8000"
 
   postgres:
     image: postgres:18-alpine

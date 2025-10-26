@@ -9,7 +9,6 @@ import structlog
 
 from .models import Player
 from .schemas import PlayerResponse
-from app.core import get_global_settings
 from app.core.exceptions import (
     PlayerServiceError,
 )
@@ -597,18 +596,8 @@ class PlayerService:
             PlayerResponse with is_tracked=True
 
         Raises:
-            ValueError: If player not found or tracking limit reached
+            ValueError: If player not found
         """
-        settings = get_global_settings()
-
-        # Check current tracked player count before fetching
-        tracked_count = await self.count_tracked_players()
-        if tracked_count >= settings.max_tracked_players:
-            raise ValueError(
-                f"Maximum tracked players limit reached ({settings.max_tracked_players}). "
-                f"Please untrack a player before adding a new one."
-            )
-
         # Fetch player data from Riot API (this will add to DB if not exists)
         if game_name and tag_line:
             # Use RiotDataManager to fetch from API
@@ -658,18 +647,8 @@ class PlayerService:
             Updated player data.
 
         Raises:
-            ValueError: If player not found or tracking limit reached.
+            ValueError: If player not found.
         """
-        settings = get_global_settings()
-
-        # Check current tracked player count
-        tracked_count = await self.count_tracked_players()
-        if tracked_count >= settings.max_tracked_players:
-            raise ValueError(
-                f"Maximum tracked players limit reached ({settings.max_tracked_players}). "
-                f"Please untrack a player before adding a new one."
-            )
-
         # Update player to tracked status
         stmt = (
             update(Player)
@@ -691,7 +670,6 @@ class PlayerService:
             "Player marked as tracked",
             puuid=puuid,
             summoner_name=player.summoner_name,
-            tracked_count=tracked_count + 1,
         )
 
         return PlayerResponse.model_validate(player)

@@ -51,7 +51,7 @@ class UserCreate(UserBase):
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\\/;'`~]", v):
             raise ValueError(
                 "Password must contain at least one special character "
-                "(!@#$%^&*(),.?\":{}|<>-_+=[]\\\/;'`~)"
+                r"(!@#$%^&*(),.?\":{}|<>-_+=[]\/;'`~)"
             )
 
         return v

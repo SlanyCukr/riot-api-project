@@ -72,8 +72,6 @@ class BanCheckerJob(BaseJob):
 
             self.api_client = RiotAPIClient(
                 api_key=api_key,
-                region=self.settings.riot_region,
-                platform=self.settings.riot_platform,
                 request_callback=self._record_api_request,
             )
             self.player_service = PlayerService(db)

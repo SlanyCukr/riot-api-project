@@ -5,7 +5,6 @@ from typing import Optional, Dict, Any, List, Union, Callable
 import httpx
 import structlog
 
-from app.core import get_global_settings
 from .rate_limiter import RateLimiter
 from .errors import (
     RiotAPIError,
@@ -50,10 +49,15 @@ class RiotAPIClient:
             enable_logging: Enable request/response logging
             request_callback: Optional callback for tracking API requests (metric_name, count)
         """
-        settings = get_global_settings()
-        self.api_key = api_key or settings.riot_api_key
-        self.region = region or Region(settings.riot_region.lower())
-        self.platform = platform or Platform(settings.riot_platform.lower())
+        if not api_key:
+            raise ValueError(
+                "api_key is required - retrieve from database using get_riot_api_key()"
+            )
+
+        self.api_key = api_key
+        # Default to EUN region if not specified
+        self.region = region or Region("europe")
+        self.platform = platform or Platform("eun1")
         self.enable_logging = enable_logging
         self.request_callback = request_callback
 

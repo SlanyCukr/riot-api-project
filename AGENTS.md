@@ -22,14 +22,16 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # Quick Start
 
-**Development** (automatic hot reload with watch mode):
+**Development** (automatic hot reload with volume mounts):
 
 ```bash
-docker compose watch                                # Start with hot reload
+docker compose up -d                                # Start services
 docker compose logs -f backend                      # View backend logs
 docker compose exec backend uv run alembic current  # Check migration status
 docker compose down                                 # Stop services
 ```
+
+**Note:** Hot reload is automatic via volume mounts. Backend uses `uvicorn --reload` to watch Python files, frontend uses `next dev` to watch TypeScript/JSX. No rebuilds needed for code changes.
 
 **Production**:
 
@@ -74,14 +76,6 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
   - `features/settings/`: Settings components
 - `frontend/components/`: Shared layout components and shadcn/ui
 - `frontend/lib/core/`: Core utilities (API client, schemas, validations)
-
-# Hot Reload
-
-No restart needed - just save files:
-
-- **Frontend**: Changes auto-refresh in browser
-- **Backend**: Server restarts automatically
-- **Rebuild only for**: Dependencies, Dockerfile changes, or system packages
 
 # Code Style
 

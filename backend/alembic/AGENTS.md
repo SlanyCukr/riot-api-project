@@ -205,7 +205,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 This means:
 
-- **Development**: Migrations run when you start `docker compose watch`
+- **Development**: Migrations run when you start `docker compose up -d`
 - **Production**: Migrations run when deploying with `docker compose -f compose.yaml -f compose.prod.yaml up -d`
 
 ## Migration History

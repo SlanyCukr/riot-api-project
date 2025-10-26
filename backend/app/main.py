@@ -10,7 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core import get_global_settings, get_riot_api_key
-from app.core.database import AsyncSessionLocal
+from app.core.database import db_manager
 from app.core.rate_limiter import limiter
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
@@ -61,7 +61,7 @@ structlog.configure(
 async def _validate_api_key_configuration() -> None:
     """Validate and log Riot API key configuration status."""
     try:
-        async with AsyncSessionLocal() as db:
+        async with db_manager.get_session() as db:
             api_key = await get_riot_api_key(db)
             if not api_key or api_key == "your_riot_api_key_here":
                 logger.warning(

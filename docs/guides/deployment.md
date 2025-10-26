@@ -42,7 +42,7 @@ The application requires the following secrets to be configured:
 
 1. **JWT_SECRET_KEY**: JWT token signing secret (32+ characters)
 2. **POSTGRES_PASSWORD**: Database password
-3. **RIOT_API_KEY**: Riot Games API key (can also be set via web UI)
+3. **RIOT_API_KEY**: Riot Games API key (**database only** - set via web UI at `/settings`)
 
 ### Generating Secure JWT Secret
 
@@ -64,7 +64,8 @@ openssl rand -hex 32
 
 **For GitHub Actions Deployment**:
 1. Go to repository **Settings** → **Secrets and variables** → **Actions**
-2. Add secrets: `JWT_SECRET_KEY`, `POSTGRES_PASSWORD`, `RIOT_API_KEY`
+2. Add secrets: `JWT_SECRET_KEY`, `POSTGRES_PASSWORD`
+3. Set Riot API key via web UI at `/settings` after deployment
 
 **For Manual Deployment**:
 Create `.env` file in project root:
@@ -72,8 +73,9 @@ Create `.env` file in project root:
 # /home/pi/riot-api/.env
 JWT_SECRET_KEY=<generated-secret-from-above>
 POSTGRES_PASSWORD=<your-secure-password>
-RIOT_API_KEY=<your-riot-api-key>
 ENVIRONMENT=production
+
+# Riot API key is set via web UI at /settings (not in .env)
 ```
 
 **Important**:

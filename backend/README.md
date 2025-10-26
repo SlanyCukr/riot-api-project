@@ -51,7 +51,11 @@ Copy `.env.example` to `.env` and configure your environment variables.
 
 Key variables consumed by the backend service:
 
-- `RIOT_API_KEY`
-- `DATABASE_URL`
-- `LOG_LEVEL`
-- `CORS_ORIGINS`
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` - Database connection components (automatically constructed into connection URL)
+- `LOG_LEVEL` - Logging verbosity
+- `CORS_ORIGINS` - Allowed CORS origins
+- `JWT_SECRET_KEY` - JWT signing secret
+
+**Notes**:
+- Riot API key is stored in database only (not in `.env`). Retrieved via `get_riot_api_key(db)` function.
+- Region/platform hardcoded to europe/eun1 in backend code

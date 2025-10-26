@@ -18,15 +18,17 @@ load_dotenv()
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # Riot API Configuration
-    riot_region: str = Field(default="europe")
-    riot_platform: str = Field(default="eun1")
-
     # Database Configuration
+    postgres_db: str = Field(default="riot_api_db")
+    postgres_user: str = Field(default="riot_api_user")
     postgres_password: str = Field(default="dev_password")
-    database_url: str = Field(
-        default="postgresql+asyncpg://riot_api_user:dev_password@localhost/riot_api_db"
-    )
+    postgres_host: str = Field(default="postgres")
+    postgres_port: int = Field(default=5432)
+
+    @property
+    def database_url(self) -> str:
+        """Construct async database URL from components."""
+        return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
     # Application Configuration
     debug: bool = Field(default=False)
@@ -47,18 +49,6 @@ class Settings(BaseSettings):
         """Get current environment from ENVIRONMENT variable."""
         env = os.getenv("ENVIRONMENT", "").lower()
         return env if env in ["dev", "production"] else "dev"  # Safe default
-
-    # Database Connection Pool Settings
-    db_pool_size: int = Field(default=10)
-    db_max_overflow: int = Field(default=20)
-    db_pool_timeout: int = Field(default=30)
-    db_pool_recycle: int = Field(default=1800)
-
-    # Job Scheduler Configuration
-    job_scheduler_enabled: bool = Field(default=False)
-
-    # Player Tracking Configuration
-    max_tracked_players: int = Field(default=100)
 
     # JWT Authentication Configuration
     jwt_secret_key: str = Field(
