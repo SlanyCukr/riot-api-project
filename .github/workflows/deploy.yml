@@ -44,28 +44,10 @@ jobs:
           cd /home/pi/riot-api
           echo "🔐 Generating .env file from GitHub secrets..."
           cat > .env << 'EOF'
-          # Riot API Configuration
-          RIOT_API_KEY=${{ secrets.RIOT_API_KEY }}
-          RIOT_REGION=europe
-          RIOT_PLATFORM=eun1
-
           # Database Configuration
           POSTGRES_DB=riot_api_db
           POSTGRES_USER=riot_api_user
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL=postgresql://riot_api_user:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/riot_api_db
-
-          # Database Pool Configuration
-          DB_POOL_SIZE=10
-          DB_MAX_OVERFLOW=20
-          DB_POOL_TIMEOUT=30
-          DB_POOL_RECYCLE=1800
-
-          # Job Scheduler Configuration
-          JOB_SCHEDULER_ENABLED=true
-          JOB_INTERVAL_SECONDS=120
-          JOB_TIMEOUT_SECONDS=90
-          MAX_TRACKED_PLAYERS=10
 
           # Application Configuration
           LOG_LEVEL=INFO
@@ -77,9 +59,6 @@ jobs:
 
           # CORS Configuration
           CORS_ORIGINS=https://leagueanalysis.gg,https://www.leagueanalysis.gg
-
-          # Docker Configuration
-          COMPOSE_PROJECT_NAME=riot_api_app
           EOF
           echo "✅ .env file generated successfully"
 
