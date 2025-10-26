@@ -80,9 +80,6 @@ jobs:
 
           # Docker Configuration
           COMPOSE_PROJECT_NAME=riot_api_app
-          BACKEND_PORT=8086
-          FRONTEND_PORT=8088
-          POSTGRES_PORT=5433
           EOF
           echo "✅ .env file generated successfully"
 
@@ -168,7 +165,7 @@ jobs:
           # Test backend API health endpoint
           echo "🔍 Testing Backend API health endpoint..."
           for i in {1..10}; do
-            if curl -f -s http://localhost:8086/health > /dev/null; then
+            if curl -f -s http://localhost:8000/health > /dev/null; then
               echo "✅ Backend API health check passed"
               break
             else
@@ -186,7 +183,7 @@ jobs:
           # Test frontend accessibility
           echo "🔍 Testing Frontend accessibility..."
           for i in {1..10}; do
-            if curl -f -s http://localhost:8088 > /dev/null; then
+            if curl -f -s http://localhost:3000 > /dev/null; then
               echo "✅ Frontend accessible"
               break
             else
@@ -214,8 +211,8 @@ jobs:
           echo ""
           echo "🌐 Service URLs:"
           echo "   Production:  https://leagueanalysis.gg"
-          echo "   Backend API: http://localhost:8086"
-          echo "   Frontend:    http://localhost:8088"
+          echo "   Backend API: http://localhost:8000"
+          echo "   Frontend:    http://localhost:3000"
           echo ""
           echo "💻 Platform:"
           echo "   Device:      Raspberry Pi 5"
