@@ -163,6 +163,11 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <p className="text-sm text-muted-foreground pb-3">
+          Analyze player&apos;s recent matches winrate, KDA, rank progression,
+          progression consistency and more to detect rank manipulation
+          (smurfing, deranking).
+        </p>
         {isInitialLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -252,8 +257,8 @@ export function PlayerAnalysis({ puuid }: PlayerAnalysisProps) {
                 <div>
                   <h3 className="text-lg font-semibold">
                     {detection.is_smurf
-                      ? "Smurf Detected"
-                      : "No Smurf Indicators"}
+                      ? "Anomaly Detected"
+                      : "No Anomaly Indicators"}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {detection.reason}

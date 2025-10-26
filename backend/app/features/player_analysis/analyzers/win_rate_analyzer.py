@@ -1,7 +1,7 @@
 """
-Win rate factor analyzer for smurf detection.
+Win rate factor analyzer for player analysis.
 
-This module analyzes player win rates as part of the smurf detection
+This module analyzes player win rates as part of the player analysis
 algorithm, looking for unusually high win rates that may indicate smurfing.
 """
 
@@ -37,7 +37,7 @@ class WinRateFactorAnalyzer(BaseFactorAnalyzer):
         db: Any,
     ) -> DetectionFactor:
         """
-        Analyze win rate for smurf detection.
+        Analyze win rate for player analysis.
 
         :param puuid: Player UUID
         :type puuid: str

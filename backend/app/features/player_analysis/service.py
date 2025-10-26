@@ -14,7 +14,7 @@ import structlog
 
 from app.core.riot_api.data_manager import RiotDataManager
 from app.features.players.models import Player
-from .models import SmurfDetection
+from .models import PlayerAnalysis
 from app.features.players.ranks import PlayerRank
 from .schemas import (
     DetectionResponse,
@@ -33,7 +33,7 @@ from .analyzers import (
 logger = structlog.get_logger(__name__)
 
 
-class SmurfDetectionService:
+class PlayerAnalysisService:
     """Service for comprehensive player analysis using modular factor analyzers."""
 
     def __init__(self, db: AsyncSession, data_manager: RiotDataManager):
@@ -64,12 +64,12 @@ class SmurfDetectionService:
         }
 
         logger.info(
-            "SmurfDetectionService initialized",
+            "PlayerAnalysisService initialized",
             num_analyzers=len(self.factor_analyzers),
             config_version="1.0",
         )
 
-    @service_error_handler("DetectionService")
+    @service_error_handler("PlayerAnalysisService")
     @input_validation(
         validate_non_empty=["puuid"],
         validate_positive=["min_games"],
@@ -420,7 +420,7 @@ class SmurfDetectionService:
         queue_type: Optional[int] = None,
         time_period_days: Optional[int] = None,
         player: Optional[Player] = None,
-    ) -> SmurfDetection:
+    ) -> PlayerAnalysis:
         """Store detection result in database."""
         # Get factor SCORES for storage (normalized 0-1 values)
         scores = {f.name: f.score for f in factors}
@@ -431,7 +431,7 @@ class SmurfDetectionService:
         # Get current rank information
         current_rank = await self._get_current_rank(puuid)
 
-        detection = SmurfDetection(
+        detection = PlayerAnalysis(
             puuid=puuid,
             is_smurf=is_smurf,
             confidence=confidence_level,
@@ -509,19 +509,19 @@ class SmurfDetectionService:
 
     async def _get_recent_detection(
         self, puuid: str, hours: int = 24
-    ) -> Optional[SmurfDetection]:
+    ) -> Optional[PlayerAnalysis]:
         """Get recent detection analysis if it exists."""
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         result = await self.db.execute(
-            select(SmurfDetection)
+            select(PlayerAnalysis)
             .where(
                 and_(
-                    SmurfDetection.puuid == puuid,
-                    SmurfDetection.last_analysis >= cutoff_time,
+                    PlayerAnalysis.puuid == puuid,
+                    PlayerAnalysis.last_analysis >= cutoff_time,
                 )
             )
-            .order_by(desc(SmurfDetection.last_analysis))
+            .order_by(desc(PlayerAnalysis.last_analysis))
             .limit(1)
         )
         return result.scalar_one_or_none()
@@ -544,7 +544,7 @@ class SmurfDetectionService:
 
     def _create_factor_from_detection(
         self,
-        detection: SmurfDetection,
+        detection: PlayerAnalysis,
         factor_name: str,
         score_attr: str,
         threshold_check: Callable[..., Any],
@@ -556,7 +556,7 @@ class SmurfDetectionService:
         Create a DetectionFactor from detection data using configuration.
 
         Args:
-            detection: SmurfDetection instance
+            detection: PlayerAnalysis instance
             factor_name: Name of the factor
             score_attr: Attribute name for the score value
             threshold_check: Function that takes score and returns bool
@@ -587,7 +587,7 @@ class SmurfDetectionService:
             score=final_score,
         )
 
-    def _convert_to_response(self, detection: SmurfDetection) -> DetectionResponse:
+    def _convert_to_response(self, detection: PlayerAnalysis) -> DetectionResponse:
         """Convert database detection to response."""
         # Create factors from stored data using configuration-driven approach
         factor_configs = [

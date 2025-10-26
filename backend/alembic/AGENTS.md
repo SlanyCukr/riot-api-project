@@ -48,12 +48,12 @@ docker compose exec backend uv run alembic downgrade <revision_id>
 Edit your feature's `models.py`:
 
 ```python
-# backend/app/features/smurf_detection/models.py
+# backend/app/features/player_analysis/models.py
 from app.core.models import BaseModel
 from sqlalchemy import Column, Integer, String, Float
 
 class SmurfScore(BaseModel):
-    """Smurf detection score model."""
+    """Player analysis score model."""
 
     __tablename__ = "smurf_scores"
 

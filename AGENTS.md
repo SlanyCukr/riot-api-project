@@ -56,7 +56,7 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
 - `backend/app/features/`: Domain features
   - `features/players/`: Player management (search, tracking, rank info)
   - `features/matches/`: Match data and statistics
-  - `features/smurf_detection/`: Smurf analysis algorithms
+  - `features/player_analysis/`: Player analysis algorithms
   - `features/matchmaking_analysis/`: Matchmaking fairness evaluation
   - `features/jobs/`: Background job scheduling and execution
   - `features/settings/`: System configuration management
@@ -68,7 +68,7 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
 - `frontend/features/`: Feature modules
   - `features/players/`: Player components, hooks, utilities
   - `features/matches/`: Match components
-  - `features/smurf-detection/`: Analysis components
+  - `features/player-analysis/`: Analysis components
   - `features/matchmaking/`: Matchmaking analysis components
   - `features/jobs/`: Job management components
   - `features/settings/`: Settings components

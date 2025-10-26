@@ -831,7 +831,7 @@ class PlayerService:
         This is used by the player analyzer job to find players ready for
         player analysis.
 
-        Note: We check the smurf_detections table directly instead of using
+        Note: We check the player_analysis table directly instead of using
         the is_analyzed flag, as the flag can be unreliable (set to True
         even when analysis fails to create a detection record).
 
@@ -843,15 +843,15 @@ class PlayerService:
             List of Player objects ready for analysis
         """
         from app.features.matches.participants import MatchParticipant
-        from app.features.smurf_detection.models import SmurfDetection
+        from app.features.player_analysis.models import PlayerAnalysis
 
         stmt = (
             select(Player, func.count(MatchParticipant.match_id).label("match_count"))
             .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
-            .outerjoin(SmurfDetection, Player.puuid == SmurfDetection.puuid)
+            .outerjoin(PlayerAnalysis, Player.puuid == PlayerAnalysis.puuid)
             .where(Player.is_tracked.is_(False))
             .where(Player.is_active.is_(True))
-            .where(SmurfDetection.puuid.is_(None))
+            .where(PlayerAnalysis.puuid.is_(None))
             .group_by(Player.puuid)
             .having(func.count(MatchParticipant.match_id) >= min_matches)
             .limit(limit)
@@ -898,15 +898,15 @@ class PlayerService:
         Returns:
             List of Player objects needing ban check
         """
-        from app.features.smurf_detection.models import SmurfDetection
+        from app.features.player_analysis.models import PlayerAnalysis
         from datetime import datetime, timedelta
 
         cutoff = datetime.now() - timedelta(days=days)
 
         stmt = (
             select(Player)
-            .join(SmurfDetection, Player.puuid == SmurfDetection.puuid)
-            .where(SmurfDetection.is_smurf.is_(True))
+            .join(PlayerAnalysis, Player.puuid == PlayerAnalysis.puuid)
+            .where(PlayerAnalysis.is_smurf.is_(True))
             .where(or_(Player.last_ban_check.is_(None), Player.last_ban_check < cutoff))
             .limit(limit)
         )
@@ -1023,9 +1023,11 @@ class PlayerService:
                 logger.debug(
                     "Marked new discovered player",
                     puuid=participant.puuid,
-                    riot_id=f"{player_data['riot_id']}#{player_data['tag_line']}"
-                    if player_data.get("riot_id") and player_data.get("tag_line")
-                    else player_data.get("riot_id"),
+                    riot_id=(
+                        f"{player_data['riot_id']}#{player_data['tag_line']}"
+                        if player_data.get("riot_id") and player_data.get("tag_line")
+                        else player_data.get("riot_id")
+                    ),
                 )
 
         # Commit transaction for all discovered players

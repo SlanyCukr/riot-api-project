@@ -1,7 +1,7 @@
 """
-Account level factor analyzer for smurf detection.
+Account level factor analyzer for player analysis.
 
-This module analyzes player account levels as part of the smurf detection
+This module analyzes player account levels as part of the player analysis
 algorithm, looking for low account levels that may indicate new accounts.
 """
 
@@ -37,7 +37,7 @@ class AccountLevelFactorAnalyzer(BaseFactorAnalyzer):
         db: Any,
     ) -> DetectionFactor:
         """
-        Analyze account level for smurf detection.
+        Analyze account level for player analysis.
 
         :param puuid: Player UUID
         :type puuid: str

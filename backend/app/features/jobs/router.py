@@ -14,7 +14,7 @@ from .schemas import (
 from .dependencies import JobServiceDep
 from .implementations.tracked_player_updater import TrackedPlayerUpdaterJob
 from .implementations.match_fetcher import MatchFetcherJob
-from .implementations.smurf_analyzer import SmurfAnalyzerJob
+from .implementations.player_analyzer import PlayerAnalyzerJob
 from .implementations.ban_checker import BanCheckerJob
 import structlog
 
@@ -35,7 +35,7 @@ def _create_job_instance(job):
     job_type_mapping = {
         JobType.TRACKED_PLAYER_UPDATER: TrackedPlayerUpdaterJob,
         JobType.MATCH_FETCHER: MatchFetcherJob,
-        JobType.SMURF_ANALYZER: SmurfAnalyzerJob,
+        JobType.PLAYER_ANALYZER: PlayerAnalyzerJob,
         JobType.BAN_CHECKER: BanCheckerJob,
     }
 

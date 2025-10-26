@@ -161,7 +161,7 @@ erDiagram
 - Replaces global `is_tracked` flag from `players` table
 - Per-user customization of tracked players
 - Priority-based ordering for user's player list
-- Automatic smurf detection on tracked players
+- Automatic player analysis on tracked players
 
 **Indexes**:
 
@@ -228,7 +228,7 @@ erDiagram
 **Permission Examples**:
 
 - `view_players` - View player data
-- `create_analysis` - Run smurf detection
+- `create_analysis` - Run player analysis
 - `unlimited_api_calls` - No rate limiting
 - `track_players` - Add players to tracking list
 - `view_all_tracked` - See all tracked players (admin)
@@ -353,7 +353,7 @@ Create/Update linked_accounts(provider='riot', puuid=<riot_puuid>)
   ↓
 Add to user_tracked_players with auto_analyze=true
   ↓
-Trigger smurf detection job
+Trigger player analysis job
 ```
 
 **3. Sign in with Riot (after connection):**

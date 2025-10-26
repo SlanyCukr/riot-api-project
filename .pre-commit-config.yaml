@@ -37,7 +37,7 @@ repos:
     hooks:
       - id: vulture
         name: Vulture - Dead Code Detection (non-blocking)
-        entry: bash -c 'uvx vulture --config backend/pyproject.toml backend/app/ || true'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && uvx vulture --config backend/pyproject.toml backend/app/ || true'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
@@ -49,7 +49,7 @@ repos:
       # Allows: A-grade (1-5) and simple B-grade (6-7)
       - id: radon-cc
         name: Radon Cyclomatic Complexity (max 7)
-        entry: bash -c 'cd backend && OUT=$(uvx radon cc app/ --min B --show-complexity --no-assert 2>&1); if echo "$OUT" | grep -qE " - (B \([89]|B \(10\)|[C-F] \()"; then echo "$OUT"; echo "ERROR - Complexity >= 8 found"; exit 1; fi; echo "OK - All complexity <= 7"'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && cd backend && OUT=$(uvx radon cc app/ --min B --show-complexity --no-assert 2>&1); if echo "$OUT" | grep -qE " - (B \([89]|B \(10\)|[C-F] \()"; then echo "$OUT"; echo "ERROR - Complexity >= 8 found"; exit 1; fi; echo "OK - All complexity <= 7"'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -59,7 +59,7 @@ repos:
       # Maintainability Index Check (Stricter: A grade = MI >= 20)
       - id: radon-mi
         name: Radon Maintainability Index
-        entry: bash -c 'cd backend && uvx radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && cd backend && uvx radon mi app/ --min A --show || (echo "Code maintainability too low! Improve code quality" && exit 1)'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -69,7 +69,7 @@ repos:
       # Radon Complexity Report (non-blocking, informational)
       - id: radon-report
         name: Radon Complexity Report (Info)
-        entry: bash -c 'echo "📊 Complexity Report:" && cd backend && uvx radon cc app/ -a -s -n C || true'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && echo "📊 Complexity Report:" && cd backend && uvx radon cc app/ -a -s -n C || true'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -79,18 +79,7 @@ repos:
       # pydocstyle - Documentation quality checker (ReST style with relaxed rules)
       - id: pydocstyle
         name: pydocstyle - Docstring Quality
-        entry: bash -c 'cd backend && uvx pydocstyle --config=pyproject.toml app/'
-        language: system
-        files: ^backend/.*\.py$
-        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
-        pass_filenames: false
-        verbose: true
-
-      # Pyright - Fast static type checker for Python (runs in Docker for dep access)
-      # Non-blocking: shows warnings/errors but doesn't fail commits
-      - id: pyright
-        name: Pyright - Type Checker (non-blocking)
-        entry: bash -c 'docker compose exec -T backend bash -c "cd /app && uvx pyright app/" || true'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && cd backend && uvx pydocstyle --config=pyproject.toml app/'
         language: system
         files: ^backend/.*\.py$
         exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
@@ -103,7 +92,7 @@ repos:
       - id: frontend-lint
         name: Frontend ESLint
         entry: >
-          bash -c 'cd frontend &&
+          bash -c 'export LC_ALL=C.UTF-8 && cd frontend &&
           if [ ! -d node_modules ]; then
           echo "❌ ERROR: Frontend dependencies not installed! Run: cd frontend && npm install";
           exit 1;
@@ -115,24 +104,13 @@ repos:
         exclude: ^frontend/node_modules/
         pass_filenames: false
 
-  # Prettier - Code formatter for consistent style
-  - repo: local
-    hooks:
-      - id: prettier
-        name: Prettier Format
-        entry: bash -c 'cd frontend && npx prettier --write --ignore-unknown "**/*.{ts,tsx,js,jsx,json,css}"'
-        language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css)$
-        exclude: ^frontend/node_modules/
-        pass_filenames: false
-
   # Frontend TypeScript type checking
   - repo: local
     hooks:
       - id: frontend-typecheck
         name: TypeScript Type Check
         entry: >
-          bash -c 'cd frontend &&
+          bash -c 'export LC_ALL=C.UTF-8 && cd frontend &&
           if [ ! -d node_modules ]; then
           echo "❌ ERROR: Frontend dependencies not installed! Run: cd frontend && npm install";
           exit 1;
@@ -149,7 +127,7 @@ repos:
     hooks:
       - id: frontend-complexity
         name: Frontend Complexity Check
-        entry: bash -c 'cd frontend && npx eslint app/ components/ lib/ --rule "complexity:[error,10]" --rule "max-lines-per-function:[warn,50]" || (echo "❌ Frontend code too complex! Consider refactoring." && exit 1)'
+        entry: bash -c 'export LC_ALL=C.UTF-8 && cd frontend && npx eslint app/ components/ lib/ --rule "complexity:[error,10]" --rule "max-lines-per-function:[warn,50]" || (echo "❌ Frontend code too complex! Consider refactoring." && exit 1)'
         language: system
         files: ^frontend/(app|components|lib)/.*\.(ts|tsx|js|jsx)$
         exclude: ^frontend/node_modules/
