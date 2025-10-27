@@ -1,119 +1,187 @@
-"""User model for authentication and authorization."""
+"""
+SQLModel models for authentication feature.
+
+Replaces both models.py (SQLAlchemy) and schemas.py (Pydantic)
+with unified SQLModel classes following conservative migration approach.
+
+Pattern: Base → Table → API schemas
+"""
 
 from datetime import datetime
 from typing import Optional
-
-from sqlalchemy import (
-    BigInteger,
-    Boolean,
-    DateTime as SQLDateTime,
-    String,
-    Index,
-)
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
-
-from app.core.models import Base
+import re
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Index
+from pydantic import EmailStr, field_validator, ConfigDict
 
 
-class User(Base):
-    """User model for authentication and authorization."""
+# ============================================================================
+# BASE MODELS - Shared fields between table and API
+# ============================================================================
+
+
+class UserBase(SQLModel):
+    """
+    Shared user fields between database and API.
+
+    Include only fields that appear in BOTH:
+    - Database table (User)
+    - API requests/responses (UserCreate, UserPublic)
+    """
+
+    email: EmailStr = Field(
+        max_length=255, index=True, description="User's email address (unique)"
+    )
+    display_name: str = Field(max_length=128, description="Display name shown in UI")
+
+
+# ============================================================================
+# TABLE MODELS - Database tables (exact schema preservation)
+# ============================================================================
+
+
+class User(UserBase, table=True):
+    """
+    User database table.
+
+    Maintains exact same schema as current auth.users table.
+    Combines shared fields from UserBase with database-only fields.
+    """
 
     __tablename__ = "users"
-    __table_args__ = {"schema": "auth"}
+    __table_args__ = (
+        Index("idx_users_is_active_is_admin", "is_active", "is_admin"),
+        Index("idx_users_email_is_active", "email", "is_active"),
+        Index("idx_users_last_login", "last_login"),
+        Index("idx_users_created_at", "created_at"),
+        {"schema": "auth", "extend_existing": True},
+    )
 
     # Primary key
-    id: Mapped[int] = mapped_column(
-        BigInteger,
-        primary_key=True,
-        autoincrement=True,
-        comment="Auto-incrementing primary key",
-    )
+    id: int = Field(primary_key=True, description="Auto-incrementing primary key")
 
-    # Authentication fields
-    email: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-        unique=True,
-        index=True,
-        comment="User email address (unique)",
-    )
-
-    password_hash: Mapped[str] = mapped_column(
-        String,  # Text type in database, no length limit
-        nullable=False,
-        comment="Hashed password using Argon2id",
-    )
-
-    # Profile information
-    display_name: Mapped[str] = mapped_column(
-        String(128),
-        nullable=False,
-        comment="Display name shown in UI",
+    # Authentication fields (NEVER in API responses)
+    password_hash: str = Field(
+        description="Hashed password using Argon2id",
+        exclude=True,  # Automatically excluded from API responses
     )
 
     # Account status flags
-    is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-        index=True,
-        comment="Whether the account is active (not disabled)",
+    is_active: bool = Field(
+        default=True, index=True, description="Whether account is active (not disabled)"
     )
-
-    is_admin: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        index=True,
-        comment="Whether the user has admin privileges",
+    is_admin: bool = Field(
+        default=False, index=True, description="Whether user has admin privileges"
     )
 
     # Email verification
-    email_verified: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        comment="Whether the email has been verified",
+    email_verified: bool = Field(
+        default=False, description="Whether email has been verified"
     )
-
-    email_verified_at: Mapped[Optional[datetime]] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=True,
-        comment="When the email was verified",
+    email_verified_at: Optional[datetime] = Field(
+        default=None, description="When email was verified"
     )
 
     # Activity tracking
-    last_login: Mapped[Optional[datetime]] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=True,
-        index=True,
-        comment="When the user last logged in",
+    last_login: Optional[datetime] = Field(
+        default=None, index=True, description="When user last logged in"
     )
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment="When this user account was created",
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="When this user account was created",
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"onupdate": datetime.utcnow},
+        description="When this user account was last updated",
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="When this user account was last updated",
+
+# ============================================================================
+# API MODELS - Request/response schemas
+# ============================================================================
+
+
+class UserCreate(UserBase):
+    """
+    Request to create a new user.
+
+    Inherits email and display_name from UserBase.
+    Adds password for registration only.
+    """
+
+    password: str = Field(
+        min_length=8, max_length=128, description="Password (will be hashed)"
     )
 
-    def __repr__(self) -> str:
-        """Return string representation of the user."""
-        return f"<User(id={self.id}, email='{self.email}', display_name='{self.display_name}', is_admin={self.is_admin})>"
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Maintain existing password validation rules exactly."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+
+        if not re.search(r"\d", v):
+            raise ValueError("Password must contain at least one digit")
+
+        # Expanded special character set to support password managers
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>\-_+=\[\]\\/;'`~]", v):
+            raise ValueError(
+                "Password must contain at least one special character "
+                r"(!@#$%^&*(),.?\":{}|<>-_+=[]\/;'`~)"
+            )
+
+        return v
 
 
-# Create composite indexes for common queries
-Index("idx_users_is_active_is_admin", User.is_active, User.is_admin)
-Index("idx_users_email_is_active", User.email, User.is_active)
-Index("idx_users_last_login", User.last_login)
-Index("idx_users_created_at", User.created_at)
+class UserLogin(SQLModel):
+    """
+    Request for user login.
+
+    Separate from UserCreate as login doesn't need display_name.
+    """
+
+    email: EmailStr
+    password: str
+
+
+class UserPublic(UserBase):
+    """
+    User API response.
+
+    Excludes sensitive data like password_hash.
+    Includes read-only fields like timestamps.
+    """
+
+    id: int
+    is_active: bool
+    is_admin: bool
+    email_verified: bool
+    email_verified_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class Token(SQLModel):
+    """JWT token response (unchanged)."""
+
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TokenData(SQLModel):
+    """Token payload data (unchanged)."""
+
+    email: Optional[EmailStr] = None
+    user_id: Optional[int] = None

@@ -8,8 +8,7 @@ from sqlalchemy import select
 
 from app.core.rate_limiter import limiter
 from .dependencies import get_current_active_user, get_current_admin_user
-from .models import User
-from .schemas import Token, UserCreate, UserResponse
+from .models import User, Token, UserCreate, UserPublic
 from .service import AuthService, get_auth_service
 
 router = APIRouter()
@@ -83,7 +82,7 @@ async def logout(
     return {"message": "Successfully logged out"}
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserPublic)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
@@ -92,7 +91,7 @@ async def get_current_user_info(
 
 
 @router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+    "/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED
 )
 @limiter.limit("3/minute")
 async def register_user(
@@ -112,7 +111,7 @@ async def register_user(
     return await auth_service.create_user(user_create)
 
 
-@router.get("/users", response_model=list[UserResponse])
+@router.get("/users", response_model=list[UserPublic])
 async def list_users(
     current_user: User = Depends(get_current_admin_user),
     auth_service: AuthService = Depends(get_auth_service),
