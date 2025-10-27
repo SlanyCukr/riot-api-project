@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Optional
 import re
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Index
 from pydantic import EmailStr, field_validator, ConfigDict
 
 
@@ -48,7 +49,13 @@ class User(UserBase, table=True):
     """
 
     __tablename__ = "users"
-    __table_args__ = {"schema": "auth"}
+    __table_args__ = (
+        {"schema": "auth"},
+        Index("idx_users_is_active_is_admin", "is_active", "is_admin"),
+        Index("idx_users_email_is_active", "email", "is_active"),
+        Index("idx_users_last_login", "last_login"),
+        Index("idx_users_created_at", "created_at"),
+    )
 
     # Primary key
     id: int = Field(primary_key=True, description="Auto-incrementing primary key")

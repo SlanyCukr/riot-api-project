@@ -2,12 +2,7 @@
 import pytest
 from datetime import datetime
 
-# Import directly from the module to avoid package-level imports that conflict
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
+# Use proper imports from package structure
 from app.features.auth.models_sqlmodel import User, UserCreate, UserPublic
 
 
