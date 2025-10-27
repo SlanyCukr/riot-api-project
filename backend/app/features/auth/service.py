@@ -8,14 +8,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import structlog
 
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.config import get_global_settings
 from .models_sqlmodel import User, UserCreate, UserPublic, TokenData
 
@@ -220,11 +219,21 @@ class AuthService:
             )
 
         access_token = self.create_access_token(user_public)
-        return Token(access_token=access_token, token_type="bearer")  # nosec B105
+        return Token(access_token=access_token, token_type="bearer")  # nosec B106,B105
 
-    # Legacy methods for backward compatibility during transition
-    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> UserPublic:
-        """Get the current authenticated user from JWT token."""
+    async def get_current_user(self, token: str, db: AsyncSession) -> Optional[User]:
+        """Get the current authenticated user from JWT token.
+
+        Args:
+            token: JWT token from Authorization header
+            db: Database session to fetch user
+
+        Returns:
+            User object if authentication successful, None otherwise
+
+        Raises:
+            HTTPException: If token is invalid or user not found
+        """
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -243,16 +252,26 @@ class AuthService:
             if email is None or user_id is None:
                 raise credentials_exception
 
-            _ = TokenData(email=email, user_id=user_id)  # TokenData created for validation
-
+            token_data = TokenData(email=email, user_id=user_id)
         except JWTError:
             raise credentials_exception
 
-        # This would need database session - maintained for compatibility
-        # In practice, this should be called with a db parameter
-        raise NotImplementedError("Use authenticate_user with db parameter instead")
+        # Fetch user from database using both email and user_id for security
+        result = await db.execute(
+            select(User).where(
+                User.email == token_data.email,
+                User.id == token_data.user_id,
+                User.is_active,
+            )
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise credentials_exception
+
+        return user
 
 
-def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
+def get_auth_service() -> AuthService:
     """Dependency to get auth service instance."""
     return AuthService()

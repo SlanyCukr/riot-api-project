@@ -1,7 +1,9 @@
 """Authentication dependencies for protecting routes."""
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from .models_sqlmodel import User
 from .service import AuthService, get_auth_service, oauth2_scheme
 
@@ -9,9 +11,10 @@ from .service import AuthService, get_auth_service, oauth2_scheme
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     auth_service: AuthService = Depends(get_auth_service),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Get the current authenticated user."""
-    return await auth_service.get_current_user(token)
+    return await auth_service.get_current_user(token, db)
 
 
 async def get_current_active_user(
