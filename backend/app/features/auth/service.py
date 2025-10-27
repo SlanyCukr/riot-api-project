@@ -16,7 +16,7 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_global_settings
-from .models_sqlmodel import User, UserCreate, UserPublic, TokenData
+from .models import User, UserCreate, UserPublic, TokenData
 
 logger = structlog.get_logger()
 
@@ -208,7 +208,7 @@ class AuthService:
         Raises:
             HTTPException: If authentication fails
         """
-        from .models_sqlmodel import Token  # Import here to avoid circular imports
+        from .models import Token  # Import here to avoid circular imports
 
         user_public = await self.authenticate_user(email, password, db)
 

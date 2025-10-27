@@ -1,6 +1,6 @@
 """Authentication feature module."""
 
-from .models_sqlmodel import (
+from .models import (
     User,
     UserCreate,
     UserPublic,

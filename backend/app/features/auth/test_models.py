@@ -8,7 +8,7 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from app.features.auth.models_sqlmodel import User, UserCreate, UserPublic
+from app.features.auth.models import User, UserCreate, UserPublic
 
 
 def test_user_model_creation():
@@ -84,7 +84,9 @@ def test_auth_service_sqlmodel_integration():
 
         # Test that UserCreate model works
         user_data = UserCreate(
-            email="test@example.com", display_name="Test", password="ValidPass123!"  # nosec B106
+            email="test@example.com",
+            display_name="Test",
+            password="ValidPass123!",  # nosec B106
         )
         assert user_data.email == "test@example.com"
 

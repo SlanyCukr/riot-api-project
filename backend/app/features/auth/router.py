@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.rate_limiter import limiter
 from .dependencies import get_current_active_user, get_current_admin_user
-from .models_sqlmodel import User, Token, UserCreate, UserPublic
+from .models import User, Token, UserCreate, UserPublic
 from .service import AuthService, get_auth_service
 
 router = APIRouter()

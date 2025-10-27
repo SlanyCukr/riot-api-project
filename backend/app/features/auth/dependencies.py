@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from .models_sqlmodel import User
+from .models import User
 from .service import AuthService, get_auth_service, oauth2_scheme
 
 
