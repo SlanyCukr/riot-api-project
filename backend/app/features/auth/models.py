@@ -20,7 +20,7 @@ class User(Base):
     """User model for authentication and authorization."""
 
     __tablename__ = "users"
-    __table_args__ = {"schema": "auth"}
+    __table_args__ = {"schema": "auth", "extend_existing": True}
 
     # Primary key
     id: Mapped[int] = mapped_column(

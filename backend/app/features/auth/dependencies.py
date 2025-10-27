@@ -2,7 +2,7 @@
 
 from fastapi import Depends, HTTPException, status
 
-from .models import User
+from .models_sqlmodel import User
 from .service import AuthService, get_auth_service, oauth2_scheme
 
 
