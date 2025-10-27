@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
     Index,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.core.models import Base
@@ -214,7 +214,8 @@ class PlayerAnalysis(Base):
     )
 
     # Relationships
-    player = relationship("Player", back_populates="player_analysis")
+    # TODO: Fix Player relationship - Player is now a SQLModel class
+    # player = relationship("Player", back_populates="player_analysis")
 
     def __repr__(self) -> str:
         """Return string representation of the player analysis."""

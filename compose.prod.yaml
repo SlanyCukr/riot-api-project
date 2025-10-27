@@ -28,7 +28,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      JOB_SCHEDULER_ENABLED: ${JOB_SCHEDULER_ENABLED}
       ENVIRONMENT: production
     restart: always
     ports:

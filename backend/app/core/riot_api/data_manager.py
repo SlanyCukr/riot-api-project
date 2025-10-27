@@ -25,12 +25,12 @@ from .errors import RateLimitError, RiotAPIError
 from .models import MatchDTO
 from .constants import Platform, Region
 
-# Import schemas only - models will be imported lazily to avoid circular import
-from app.features.players.schemas import PlayerResponse, PlayerCreate
+# Move player schema imports to lazy imports to avoid circular dependency
+# Player schemas will be imported within methods as needed
 
 # TYPE_CHECKING imports for type annotations (not evaluated at runtime)
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players.models_sqlmodel import Player, PlayerPublic, PlayerCreate
 
 logger = structlog.get_logger(__name__)
 
@@ -53,7 +53,7 @@ class RiotDataManager:
 
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
-    ) -> Optional[PlayerResponse]:
+    ) -> Optional[PlayerPublic]:
         """
         Get player data by Riot ID (database-first).
 
@@ -63,10 +63,11 @@ class RiotDataManager:
             platform: Platform region (e.g., "eun1")
 
         Returns:
-            PlayerResponse if found/fetched, None if rate limited
+            PlayerPublic if found/fetched, None if rate limited
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players import Player
+        from app.features.players.models_sqlmodel import PlayerPublic, PlayerCreate
 
         riot_id = f"{game_name}#{tag_line}"
 
@@ -89,7 +90,7 @@ class RiotDataManager:
                     platform=platform,
                     puuid=player.puuid,
                 )
-                return PlayerResponse.model_validate(player)
+                return PlayerPublic.model_validate(player)
 
             # 2. Not in database, fetch from Riot API
             logger.info(
@@ -130,7 +131,7 @@ class RiotDataManager:
                 puuid=player.puuid,
             )
 
-            return PlayerResponse.model_validate(player)
+            return PlayerPublic.model_validate(player)
 
         except RateLimitError as e:
             logger.warning(
@@ -153,7 +154,7 @@ class RiotDataManager:
 
     async def get_player_by_puuid(
         self, puuid: str, platform: str = "eun1"
-    ) -> Optional[PlayerResponse]:
+    ) -> Optional[PlayerPublic]:
         """
         Get player data by PUUID (database-first).
 
@@ -162,10 +163,11 @@ class RiotDataManager:
             platform: Platform region
 
         Returns:
-            PlayerResponse if found/fetched, None if rate limited
+            PlayerPublic if found/fetched, None if rate limited
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players import Player
+        from app.features.players.models_sqlmodel import PlayerPublic, PlayerCreate
 
         try:
             # 1. Check database first
@@ -176,7 +178,7 @@ class RiotDataManager:
 
             if player:
                 logger.debug("Player found in database", puuid=puuid)
-                return PlayerResponse.model_validate(player)
+                return PlayerPublic.model_validate(player)
 
             # 2. Not in database, fetch from Riot API
             logger.info("Player not in database, fetching from Riot API", puuid=puuid)
@@ -207,7 +209,7 @@ class RiotDataManager:
 
             logger.info("Player fetched and stored", puuid=puuid)
 
-            return PlayerResponse.model_validate(player)
+            return PlayerPublic.model_validate(player)
 
         except RateLimitError as e:
             logger.warning(
@@ -233,7 +235,7 @@ class RiotDataManager:
         Uses PostgreSQL UPSERT to handle duplicates.
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players import Player
 
         stmt = (
             insert(Player)

@@ -39,21 +39,17 @@ FastAPI router defining all player-related endpoints. Handles request validation
 - Rank information retrieval
 - Integration with RiotDataManager for data enrichment
 
-### Models (`models.py`, `ranks.py`)
+### Models (`models_sqlmodel.py`)
 
-**SQLAlchemy Models:**
+**SQLModel Tables & Schemas:**
 
-- `Player` - Player entity (PUUID, game name, tag line, summoner info, tracking status)
-- `Rank` - Player rank data (tier, division, LP, wins, losses, queue type)
-
-### Schemas (`schemas.py`, `ranks_schemas.py`)
-
-**Pydantic Schemas:**
-
-- `PlayerResponse` - API response format for player data
-- `PlayerSearchResponse` - Search results with player details
-- `RankResponse` - Rank information response
-- `TrackPlayerRequest` - Request to track a player
+- `Player` - Player database table (PUUID, game name, tag line, summoner info, tracking status)
+- `PlayerRank` - Player rank database table (tier, division, LP, wins, losses, queue type)
+- `PlayerBase` - Shared Player fields between database and API
+- `PlayerPublic` - API response format for player data
+- `PlayerPublicWithRanks` - Player response with nested rank information
+- `PlayerRankPublic` - Rank information API response
+- `PlayerCreate`, `PlayerUpdate` - Request schemas for player operations
 
 ### Dependencies (`dependencies.py`)
 
@@ -82,11 +78,11 @@ FastAPI router defining all player-related endpoints. Handles request validation
 from fastapi import APIRouter, Depends
 from app.features.players.dependencies import get_player_service
 from app.features.players.service import PlayerService
-from app.features.players.schemas import PlayerResponse
+from app.features.players.models_sqlmodel import PlayerPublic
 
 router = APIRouter()
 
-@router.get("/players/{puuid}/stats", response_model=PlayerResponse)
+@router.get("/players/{puuid}/stats", response_model=PlayerPublic)
 async def get_player_stats(
     puuid: str,
     player_service: PlayerService = Depends(get_player_service)
@@ -112,11 +108,10 @@ async def my_endpoint(
 
 ```python
 # Import from feature's public API
-from app.features.players import Player, Rank, PlayerResponse, RankResponse
+from app.features.players import Player, PlayerRank, PlayerPublic, PlayerRankPublic
 
 # Or import directly
-from app.features.players.models import Player
-from app.features.players.schemas import PlayerResponse
+from app.features.players.models_sqlmodel import Player, PlayerPublic, PlayerRankPublic
 ```
 
 ## Related Features

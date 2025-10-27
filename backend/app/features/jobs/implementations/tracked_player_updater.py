@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..base import BaseJob
 from ..error_handling import handle_riot_api_errors
-from app.features.players.models import Player
+from app.features.players import Player
 from app.core.riot_api.client import RiotAPIClient
 from app.core.riot_api.data_manager import RiotDataManager
 from app.core.riot_api.errors import NotFoundError

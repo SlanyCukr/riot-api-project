@@ -12,6 +12,9 @@ from slowapi.errors import RateLimitExceeded
 from app.core import get_global_settings, get_riot_api_key
 from app.core.database import db_manager
 from app.core.rate_limiter import limiter
+
+# Import SQLModel classes to ensure they are registered with SQLAlchemy
+from app.features.players.models_sqlmodel import Player, PlayerRank  # noqa: F401
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router

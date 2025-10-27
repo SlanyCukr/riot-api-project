@@ -177,7 +177,9 @@ class MatchParticipant(Base):
 
     # Relationships
     match = relationship("Match", back_populates="participants")
-    player = relationship("Player", back_populates="match_participations")
+    # TODO: Fix Player relationship - Player is now a SQLModel class
+    # Temporarily commented out to resolve SQLAlchemy mapping issues
+    # player = relationship("Player", back_populates="match_participations")
 
     def __repr__(self) -> str:
         """Return string representation of the match participant."""

@@ -8,7 +8,7 @@ from sqlalchemy import select, func, desc
 
 from .models import Match
 from .participants import MatchParticipant
-from app.features.players.models import Player
+from app.features.players import Player
 from .schemas import (
     MatchResponse,
     MatchListResponse,

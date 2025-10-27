@@ -11,11 +11,11 @@ import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ..schemas import DetectionFactor
-from app.features.players.ranks import PlayerRank
+from app.features.players import PlayerRank
 from app.core.enums import Tier
 
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players import Player
 
 logger = structlog.get_logger(__name__)
 

@@ -13,7 +13,7 @@ from ..schemas import DetectionFactor
 from ..config import DETECTION_WEIGHTS, DETECTION_THRESHOLDS
 
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players import Player
 
 logger = structlog.get_logger(__name__)
 

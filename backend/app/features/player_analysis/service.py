@@ -13,9 +13,9 @@ from sqlalchemy import select, and_, desc
 import structlog
 
 from app.core.riot_api.data_manager import RiotDataManager
-from app.features.players.models import Player
+from app.features.players import Player
 from .models import PlayerAnalysis
-from app.features.players.ranks import PlayerRank
+from app.features.players import PlayerRank
 from .schemas import (
     DetectionResponse,
     DetectionFactor,

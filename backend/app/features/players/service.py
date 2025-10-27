@@ -4,11 +4,15 @@ from typing import List, Any, TYPE_CHECKING
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, and_, or_
+from sqlalchemy.orm import selectinload
 from Levenshtein import distance as levenshtein_distance
 import structlog
 
-from .models import Player
-from .schemas import PlayerResponse
+from .models_sqlmodel import (
+    Player,
+    PlayerRank,
+    PlayerPublic,
+)
 from app.core.exceptions import (
     PlayerServiceError,
 )
@@ -16,7 +20,6 @@ from app.core.decorators import service_error_handler, input_validation
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
-    from .ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
 
@@ -34,7 +37,7 @@ class PlayerService:
     )
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
-    ) -> PlayerResponse:
+    ) -> PlayerPublic:
         """
         Get player by Riot ID from database only.
 
@@ -47,7 +50,7 @@ class PlayerService:
             platform: Riot API platform code (e.g., "NA1", "EUW1")
 
         Returns:
-            Player response object with player data
+            PlayerPublic object with player data
 
         Raises:
             PlayerServiceError: If player is not found or database error occurs
@@ -58,9 +61,11 @@ class PlayerService:
         safe_tag_line = tag_line.strip() if tag_line else None
         normalized_platform = platform.strip().upper()
 
-        # Query database only
+        # Query database only with eager loading of ranks
         result = await self.db.execute(
-            select(Player).where(
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(
                 Player.riot_id == safe_game_name,
                 Player.tag_line == safe_tag_line,
                 Player.platform == normalized_platform,
@@ -89,7 +94,7 @@ class PlayerService:
             puuid=player.puuid,
         )
 
-        return PlayerResponse.model_validate(player)
+        return PlayerPublic.model_validate(player)
 
     def _find_exact_summoner_match(
         self, players: list[Player], safe_summoner_name: str
@@ -124,7 +129,7 @@ class PlayerService:
 
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
-    ) -> PlayerResponse:
+    ) -> PlayerPublic:
         """
         Get player by summoner name from database only.
 
@@ -146,9 +151,11 @@ class PlayerService:
         safe_summoner_name = summoner_name.strip()
         normalized_platform = platform.strip().upper()
 
-        # Search database for exact match or partial match
+        # Search database for exact match or partial match with eager loading of ranks
         result = await self.db.execute(
-            select(Player).where(
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(
                 Player.summoner_name.ilike(f"%{safe_summoner_name}%"),
                 Player.platform == normalized_platform,
                 Player.is_active,
@@ -165,7 +172,7 @@ class PlayerService:
                 platform=normalized_platform,
                 puuid=exact_match.puuid,
             )
-            return PlayerResponse.model_validate(exact_match)
+            return PlayerPublic.model_validate(exact_match)
 
         # If only one partial match, return it
         if len(players) == 1:
@@ -175,7 +182,7 @@ class PlayerService:
                 platform=normalized_platform,
                 matched_name=players[0].summoner_name,
             )
-            return PlayerResponse.model_validate(players[0])
+            return PlayerPublic.model_validate(players[0])
 
         # If multiple partial matches, return error with suggestions
         if len(players) > 1:
@@ -202,11 +209,13 @@ class PlayerService:
 
     async def get_player_by_puuid(
         self, puuid: str, platform: str = "eun1"
-    ) -> PlayerResponse:
+    ) -> PlayerPublic:
         """Get player by PUUID from database only. Never calls Riot API."""
-        # Query database only
+        # Query database only with eager loading of ranks
         result = await self.db.execute(
-            select(Player).where(Player.puuid == puuid, Player.is_active)
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(Player.puuid == puuid, Player.is_active)
         )
         player = result.scalar_one_or_none()
 
@@ -224,7 +233,7 @@ class PlayerService:
             platform=platform,
         )
 
-        return PlayerResponse.model_validate(player)
+        return PlayerPublic.model_validate(player)
 
     @staticmethod
     def _parse_search_query(query: str) -> tuple[str, str | None, str | None]:
@@ -260,44 +269,56 @@ class PlayerService:
     ):
         """Build SQLAlchemy query based on search type."""
         if search_type == "riot_id" and game_name and tag_line:
-            # Search for exact or partial Riot ID
-            return select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    or_(
-                        # Exact match
-                        and_(
-                            Player.riot_id.ilike(game_name),
-                            Player.tag_line.ilike(tag_line),
+            # Search for exact or partial Riot ID with eager loading of ranks
+            return (
+                select(Player)
+                .options(selectinload(Player.ranks))
+                .where(
+                    and_(
+                        Player.platform == platform,
+                        Player.is_active,
+                        or_(
+                            # Exact match
+                            and_(
+                                Player.riot_id.ilike(game_name),
+                                Player.tag_line.ilike(tag_line),
+                            ),
+                            # Partial matches
+                            Player.riot_id.ilike(f"%{game_name}%"),
+                            Player.tag_line.ilike(f"%{tag_line}%"),
                         ),
-                        # Partial matches
-                        Player.riot_id.ilike(f"%{game_name}%"),
-                        Player.tag_line.ilike(f"%{tag_line}%"),
-                    ),
+                    )
                 )
             )
 
         if search_type == "tag" and tag_line:
-            # Search tags only
-            return select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    Player.tag_line.ilike(f"%{tag_line}%"),
+            # Search tags only with eager loading of ranks
+            return (
+                select(Player)
+                .options(selectinload(Player.ranks))
+                .where(
+                    and_(
+                        Player.platform == platform,
+                        Player.is_active,
+                        Player.tag_line.ilike(f"%{tag_line}%"),
+                    )
                 )
             )
 
-        # name or all - search summoner names and riot_id
+        # name or all - search summoner names and riot_id with eager loading of ranks
         search_term = game_name if game_name else query_lower
-        return select(Player).where(
-            and_(
-                Player.platform == platform,
-                Player.is_active,
-                or_(
-                    Player.summoner_name.ilike(f"%{search_term}%"),
-                    Player.riot_id.ilike(f"%{search_term}%"),
-                ),
+        return (
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(
+                and_(
+                    Player.platform == platform,
+                    Player.is_active,
+                    or_(
+                        Player.summoner_name.ilike(f"%{search_term}%"),
+                        Player.riot_id.ilike(f"%{search_term}%"),
+                    ),
+                )
             )
         )
 
@@ -456,7 +477,7 @@ class PlayerService:
 
     async def fuzzy_search_players(
         self, query: str, platform: str, limit: int = 10
-    ) -> List[PlayerResponse]:
+    ) -> List[PlayerPublic]:
         """
         Search for players using fuzzy matching with Levenshtein distance.
 
@@ -477,7 +498,7 @@ class PlayerService:
             limit: Maximum results to return (default: 10)
 
         Returns:
-            List of PlayerResponse sorted by relevance
+            List of PlayerPublic sorted by relevance
         """
         # Parse search query
         search_type, game_name, tag_line = self._parse_search_query(query)
@@ -510,13 +531,13 @@ class PlayerService:
             results_returned=len(top_players),
         )
 
-        return [PlayerResponse.model_validate(p["player"]) for p in top_players]
+        return [PlayerPublic.model_validate(p["player"]) for p in top_players]
 
     @service_error_handler("PlayerService")
     @input_validation(validate_non_empty=["puuid"], validate_positive=["limit"])
     async def get_recent_opponents_with_details(
         self, puuid: str, limit: int
-    ) -> List[PlayerResponse]:
+    ) -> List[PlayerPublic]:
         """
         Get recent opponents for a player with their details from database only.
 
@@ -528,7 +549,7 @@ class PlayerService:
             limit: Maximum number of unique opponents to return
 
         Returns:
-            List of PlayerResponse objects for opponents found in database
+            List of PlayerPublic objects for opponents found in database
         """
         from app.features.matches.participants import MatchParticipant
 
@@ -568,7 +589,7 @@ class PlayerService:
             limit=limit,
         )
 
-        return [PlayerResponse.model_validate(player) for player in players]
+        return [PlayerPublic.model_validate(player) for player in players]
 
     # === Player Tracking Methods for Automated Jobs ===
 
@@ -579,7 +600,7 @@ class PlayerService:
         tag_line: str | None = None,
         summoner_name: str | None = None,
         platform: str = "eun1",
-    ) -> PlayerResponse:
+    ) -> PlayerPublic:
         """
         Fetch player from Riot API and immediately track them.
 
@@ -593,7 +614,7 @@ class PlayerService:
             platform: Platform region (default: eun1)
 
         Returns:
-            PlayerResponse with is_tracked=True
+            PlayerPublic with is_tracked=True
 
         Raises:
             ValueError: If player not found
@@ -637,7 +658,7 @@ class PlayerService:
 
         return tracked_player
 
-    async def track_player(self, puuid: str) -> PlayerResponse:
+    async def track_player(self, puuid: str) -> PlayerPublic:
         """Mark a player as tracked for automated monitoring.
 
         Args:
@@ -655,16 +676,21 @@ class PlayerService:
             .where(Player.puuid == puuid)
             .where(Player.is_active)
             .values(is_tracked=True, updated_at=datetime.now(timezone.utc))
-            .returning(Player)
         )
 
-        result = await self.db.execute(stmt)
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+        # Fetch updated player with ranks
+        result = await self.db.execute(
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(Player.puuid == puuid, Player.is_active)
+        )
         player = result.scalar_one_or_none()
 
         if not player:
             raise ValueError(f"Player not found: {puuid}")
-
-        await self.db.commit()
 
         logger.info(
             "Player marked as tracked",
@@ -672,9 +698,9 @@ class PlayerService:
             summoner_name=player.summoner_name,
         )
 
-        return PlayerResponse.model_validate(player)
+        return PlayerPublic.model_validate(player)
 
-    async def untrack_player(self, puuid: str) -> PlayerResponse:
+    async def untrack_player(self, puuid: str) -> PlayerPublic:
         """Remove a player from tracked status.
 
         Args:
@@ -691,16 +717,21 @@ class PlayerService:
             .where(Player.puuid == puuid)
             .where(Player.is_active)
             .values(is_tracked=False, updated_at=datetime.now(timezone.utc))
-            .returning(Player)
         )
 
-        result = await self.db.execute(stmt)
+        await self.db.execute(stmt)
+        await self.db.commit()
+
+        # Fetch updated player with ranks
+        result = await self.db.execute(
+            select(Player)
+            .options(selectinload(Player.ranks))
+            .where(Player.puuid == puuid, Player.is_active)
+        )
         player = result.scalar_one_or_none()
 
         if not player:
             raise ValueError(f"Player not found: {puuid}")
-
-        await self.db.commit()
 
         logger.info(
             "Player unmarked as tracked",
@@ -708,9 +739,9 @@ class PlayerService:
             summoner_name=player.summoner_name,
         )
 
-        return PlayerResponse.model_validate(player)
+        return PlayerPublic.model_validate(player)
 
-    async def get_tracked_players(self) -> List[PlayerResponse]:
+    async def get_tracked_players(self) -> List[PlayerPublic]:
         """Get all players currently marked for tracking.
 
         Returns:
@@ -718,6 +749,7 @@ class PlayerService:
         """
         query = (
             select(Player)
+            .options(selectinload(Player.ranks))
             .where(Player.is_tracked)
             .where(Player.is_active)
             .order_by(Player.summoner_name)
@@ -726,7 +758,7 @@ class PlayerService:
         result = await self.db.execute(query)
         players = result.scalars().all()
 
-        return [PlayerResponse.model_validate(player) for player in players]
+        return [PlayerPublic.model_validate(player) for player in players]
 
     async def count_tracked_players(self) -> int:
         """Get count of currently tracked players.
@@ -1046,7 +1078,6 @@ class PlayerService:
             ValueError: If player has invalid platform
         """
         from app.core.riot_api.constants import Platform
-        from .ranks import PlayerRank
 
         logger.debug("Updating player rank", puuid=player.puuid)
 
@@ -1115,7 +1146,6 @@ class PlayerService:
             Most recent PlayerRank or None if no rank data exists
         """
         from sqlalchemy import select
-        from .ranks import PlayerRank
 
         stmt = (
             select(PlayerRank)

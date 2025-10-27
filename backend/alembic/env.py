@@ -11,7 +11,8 @@ from alembic import context
 from app.core import Base, get_global_settings
 
 # Import all feature models so Alembic can detect them
-from app.features.players.models import Player  # noqa: F401
+# Import SQLModel classes directly from models_sqlmodel to ensure proper SQLAlchemy mapping
+from app.features.players.models_sqlmodel import Player, PlayerRank  # noqa: F401
 from app.features.matches.models import Match  # noqa: F401
 from app.features.player_analysis.models import PlayerAnalysis  # noqa: F401
 from app.features.matchmaking_analysis.models import MatchmakingAnalysis  # noqa: F401
