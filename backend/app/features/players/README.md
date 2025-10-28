@@ -39,7 +39,7 @@ FastAPI router defining all player-related endpoints. Handles request validation
 - Rank information retrieval
 - Integration with RiotDataManager for data enrichment
 
-### Models (`models_sqlmodel.py`)
+### Models (`models.py`)
 
 **SQLModel Tables & Schemas:**
 
@@ -78,7 +78,7 @@ FastAPI router defining all player-related endpoints. Handles request validation
 from fastapi import APIRouter, Depends
 from app.features.players.dependencies import get_player_service
 from app.features.players.service import PlayerService
-from app.features.players.models_sqlmodel import PlayerPublic
+from app.features.players.models import PlayerPublic
 
 router = APIRouter()
 
@@ -111,7 +111,7 @@ async def my_endpoint(
 from app.features.players import Player, PlayerRank, PlayerPublic, PlayerRankPublic
 
 # Or import directly
-from app.features.players.models_sqlmodel import Player, PlayerPublic, PlayerRankPublic
+from app.features.players.models import Player, PlayerPublic, PlayerRankPublic
 ```
 
 ## Related Features

@@ -43,23 +43,32 @@ docker compose exec backend uv run alembic downgrade <revision_id>
 
 ## Migration Workflow
 
-### 1. Modify SQLAlchemy Models
+### 1. Modify SQLModel Models
 
 Edit your feature's `models.py`:
 
 ```python
 # backend/app/features/player_analysis/models.py
-from app.core.models import BaseModel
-from sqlalchemy import Column, Integer, String, Float
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, ForeignKey
 
-class SmurfScore(BaseModel):
+class SmurfScoreBase(SQLModel):
+    """Base smurf score schema with shared fields."""
+
+    confidence: float = Field(description="Confidence score (0.0-1.0)")
+    factors: str = Field(description="JSON string of factor scores")
+
+class SmurfScore(SmurfScoreBase, table=True):
     """Player analysis score model."""
 
     __tablename__ = "smurf_scores"
+    __table_args__ = {"schema": "core"}
 
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    confidence = Column(Float, nullable=False)
-    factors = Column(String, nullable=False)  # JSON string
+    id: int | None = Field(default=None, primary_key=True)
+    player_id: int = Field(
+        sa_column=Column(ForeignKey("core.players.id")),
+        description="Reference to player"
+    )
 ```
 
 ### 2. Generate Migration

@@ -20,28 +20,8 @@ from .validation import (
     validate_list_items,
     is_empty_or_none,
 )
-from .models import (
-    Base,
-    AutoIncrementPK,
-    PrimaryKeyStr,
-    PrimaryKeyInt,
-    RequiredString,
-    OptionalString,
-    RequiredInt,
-    OptionalInt,
-    RequiredBool,
-    OptionalBool,
-    RequiredDecimal,
-    OptionalDecimal,
-    RequiredBigInt,
-    OptionalBigInt,
-    RequiredDateTime,
-    OptionalDateTime,
-    PUUIDField,
-    PUUIDForeignKey,
-    MatchIDField,
-    MatchIDForeignKey,
-)
+# Note: core/models.py no longer exports Base or type annotations
+# All models now use SQLModel directly
 
 __all__ = [
     # Config
@@ -66,25 +46,4 @@ __all__ = [
     "validate_nested_fields",
     "validate_list_items",
     "is_empty_or_none",
-    # Models
-    "Base",
-    "AutoIncrementPK",
-    "PrimaryKeyStr",
-    "PrimaryKeyInt",
-    "RequiredString",
-    "OptionalString",
-    "RequiredInt",
-    "OptionalInt",
-    "RequiredBool",
-    "OptionalBool",
-    "RequiredDecimal",
-    "OptionalDecimal",
-    "RequiredBigInt",
-    "OptionalBigInt",
-    "RequiredDateTime",
-    "OptionalDateTime",
-    "PUUIDField",
-    "PUUIDForeignKey",
-    "MatchIDField",
-    "MatchIDForeignKey",
 ]

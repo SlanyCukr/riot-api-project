@@ -179,52 +179,73 @@ class PlayerService:
 
 #### `models.py` - Database Models
 
-Define SQLAlchemy models with proper relationships:
+Define SQLModel models following the Base → Table → API schemas pattern:
 
 ```python
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, ForeignKey
 
-from app.core.models import BaseModel
+class PlayerBase(SQLModel):
+    """Base player schema with shared fields."""
 
-class Player(BaseModel):
+    game_name: str = Field(max_length=128, description="Player's game name")
+    tag_line: str = Field(max_length=32, description="Player's tag line")
+    summoner_level: int | None = Field(default=None, description="Summoner level")
+    is_tracked: bool = Field(default=False, description="Whether player is tracked")
+
+class Player(PlayerBase, table=True):
     """Player database model."""
 
     __tablename__ = "players"
+    __table_args__ = {"schema": "core"}
 
-    puuid = Column(String, unique=True, nullable=False, index=True)
-    game_name = Column(String, nullable=False)
-    tag_line = Column(String, nullable=False)
-    summoner_level = Column(Integer)
-    is_tracked = Column(Boolean, default=False, nullable=False)
+    puuid: str = Field(primary_key=True, max_length=78, index=True)
 
     # Relationships
-    ranks = relationship("Rank", back_populates="player", cascade="all, delete-orphan")
-    matches = relationship("PlayerMatch", back_populates="player")
+    ranks: list["PlayerRank"] = Relationship(
+        back_populates="player",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    match_participations: list["MatchParticipant"] = Relationship(
+        back_populates="player",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
-class Rank(BaseModel):
+class PlayerRankBase(SQLModel):
+    """Base rank schema with shared fields."""
+
+    tier: str = Field(max_length=16, description="Rank tier")
+    rank: str = Field(max_length=4, description="Rank division")
+    league_points: int = Field(default=0, ge=0, description="League points")
+    wins: int = Field(default=0, ge=0, description="Number of wins")
+    losses: int = Field(default=0, ge=0, description="Number of losses")
+
+class PlayerRank(PlayerRankBase, table=True):
     """Rank information for a player."""
 
-    __tablename__ = "ranks"
+    __tablename__ = "player_ranks"
+    __table_args__ = {"schema": "core"}
 
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    tier = Column(String, nullable=False)
-    rank = Column(String, nullable=False)
-    league_points = Column(Integer, nullable=False, default=0)
-    wins = Column(Integer, nullable=False, default=0)
-    losses = Column(Integer, nullable=False, default=0)
+    id: int | None = Field(default=None, primary_key=True)
+    puuid: str = Field(
+        foreign_key="core.players.puuid",
+        max_length=78,
+        index=True
+    )
 
     # Relationships
-    player = relationship("Player", back_populates="ranks")
+    player: Player = Relationship(back_populates="ranks")
 ```
 
 **Model Guidelines:**
 
-- Inherit from `BaseModel` (provides `id`, `created_at`, `updated_at`)
-- Use proper indexes on frequently queried columns
-- Define relationships with `back_populates`
-- Use cascades appropriately
+- Use SQLModel's Base → Table → API schemas pattern
+- Define base models with shared fields, table models with `table=True`
+- Use `Field()` for validation and constraints
+- Define relationships with `Relationship()` (capitalized)
+- Use `sa_relationship_kwargs` for SQLAlchemy-specific options
 - Add docstrings to all models
+- See `backend/SQLMODEL_MIGRATION_GUIDE.md` for comprehensive patterns
 
 #### `schemas.py` - Pydantic Schemas
 

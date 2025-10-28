@@ -1,6 +1,6 @@
-# Create test file: backend/app/features/auth/test_models_sqlmodel.py
+# Create test file: backend/app/features/auth/test_models.py
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import directly to avoid __init__.py conflicts for now
 import sys
@@ -53,8 +53,8 @@ def test_user_public_orm_conversion():
         id=1,
         is_active=True,
         is_admin=False,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
 
     user_public = UserPublic.model_validate(user)
@@ -69,7 +69,7 @@ def test_auth_service_sqlmodel_integration():
     from sqlalchemy.ext.asyncio import AsyncSession
     from unittest.mock import Mock, AsyncMock
     from app.features.auth.service import AuthService
-    from app.features.auth.models_sqlmodel import UserCreate
+    from app.features.auth.models import UserCreate
 
     async def test_logic():
         mock_db = Mock(spec=AsyncSession)

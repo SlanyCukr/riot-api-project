@@ -6,209 +6,199 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
-    Boolean,
+    Column,
     DateTime as SQLDateTime,
-    Numeric as SQLDecimal,
     ForeignKey,
-    Integer,
-    String,
     Index,
+    Numeric as SQLDecimal,
+    String,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from sqlmodel import Field, Relationship, SQLModel
 
-from app.core.models import Base
 
-
-class MatchParticipant(Base):
-    """Match participant model storing individual player performance data."""
-
-    __tablename__ = "match_participants"
-    __table_args__ = {"schema": "core"}
-
-    # Primary key
-    id: Mapped[int] = mapped_column(
-        BigInteger, primary_key=True, comment="Auto-incrementing primary key"
-    )
-
-    # Foreign keys
-    match_id: Mapped[str] = mapped_column(
-        String(64),
-        ForeignKey("core.matches.match_id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Reference to the match this participant belongs to",
-    )
-
-    puuid: Mapped[str] = mapped_column(
-        String(78),
-        ForeignKey("core.players.puuid", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Reference to the player (Riot PUUID)",
-    )
+class MatchParticipantBase(SQLModel):
+    """Base match participant schema with shared fields."""
 
     # Participant information
-
-    summoner_name: Mapped[Optional[str]] = mapped_column(
-        String(32),
-        nullable=True,
-        comment="Summoner name at the time of the match (may be NULL if Riot API returns empty string)",
+    summoner_name: Optional[str] = Field(
+        default=None,
+        max_length=32,
+        description="Summoner name at the time of the match (may be NULL if Riot API returns empty string)",
     )
 
-    summoner_level: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
+    summoner_level: int = Field(
         default=1,
-        comment="Summoner level at the time of the match",
+        description="Summoner level at the time of the match",
     )
 
-    team_id: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
+    team_id: int = Field(
         index=True,
-        comment="Team ID (100 for blue side, 200 for red side)",
+        description="Team ID (100 for blue side, 200 for red side)",
     )
 
     # Champion information
-    champion_id: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
+    champion_id: int = Field(
         index=True,
-        comment="Champion ID played by the participant",
+        description="Champion ID played by the participant",
     )
 
-    champion_name: Mapped[str] = mapped_column(
-        String(32),
-        nullable=False,
+    champion_name: str = Field(
+        max_length=32,
         index=True,
-        comment="Champion name played by the participant",
+        description="Champion name played by the participant",
     )
 
     # Performance statistics
-    kills: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Number of kills"
-    )
+    kills: int = Field(default=0, description="Number of kills")
+    deaths: int = Field(default=0, description="Number of deaths")
+    assists: int = Field(default=0, description="Number of assists")
+    win: bool = Field(description="Whether the participant won the match")
+    gold_earned: int = Field(default=0, description="Total gold earned")
+    vision_score: int = Field(default=0, description="Vision score")
+    cs: int = Field(default=0, description="Total creep score (minions killed)")
 
-    deaths: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Number of deaths"
-    )
-
-    assists: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Number of assists"
-    )
-
-    win: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, comment="Whether the participant won the match"
-    )
-
-    gold_earned: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Total gold earned"
-    )
-
-    vision_score: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Vision score"
-    )
-
-    cs: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, comment="Total creep score (minions killed)"
-    )
-
-    kda: Mapped[Optional[Decimal]] = mapped_column(
-        SQLDecimal(5, 2), nullable=True, comment="Kill-death-assist ratio"
+    kda: Optional[Decimal] = Field(
+        default=None,
+        description="Kill-death-assist ratio",
+        sa_column=Column(SQLDecimal(5, 2), nullable=True),
     )
 
     # Additional performance metrics
-    champ_level: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1, comment="Champion level achieved"
+    champ_level: int = Field(default=1, description="Champion level achieved")
+
+    total_damage_dealt: int = Field(
+        default=0,
+        description="Total damage dealt",
+        sa_column=Column(BigInteger, nullable=False, default=0),
     )
 
-    total_damage_dealt: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, default=0, comment="Total damage dealt"
+    total_damage_dealt_to_champions: int = Field(
+        default=0,
+        description="Total damage dealt to champions",
+        sa_column=Column(BigInteger, nullable=False, default=0),
     )
 
-    total_damage_dealt_to_champions: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, default=0, comment="Total damage dealt to champions"
+    total_damage_taken: int = Field(
+        default=0,
+        description="Total damage taken",
+        sa_column=Column(BigInteger, nullable=False, default=0),
     )
 
-    total_damage_taken: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, default=0, comment="Total damage taken"
-    )
-
-    total_heal: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, default=0, comment="Total healing done"
+    total_heal: int = Field(
+        default=0,
+        description="Total healing done",
+        sa_column=Column(BigInteger, nullable=False, default=0),
     )
 
     # Position information
-    individual_position: Mapped[Optional[str]] = mapped_column(
-        String(16),
-        nullable=True,
+    individual_position: Optional[str] = Field(
+        default=None,
+        max_length=16,
         index=True,
-        comment="Individual position (e.g., 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
+        description="Individual position (e.g., 'TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY')",
     )
 
-    team_position: Mapped[Optional[str]] = mapped_column(
-        String(16), nullable=True, index=True, comment="Team position"
+    team_position: Optional[str] = Field(
+        default=None,
+        max_length=16,
+        index=True,
+        description="Team position",
     )
 
     # Role information
-    role: Mapped[Optional[str]] = mapped_column(
-        String(16),
-        nullable=True,
+    role: Optional[str] = Field(
+        default=None,
+        max_length=16,
         index=True,
-        comment="Role (e.g., 'DUO', 'DUO_CARRY', 'DUO_SUPPORT', 'SUPPORT')",
+        description="Role (e.g., 'DUO', 'DUO_CARRY', 'DUO_SUPPORT', 'SUPPORT')",
     )
 
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment="When this participant record was created",
+    # Player identity fields at time of match (from Riot API)
+    riot_id_name: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Riot ID game name at the time of the match",
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="When this participant record was last updated",
+    riot_id_tagline: Optional[str] = Field(
+        default=None,
+        max_length=32,
+        description="Riot ID tagline at the time of the match",
+    )
+
+
+class MatchParticipant(MatchParticipantBase, table=True):
+    """Match participant model storing individual player performance data."""
+
+    __tablename__ = "match_participants"
+    __table_args__ = (
+        Index("idx_participants_match_puuid", "match_id", "puuid"),
+        Index("idx_participants_champion_win", "champion_id", "win"),
+        Index("idx_participants_kills_deaths", "kills", "deaths"),
+        Index(
+            "idx_participants_position_champion", "individual_position", "champion_id"
+        ),
+        Index("idx_participants_team_win", "team_id", "win"),
+        {"schema": "core"},
+    )
+
+    # Primary key - auto-increment BigInteger
+    id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger, primary_key=True, autoincrement=True),
+        description="Auto-incrementing primary key",
+    )
+
+    # Foreign keys
+    match_id: str = Field(
+        description="Reference to the match this participant belongs to",
+        sa_column=Column(
+            String(64),
+            ForeignKey("core.matches.match_id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
+
+    puuid: str = Field(
+        description="Reference to the player (Riot PUUID)",
+        sa_column=Column(
+            String(78),
+            ForeignKey("core.players.puuid", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
+
+    # Timestamps - let PostgreSQL handle defaults
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
+        description="When this participant record was created",
+    )
+
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
+        description="When this participant record was last updated",
     )
 
     # Relationships
-    match = relationship("Match", back_populates="participants")
-    # TODO: Fix Player relationship - Player is now a SQLModel class
-    # Temporarily commented out to resolve SQLAlchemy mapping issues
-    # player = relationship("Player", back_populates="match_participations")
+    match: "Match" = Relationship(back_populates="participants")
+
+    # Player relationship - now enabled after SQLModel migration
+    player: "Player" = Relationship(back_populates="match_participations")
 
     def __repr__(self) -> str:
         """Return string representation of the match participant."""
         return f"<MatchParticipant(match_id='{self.match_id}', summoner_name='{self.summoner_name}', champion='{self.champion_name}')>"
-
-    # Player identity fields at time of match (from Riot API)
-    # Used by transformers and player services for historical player identification
-    riot_id_name: Mapped[Optional[str]] = mapped_column(
-        String(128), nullable=True, comment="Riot ID game name at the time of the match"
-    )
-
-    riot_id_tagline: Mapped[Optional[str]] = mapped_column(
-        String(32), nullable=True, comment="Riot ID tagline at the time of the match"
-    )
-
-
-# Create composite indexes for common queries
-Index("idx_participants_match_puuid", MatchParticipant.match_id, MatchParticipant.puuid)
-
-Index(
-    "idx_participants_champion_win", MatchParticipant.champion_id, MatchParticipant.win
-)
-
-Index("idx_participants_kills_deaths", MatchParticipant.kills, MatchParticipant.deaths)
-
-Index(
-    "idx_participants_position_champion",
-    MatchParticipant.individual_position,
-    MatchParticipant.champion_id,
-)
-
-Index("idx_participants_team_win", MatchParticipant.team_id, MatchParticipant.win)

@@ -5,250 +5,253 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean,
+    Column,
     DateTime as SQLDateTime,
     ForeignKey,
-    Integer,
+    Index,
     Numeric,
     String,
     Text,
-    Index,
 )
-from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+from sqlmodel import Field, Relationship, SQLModel
 
-from app.core.models import Base
 
-
-class PlayerAnalysis(Base):
-    """Player analysis model storing detection results and signals for smurfs, boosted accounts, and trolls."""
-
-    __tablename__ = "player_analysis"
-    __table_args__ = {"schema": "core"}
-
-    # Primary key
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, comment="Auto-incrementing primary key"
-    )
-
-    # Foreign key
-    puuid: Mapped[str] = mapped_column(
-        String(78),
-        ForeignKey("core.players.puuid", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Reference to the player being analyzed (Riot PUUID)",
-    )
+class PlayerAnalysisBase(SQLModel):
+    """Base player analysis schema with shared fields."""
 
     # Detection results
-    is_smurf: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
+    is_smurf: bool = Field(
         default=False,
         index=True,
-        comment="Whether the player is detected as a smurf",
+        description="Whether the player is detected as a smurf",
     )
 
-    confidence: Mapped[Optional[str]] = mapped_column(
-        String(32),
-        nullable=True,
+    confidence: Optional[str] = Field(
+        default=None,
+        max_length=32,
         index=True,
-        comment="Confidence level in the player analysis",
+        description="Confidence level in the player analysis",
     )
 
-    smurf_score: Mapped[Decimal] = mapped_column(
-        Numeric(5, 3),
-        nullable=False,
-        default=0.0,
-        index=True,
-        comment="Overall smurf score (0.0-1.0)",
+    smurf_score: Decimal = Field(
+        default=Decimal("0.0"),
+        description="Overall smurf score (0.0-1.0)",
+        sa_column=Column(Numeric(5, 3), nullable=False, default=0.0, index=True),
     )
 
-    # Signal breakdown
-    win_rate_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3), nullable=True, comment="Win rate based smurf score component"
+    # Signal breakdown - 9 factor scores
+    win_rate_score: Optional[Decimal] = Field(
+        default=None,
+        description="Win rate based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    kda_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3), nullable=True, comment="KDA based smurf score component"
+    kda_score: Optional[Decimal] = Field(
+        default=None,
+        description="KDA based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    account_level_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Account level based smurf score component",
+    account_level_score: Optional[Decimal] = Field(
+        default=None,
+        description="Account level based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    rank_discrepancy_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Rank discrepancy based smurf score component",
+    rank_discrepancy_score: Optional[Decimal] = Field(
+        default=None,
+        description="Rank discrepancy based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    rank_progression_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Rank progression based smurf score component",
+    rank_progression_score: Optional[Decimal] = Field(
+        default=None,
+        description="Rank progression based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    win_rate_trend_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Win rate trend based smurf score component",
+    win_rate_trend_score: Optional[Decimal] = Field(
+        default=None,
+        description="Win rate trend based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    performance_consistency_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Performance consistency based smurf score component",
+    performance_consistency_score: Optional[Decimal] = Field(
+        default=None,
+        description="Performance consistency based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    performance_trends_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Performance trends based smurf score component",
+    performance_trends_score: Optional[Decimal] = Field(
+        default=None,
+        description="Performance trends based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    role_performance_score: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3),
-        nullable=True,
-        comment="Role performance based smurf score component",
+    role_performance_score: Optional[Decimal] = Field(
+        default=None,
+        description="Role performance based smurf score component",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
     # Analysis parameters
-    games_analyzed: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
+    games_analyzed: int = Field(
         default=0,
-        comment="Number of games analyzed for this detection",
+        description="Number of games analyzed for this detection",
     )
 
-    queue_type: Mapped[Optional[str]] = mapped_column(
-        String(32),
-        nullable=True,
+    queue_type: Optional[str] = Field(
+        default=None,
+        max_length=32,
         index=True,
-        comment="Queue type analyzed (e.g., RANKED_SOLO_5x5)",
+        description="Queue type analyzed (e.g., RANKED_SOLO_5x5)",
     )
 
-    time_period_days: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, comment="Time period in days analyzed"
+    time_period_days: Optional[int] = Field(
+        default=None,
+        description="Time period in days analyzed",
     )
 
     # Detection thresholds
-    win_rate_threshold: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3), nullable=True, comment="Win rate threshold used for detection"
+    win_rate_threshold: Optional[Decimal] = Field(
+        default=None,
+        description="Win rate threshold used for detection",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
-    kda_threshold: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(5, 3), nullable=True, comment="KDA threshold used for detection"
+    kda_threshold: Optional[Decimal] = Field(
+        default=None,
+        description="KDA threshold used for detection",
+        sa_column=Column(Numeric(5, 3), nullable=True),
     )
 
     # Additional signals
-    account_level: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, comment="Account level at time of analysis"
+    account_level: Optional[int] = Field(
+        default=None,
+        description="Account level at time of analysis",
     )
 
-    current_tier: Mapped[Optional[str]] = mapped_column(
-        String(16), nullable=True, comment="Current tier at time of analysis"
+    current_tier: Optional[str] = Field(
+        default=None,
+        max_length=16,
+        description="Current tier at time of analysis",
     )
 
-    current_rank: Mapped[Optional[str]] = mapped_column(
-        String(4), nullable=True, comment="Current rank at time of analysis"
+    current_rank: Optional[str] = Field(
+        default=None,
+        max_length=4,
+        description="Current rank at time of analysis",
     )
 
-    peak_tier: Mapped[Optional[str]] = mapped_column(
-        String(16), nullable=True, comment="Peak tier observed"
+    peak_tier: Optional[str] = Field(
+        default=None,
+        max_length=16,
+        description="Peak tier observed",
     )
 
-    peak_rank: Mapped[Optional[str]] = mapped_column(
-        String(4), nullable=True, comment="Peak rank observed"
-    )
-
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment="When this player analysis was created",
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="When this player analysis was last updated",
-    )
-
-    last_analysis: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        index=True,
-        comment="When the last analysis was performed",
+    peak_rank: Optional[str] = Field(
+        default=None,
+        max_length=4,
+        description="Peak rank observed",
     )
 
     # Metadata
-    analysis_version: Mapped[Optional[str]] = mapped_column(
-        String(16), nullable=True, comment="Version of the player analysis algorithm"
+    analysis_version: Optional[str] = Field(
+        default=None,
+        max_length=16,
+        description="Version of the player analysis algorithm",
     )
 
-    false_positive_reported: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
+    false_positive_reported: bool = Field(
         default=False,
         index=True,
-        comment="Whether this detection was reported as false positive",
+        description="Whether this detection was reported as false positive",
     )
 
-    manually_verified: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
+    manually_verified: bool = Field(
         default=False,
         index=True,
-        comment="Whether this detection was manually verified",
+        description="Whether this detection was manually verified",
     )
 
-    notes: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True, comment="Additional notes about this detection"
+    notes: Optional[str] = Field(
+        default=None,
+        description="Additional notes about this detection",
+        sa_column=Column(Text, nullable=True),
+    )
+
+
+class PlayerAnalysis(PlayerAnalysisBase, table=True):
+    """Player analysis model storing detection results and signals for smurfs, boosted accounts, and trolls."""
+
+    __tablename__ = "player_analysis"
+    __table_args__ = (
+        Index("idx_player_analysis_puuid_confidence", "puuid", "confidence"),
+        Index("idx_player_analysis_is_smurf_score", "is_smurf", "smurf_score"),
+        Index("idx_player_analysis_queue_score", "queue_type", "smurf_score"),
+        Index("idx_player_analysis_analysis_time", "last_analysis", "is_smurf"),
+        Index(
+            "idx_player_analysis_false_positive", "false_positive_reported", "is_smurf"
+        ),
+        {"schema": "core"},
+    )
+
+    # Primary key - auto-increment
+    id: Optional[int] = Field(
+        default=None,
+        primary_key=True,
+        description="Auto-incrementing primary key",
+    )
+
+    # Foreign key - CASCADE delete
+    puuid: str = Field(
+        description="Reference to the player being analyzed (Riot PUUID)",
+        sa_column=Column(
+            String(78),
+            ForeignKey("core.players.puuid", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+    )
+
+    # Timestamps - let PostgreSQL handle defaults
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
+        description="When this player analysis was created",
+    )
+
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
+        description="When this player analysis was last updated",
+    )
+
+    last_analysis: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            index=True,
+        ),
+        description="When the last analysis was performed",
     )
 
     # Relationships
-    # TODO: Fix Player relationship - Player is now a SQLModel class
-    # player = relationship("Player", back_populates="player_analysis")
+    # Player relationship - now enabled after SQLModel migration
+    player: Optional["Player"] = Relationship(back_populates="player_analyses")
 
     def __repr__(self) -> str:
         """Return string representation of the player analysis."""
         return f"<PlayerAnalysis(puuid='{self.puuid}', is_smurf={self.is_smurf}, confidence='{self.confidence}')>"
-
-
-# Create composite indexes for common queries
-Index(
-    "idx_player_analysis_puuid_confidence",
-    PlayerAnalysis.puuid,
-    PlayerAnalysis.confidence,
-)
-
-Index(
-    "idx_player_analysis_is_smurf_score",
-    PlayerAnalysis.is_smurf,
-    PlayerAnalysis.smurf_score,
-)
-
-Index(
-    "idx_player_analysis_queue_score",
-    PlayerAnalysis.queue_type,
-    PlayerAnalysis.smurf_score,
-)
-
-Index(
-    "idx_player_analysis_analysis_time",
-    PlayerAnalysis.last_analysis,
-    PlayerAnalysis.is_smurf,
-)
-
-Index(
-    "idx_player_analysis_false_positive",
-    PlayerAnalysis.false_positive_reported,
-    PlayerAnalysis.is_smurf,
-)

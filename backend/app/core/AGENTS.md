@@ -113,21 +113,13 @@ if rank.tier == Tier.CHALLENGER:
     print("Top player!")
 ```
 
-### `models.py` - Base Model Class
+### `models.py` - Core Type Definitions
 
-- **`Base`**: SQLAlchemy declarative base
-- **`BaseModel`**: Abstract base with common fields (`id`, `created_at`, `updated_at`)
+This file previously contained the SQLAlchemy Base class, which has been fully replaced by SQLModel.
+All models now use SQLModel for combined ORM and validation.
 
-```python
-from app.core.models import BaseModel
-
-class Player(BaseModel):
-    __tablename__ = "players"
-
-    puuid = Column(String, unique=True, nullable=False)
-    game_name = Column(String)
-    tag_line = Column(String)
-```
+**Note:** All application models now use SQLModel's pattern of Base → Table → API schemas.
+See `backend/SQLMODEL_MIGRATION_GUIDE.md` for comprehensive SQLModel usage patterns.
 
 ### `validation.py` - Shared Validation Utilities
 
@@ -257,8 +249,8 @@ from app.core.enums import Tier, Platform, QueueType
 # Exceptions
 from app.core.exceptions import RiotAPIError, RateLimitError, PlayerNotFoundError
 
-# Models
-from app.core.models import Base, BaseModel
+# Note: Models are now SQLModel-based and imported from feature modules
+# See backend/SQLMODEL_MIGRATION_GUIDE.md for SQLModel usage patterns
 
 # Logging
 import structlog

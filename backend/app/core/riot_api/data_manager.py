@@ -30,7 +30,7 @@ from .constants import Platform, Region
 
 # TYPE_CHECKING imports for type annotations (not evaluated at runtime)
 if TYPE_CHECKING:
-    from app.features.players.models_sqlmodel import Player, PlayerPublic, PlayerCreate
+    from app.features.players.models import Player, PlayerPublic, PlayerCreate
 
 logger = structlog.get_logger(__name__)
 
@@ -67,7 +67,7 @@ class RiotDataManager:
         """
         # Lazy import to avoid circular dependency
         from app.features.players import Player
-        from app.features.players.models_sqlmodel import PlayerPublic, PlayerCreate
+        from app.features.players.models import PlayerPublic, PlayerCreate
 
         riot_id = f"{game_name}#{tag_line}"
 
@@ -167,7 +167,7 @@ class RiotDataManager:
         """
         # Lazy import to avoid circular dependency
         from app.features.players import Player
-        from app.features.players.models_sqlmodel import PlayerPublic, PlayerCreate
+        from app.features.players.models import PlayerPublic, PlayerCreate
 
         try:
             # 1. Check database first

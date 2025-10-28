@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from Levenshtein import distance as levenshtein_distance
 import structlog
 
-from .models_sqlmodel import (
+from .models import (
     Player,
     PlayerRank,
     PlayerPublic,

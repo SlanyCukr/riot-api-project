@@ -14,7 +14,7 @@ from app.core.database import db_manager
 from app.core.rate_limiter import limiter
 
 # Import SQLModel classes to ensure they are registered with SQLAlchemy
-from app.features.players.models_sqlmodel import Player, PlayerRank  # noqa: F401
+from app.features.players.models import Player, PlayerRank  # noqa: F401
 from app.features.auth import auth_router
 from app.features.players.router import router as players_router
 from app.features.matches.router import router as matches_router
@@ -31,12 +31,25 @@ import structlog
 from structlog import contextvars as structlog_contextvars
 
 
-# Configure logging
+# Configure logging to reduce noise
 settings = get_global_settings()
+
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,  # Override any existing configuration
 )
+
+# Suppress noisy third-party logs (must be after basicConfig)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("apscheduler.scheduler").setLevel(logging.INFO)  # Keep scheduler info
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+logging.getLogger("asyncpg").setLevel(logging.WARNING)
 logger = structlog.get_logger(__name__)
 
 # Configure structlog

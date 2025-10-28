@@ -4,7 +4,7 @@ Maintains exact same API as current service,
 just converts internals to SQLModel patterns.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import structlog
 
@@ -98,8 +98,10 @@ class AuthService:
             logger.info("auth_failed_user_inactive", email=email)
             return None
 
-        # Update last login (maintain existing behavior)
-        user.last_login = datetime.now(timezone.utc)
+        # Update last login and updated_at timestamps
+        now = datetime.now(timezone.utc)
+        user.last_login = now
+        user.updated_at = now
         db.add(user)
         await db.commit()
 

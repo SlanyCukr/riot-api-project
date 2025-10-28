@@ -7,11 +7,11 @@ with unified SQLModel classes following conservative migration approach.
 Pattern: Base → Table → API schemas
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import re
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Index
+from sqlalchemy import Index, Column, DateTime, UniqueConstraint, BigInteger, Text
 from pydantic import EmailStr, field_validator, ConfigDict
 
 
@@ -29,9 +29,7 @@ class UserBase(SQLModel):
     - API requests/responses (UserCreate, UserPublic)
     """
 
-    email: EmailStr = Field(
-        max_length=255, index=True, description="User's email address (unique)"
-    )
+    email: EmailStr = Field(max_length=255, description="User's email address (unique)")
     display_name: str = Field(max_length=128, description="Display name shown in UI")
 
 
@@ -50,18 +48,23 @@ class User(UserBase, table=True):
 
     __tablename__ = "users"
     __table_args__ = (
+        UniqueConstraint("email", name="uq_users_email"),
         Index("idx_users_is_active_is_admin", "is_active", "is_admin"),
         Index("idx_users_email_is_active", "email", "is_active"),
         Index("idx_users_last_login", "last_login"),
         Index("idx_users_created_at", "created_at"),
-        {"schema": "auth", "extend_existing": True},
+        {"schema": "auth"},
     )
 
-    # Primary key
-    id: int = Field(primary_key=True, description="Auto-incrementing primary key")
+    # Primary key (using BigInteger to match database)
+    id: int = Field(
+        sa_column=Column(BigInteger, primary_key=True, nullable=False),
+        description="Auto-incrementing primary key",
+    )
 
     # Authentication fields (NEVER in API responses)
     password_hash: str = Field(
+        sa_column=Column(Text, nullable=False),
         description="Hashed password using Argon2id",
         exclude=True,  # Automatically excluded from API responses
     )
@@ -79,22 +82,27 @@ class User(UserBase, table=True):
         default=False, description="Whether email has been verified"
     )
     email_verified_at: Optional[datetime] = Field(
-        default=None, description="When email was verified"
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="When email was verified",
     )
 
     # Activity tracking
     last_login: Optional[datetime] = Field(
-        default=None, index=True, description="When user last logged in"
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="When user last logged in",
     )
 
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
         description="When this user account was created",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        sa_column_kwargs={"onupdate": datetime.utcnow},
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
         description="When this user account was last updated",
     )
 

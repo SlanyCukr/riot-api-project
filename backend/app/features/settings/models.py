@@ -2,67 +2,62 @@
 
 from datetime import datetime
 
-from sqlalchemy import (
-    Boolean,
-    DateTime as SQLDateTime,
-    String,
-    Text,
-)
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Column, DateTime as SQLDateTime, Text
 from sqlalchemy.sql import func
+from sqlmodel import Field, SQLModel
 
-from app.core.models import Base
+
+class SystemSettingBase(SQLModel):
+    """Base system setting schema with shared fields."""
+
+    value: str = Field(
+        sa_column=Column(Text, nullable=False),
+        description="Setting value",
+    )
+    category: str = Field(
+        max_length=64,
+        description="Setting category (e.g., 'riot_api', 'jobs', 'app')",
+    )
+    is_sensitive: bool = Field(
+        default=False,
+        description="Whether this setting contains sensitive data (should be masked)",
+    )
 
 
-class SystemSetting(Base):
+class SystemSetting(SystemSettingBase, table=True):
     """System settings model for runtime configuration."""
 
     __tablename__ = "system_settings"
     __table_args__ = {"schema": "jobs"}
 
     # Primary key
-    key: Mapped[str] = mapped_column(
-        String(128),
+    key: str = Field(
         primary_key=True,
+        max_length=128,
         index=True,
-        comment="Setting key (e.g., 'riot_api_key')",
+        description="Setting key (e.g., 'riot_api_key')",
     )
 
-    # Setting value
-    value: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        comment="Setting value",
+    # Timestamps - let PostgreSQL handle defaults
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
+        description="When this setting was created",
     )
 
-    # Metadata
-    category: Mapped[str] = mapped_column(
-        String(64),
-        nullable=False,
-        comment="Setting category (e.g., 'riot_api', 'jobs', 'app')",
-    )
-
-    is_sensitive: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=False,
-        comment="Whether this setting contains sensitive data (should be masked)",
-    )
-
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment="When this setting was created",
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="When this setting was last updated",
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(
+            SQLDateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
+        description="When this setting was last updated",
     )
 
     def __repr__(self) -> str:

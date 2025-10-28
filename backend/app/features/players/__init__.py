@@ -3,7 +3,7 @@
 # Public API exports
 from .router import router as players_router
 from .service import PlayerService
-from .models_sqlmodel import (
+from .models import (
     # SQLModel database tables
     Player,
     PlayerRank,
