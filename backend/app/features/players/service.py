@@ -1,14 +1,22 @@
-"""Player service for handling player data operations."""
+"""Player service for handling player data operations.
+
+REFACTORED: Enterprise Architecture with Repository Pattern
+- Service layer is now thin (orchestration only)
+- All database queries delegated to PlayerRepository
+- Business logic lives in domain models (PlayerORM)
+- Transformers handle ORM ↔ Pydantic conversions
+"""
 
 from typing import List, Any, TYPE_CHECKING
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, and_, or_
 from Levenshtein import distance as levenshtein_distance
 import structlog
 
-from .models import Player
+from .orm_models import PlayerORM, PlayerRankORM
 from .schemas import PlayerResponse
+from .repository import PlayerRepositoryInterface
+from .transformers import player_orm_to_response
 from app.core.exceptions import (
     PlayerServiceError,
 )
@@ -16,17 +24,33 @@ from app.core.decorators import service_error_handler, input_validation
 
 if TYPE_CHECKING:
     from app.core.riot_api.client import RiotAPIClient
-    from .ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
 
 
 class PlayerService:
-    """Service for handling player data operations."""
+    """Service for handling player data operations (Thin Orchestration Layer).
 
-    def __init__(self, db: AsyncSession):
-        """Initialize player service with database session only."""
-        self.db = db
+    Responsibilities:
+    - Orchestrate operations across repository and external services
+    - Validate inputs and handle errors
+    - Transform between domain models and API schemas
+    - Coordinate business workflows
+
+    Does NOT:
+    - Execute SQL queries directly (delegated to repository)
+    - Contain business logic (lives in domain models)
+    - Know about database implementation details
+    """
+
+    def __init__(self, repository: PlayerRepositoryInterface, db: AsyncSession):
+        """Initialize player service with repository.
+
+        :param repository: Player repository for data access
+        :param db: Database session (for legacy methods not yet refactored)
+        """
+        self.repository = repository
+        self.db = db  # Kept for legacy methods during incremental refactor
 
     @service_error_handler("PlayerService")
     @input_validation(
@@ -35,41 +59,30 @@ class PlayerService:
     async def get_player_by_riot_id(
         self, game_name: str, tag_line: str, platform: str
     ) -> PlayerResponse:
+        """Get player by Riot ID from database (REFACTORED).
+
+        Thin orchestration layer:
+        1. Normalize inputs
+        2. Delegate query to repository
+        3. Transform ORM → Pydantic via transformer
+
+        :param game_name: Riot ID game name
+        :param tag_line: Riot ID tag line
+        :param platform: Platform code (e.g., "NA1", "EUW1")
+        :returns: Player response schema
+        :raises PlayerServiceError: If player not found
         """
-        Get player by Riot ID from database only.
-
-        This method searches only the local database for players already being tracked.
-        To add new players from Riot API, use a separate add/import feature.
-
-        Args:
-            game_name: Riot ID game name of the player
-            tag_line: Riot ID tag line of the player
-            platform: Riot API platform code (e.g., "NA1", "EUW1")
-
-        Returns:
-            Player response object with player data
-
-        Raises:
-            PlayerServiceError: If player is not found or database error occurs
-            ValidationError: If input parameters are invalid
-        """
-        # Normalize inputs
+        # Step 1: Normalize inputs
         safe_game_name = game_name.strip()
         safe_tag_line = tag_line.strip() if tag_line else None
         normalized_platform = platform.strip().upper()
 
-        # Query database only
-        result = await self.db.execute(
-            select(Player).where(
-                Player.riot_id == safe_game_name,
-                Player.tag_line == safe_tag_line,
-                Player.platform == normalized_platform,
-                Player.is_active,
-            )
+        # Step 2: Delegate query to repository
+        player_orm = await self.repository.find_by_riot_id(
+            safe_game_name, safe_tag_line, normalized_platform
         )
-        player = result.scalar_one_or_none()
 
-        if not player:
+        if not player_orm:
             raise PlayerServiceError(
                 message=f"Player not found in database: {safe_game_name}#{safe_tag_line} on {normalized_platform}. "
                 f"Please track this player first.",
@@ -86,15 +99,21 @@ class PlayerService:
             game_name=safe_game_name,
             tag_line=safe_tag_line,
             platform=normalized_platform,
-            puuid=player.puuid,
+            puuid=player_orm.puuid,
         )
 
-        return PlayerResponse.model_validate(player)
+        # Step 3: Transform ORM → Pydantic
+        return player_orm_to_response(player_orm)
 
-    def _find_exact_summoner_match(
-        self, players: list[Player], safe_summoner_name: str
-    ) -> Player | None:
-        """Find exact summoner name match from list of players."""
+    def _find_exact_summoner_match(self, players: list, safe_summoner_name: str):
+        """Find exact summoner name match from list of players.
+
+        Works with both Player and PlayerORM models.
+
+        :param players: List of player models
+        :param safe_summoner_name: Normalized summoner name to match
+        :returns: Matching player or None
+        """
         for player in players:
             if (
                 player.summoner_name
@@ -125,36 +144,23 @@ class PlayerService:
     async def get_player_by_summoner_name(
         self, summoner_name: str, platform: str
     ) -> PlayerResponse:
-        """
-        Get player by summoner name from database only.
+        """Get player by summoner name from database (REFACTORED).
 
-        This searches only the local database for players already being tracked.
-        To add new players from Riot API, use a separate add/import feature.
+        Thin orchestration with fuzzy search logic.
 
-        Args:
-            summoner_name: Summoner name to search for
-            platform: Riot API platform code
-
-        Returns:
-            Player response object with player data
-
-        Raises:
-            PlayerServiceError: If player is not found
-            ValidationError: If input parameters are invalid
+        :param summoner_name: Summoner name to search
+        :param platform: Platform code
+        :returns: Player response
+        :raises PlayerServiceError: If player not found or multiple matches
         """
         # Normalize inputs
         safe_summoner_name = summoner_name.strip()
         normalized_platform = platform.strip().upper()
 
-        # Search database for exact match or partial match
-        result = await self.db.execute(
-            select(Player).where(
-                Player.summoner_name.ilike(f"%{safe_summoner_name}%"),
-                Player.platform == normalized_platform,
-                Player.is_active,
-            )
+        # Delegate fuzzy search to repository
+        players = await self.repository.find_by_summoner_name(
+            safe_summoner_name, normalized_platform
         )
-        players = result.scalars().all()
 
         # Try to find exact match first
         exact_match = self._find_exact_summoner_match(players, safe_summoner_name)
@@ -165,7 +171,7 @@ class PlayerService:
                 platform=normalized_platform,
                 puuid=exact_match.puuid,
             )
-            return PlayerResponse.model_validate(exact_match)
+            return player_orm_to_response(exact_match)
 
         # If only one partial match, return it
         if len(players) == 1:
@@ -175,7 +181,7 @@ class PlayerService:
                 platform=normalized_platform,
                 matched_name=players[0].summoner_name,
             )
-            return PlayerResponse.model_validate(players[0])
+            return player_orm_to_response(players[0])
 
         # If multiple partial matches, return error with suggestions
         if len(players) > 1:
@@ -203,14 +209,19 @@ class PlayerService:
     async def get_player_by_puuid(
         self, puuid: str, platform: str = "eun1"
     ) -> PlayerResponse:
-        """Get player by PUUID from database only. Never calls Riot API."""
-        # Query database only
-        result = await self.db.execute(
-            select(Player).where(Player.puuid == puuid, Player.is_active)
-        )
-        player = result.scalar_one_or_none()
+        """Get player by PUUID from database (REFACTORED).
 
-        if not player:
+        Thin orchestration: delegate to repository, transform response.
+
+        :param puuid: Player's unique identifier
+        :param platform: Platform code (unused, kept for compatibility)
+        :returns: Player response schema
+        :raises PlayerServiceError: If player not found
+        """
+        # Delegate query to repository
+        player_orm = await self.repository.get_by_puuid(puuid)
+
+        if not player_orm:
             raise PlayerServiceError(
                 message=f"Player not found in database: {puuid}. "
                 f"Please track this player first.",
@@ -224,7 +235,8 @@ class PlayerService:
             platform=platform,
         )
 
-        return PlayerResponse.model_validate(player)
+        # Transform ORM → Pydantic
+        return player_orm_to_response(player_orm)
 
     @staticmethod
     def _parse_search_query(query: str) -> tuple[str, str | None, str | None]:
@@ -251,59 +263,8 @@ class PlayerService:
         return "name", query.strip(), None
 
     @staticmethod
-    def _build_player_search_query(
-        platform: str,
-        search_type: str,
-        query_lower: str,
-        game_name: str | None,
-        tag_line: str | None,
-    ):
-        """Build SQLAlchemy query based on search type."""
-        if search_type == "riot_id" and game_name and tag_line:
-            # Search for exact or partial Riot ID
-            return select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    or_(
-                        # Exact match
-                        and_(
-                            Player.riot_id.ilike(game_name),
-                            Player.tag_line.ilike(tag_line),
-                        ),
-                        # Partial matches
-                        Player.riot_id.ilike(f"%{game_name}%"),
-                        Player.tag_line.ilike(f"%{tag_line}%"),
-                    ),
-                )
-            )
-
-        if search_type == "tag" and tag_line:
-            # Search tags only
-            return select(Player).where(
-                and_(
-                    Player.platform == platform,
-                    Player.is_active,
-                    Player.tag_line.ilike(f"%{tag_line}%"),
-                )
-            )
-
-        # name or all - search summoner names and riot_id
-        search_term = game_name if game_name else query_lower
-        return select(Player).where(
-            and_(
-                Player.platform == platform,
-                Player.is_active,
-                or_(
-                    Player.summoner_name.ilike(f"%{search_term}%"),
-                    Player.riot_id.ilike(f"%{search_term}%"),
-                ),
-            )
-        )
-
-    @staticmethod
     def _check_exact_riot_id_match(
-        player: Player, game_name: str, tag_line: str
+        player: PlayerORM, game_name: str, tag_line: str
     ) -> bool:
         """Check if player is an exact Riot ID match."""
         return (
@@ -315,7 +276,7 @@ class PlayerService:
 
     @staticmethod
     def _score_summoner_name(
-        player: Player, search_type: str, query_lower: str
+        player: PlayerORM, search_type: str, query_lower: str
     ) -> int | None:
         """Calculate distance for summoner name if applicable."""
         if player.summoner_name and (search_type in ["name", "all"]):
@@ -324,7 +285,7 @@ class PlayerService:
 
     @staticmethod
     def _score_riot_id(
-        player: Player, search_type: str, query_lower: str
+        player: PlayerORM, search_type: str, query_lower: str
     ) -> int | None:
         """Calculate distance for riot_id if applicable."""
         if player.riot_id and (search_type in ["name", "riot_id", "all"]):
@@ -338,7 +299,7 @@ class PlayerService:
 
     @staticmethod
     def _score_tag_line(
-        player: Player, search_type: str, query_lower: str, tag_line: str | None
+        player: PlayerORM, search_type: str, query_lower: str, tag_line: str | None
     ) -> int | None:
         """Calculate distance for tag_line if applicable."""
         if player.tag_line and (search_type in ["tag", "riot_id"]):
@@ -348,7 +309,7 @@ class PlayerService:
 
     @staticmethod
     def _calculate_levenshtein_distances(
-        player: Player,
+        player: PlayerORM,
         search_type: str,
         query_lower: str,
         tag_line: str | None,
@@ -379,17 +340,20 @@ class PlayerService:
 
     @staticmethod
     def _score_player_match(
-        player: Player,
+        player: PlayerORM,
         search_type: str,
         query_lower: str,
         game_name: str | None,
         tag_line: str | None,
     ) -> float:
-        """
-        Calculate relevance score for a player match.
+        """Calculate relevance score for a player match.
 
-        Returns:
-            Score where 1000.0 = exact match, 0.0-1.0 = fuzzy match quality
+        :param player: Player domain model to score
+        :param search_type: Type of search being performed
+        :param query_lower: Lowercased search query
+        :param game_name: Parsed game name
+        :param tag_line: Parsed tag line
+        :returns: Score where 1000.0 = exact match, 0.0-1.0 = fuzzy match quality
         """
         # Exact Riot ID match = highest priority
         if (
@@ -432,14 +396,23 @@ class PlayerService:
 
     def _score_and_sort_players(
         self,
-        players: list[Player],
+        players: list[PlayerORM],
         search_type: str,
         query_lower: str,
         game_name: str | None,
         tag_line: str | None,
         limit: int,
     ) -> list[dict]:
-        """Score players by relevance and return top matches."""
+        """Score players by relevance and return top matches.
+
+        :param players: List of player domain models to score
+        :param search_type: Type of search being performed
+        :param query_lower: Lowercased search query
+        :param game_name: Parsed game name
+        :param tag_line: Parsed tag line
+        :param limit: Maximum results to return
+        :returns: List of dicts with player, score, and name keys
+        """
         scored_players = [
             {
                 "player": player,
@@ -457,8 +430,7 @@ class PlayerService:
     async def fuzzy_search_players(
         self, query: str, platform: str, limit: int = 10
     ) -> List[PlayerResponse]:
-        """
-        Search for players using fuzzy matching with Levenshtein distance.
+        """Search for players using fuzzy matching with Levenshtein distance (REFACTORED).
 
         Auto-detects search type:
         - Contains '#' → Search Riot ID (game_name#tag_line)
@@ -471,32 +443,25 @@ class PlayerService:
         3. Best tag matches (by Levenshtein distance)
         4. Alphabetical as tiebreaker
 
-        Args:
-            query: Search query string
-            platform: Platform region
-            limit: Maximum results to return (default: 10)
-
-        Returns:
-            List of PlayerResponse sorted by relevance
+        :param query: Search query string
+        :param platform: Platform region
+        :param limit: Maximum results to return
+        :returns: List of PlayerResponse sorted by relevance
         """
-        # Parse search query
+        # Parse search query (business logic)
         search_type, game_name, tag_line = self._parse_search_query(query)
 
-        # Validate search query
+        # Validate search query (business logic)
         if not self._validate_search_query(query, search_type, game_name, tag_line):
             return []
 
-        # Build and execute database query
+        # Delegate search to repository
         query_lower = query.lower().strip()
-        stmt = self._build_player_search_query(
-            platform, search_type, query_lower, game_name, tag_line
+        players = await self.repository.fuzzy_search_by_type(
+            platform, search_type, query_lower, game_name, tag_line, 100
         )
-        stmt = stmt.limit(100)  # Prevent excessive result sets
 
-        result = await self.db.execute(stmt)
-        players = result.scalars().all()
-
-        # Score and sort results
+        # Score and sort results (business logic)
         top_players = self._score_and_sort_players(
             players, search_type, query_lower, game_name, tag_line, limit
         )
@@ -510,65 +475,34 @@ class PlayerService:
             results_returned=len(top_players),
         )
 
-        return [PlayerResponse.model_validate(p["player"]) for p in top_players]
+        # Transform to responses
+        return [player_orm_to_response(p["player"]) for p in top_players]
 
     @service_error_handler("PlayerService")
     @input_validation(validate_non_empty=["puuid"], validate_positive=["limit"])
     async def get_recent_opponents_with_details(
         self, puuid: str, limit: int
     ) -> List[PlayerResponse]:
+        """Get recent opponents for a player (REFACTORED).
+
+        Delegates complex join query to repository.
+
+        :param puuid: Player PUUID
+        :param limit: Maximum opponents to return
+        :returns: List of opponent player responses
         """
-        Get recent opponents for a player with their details from database only.
-
-        Only returns players that exist in our database with summoner_name populated.
-        Does NOT make any Riot API calls.
-
-        Args:
-            puuid: Player PUUID
-            limit: Maximum number of unique opponents to return
-
-        Returns:
-            List of PlayerResponse objects for opponents found in database
-        """
-        from app.features.matches.participants import MatchParticipant
-
-        # Use a single JOIN query to get opponent player data efficiently (fixes N+1 query problem)
-        # This joins MatchParticipant twice: once to find recent matches, once to find opponents
-        recent_matches_subq = (
-            select(MatchParticipant.match_id)
-            .where(MatchParticipant.puuid == puuid)
-            .order_by(MatchParticipant.id.desc())
-            .limit(limit * 5)  # Get more matches to find enough opponents
-            .subquery()
-        )
-
-        players_stmt = (
-            select(Player)
-            .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
-            .where(
-                and_(
-                    MatchParticipant.match_id.in_(recent_matches_subq),
-                    MatchParticipant.puuid != puuid,
-                    Player.is_active,
-                    Player.summoner_name.isnot(None),
-                    Player.summoner_name != "",
-                )
-            )
-            .distinct()
-            .limit(limit)
-        )
-
-        result = await self.db.execute(players_stmt)
-        players = result.scalars().all()
+        # Delegate complex join query to repository
+        opponents = await self.repository.get_recent_opponents(puuid, limit)
 
         logger.debug(
             "Found recent opponents with details",
             puuid=puuid,
-            opponent_count=len(players),
+            opponent_count=len(opponents),
             limit=limit,
         )
 
-        return [PlayerResponse.model_validate(player) for player in players]
+        # Transform list to responses
+        return [player_orm_to_response(player) for player in opponents]
 
     # === Player Tracking Methods for Automated Jobs ===
 
@@ -638,147 +572,110 @@ class PlayerService:
         return tracked_player
 
     async def track_player(self, puuid: str) -> PlayerResponse:
-        """Mark a player as tracked for automated monitoring.
+        """Mark a player as tracked for automated monitoring (REFACTORED).
 
-        Args:
-            puuid: Player's PUUID to track.
+        Demonstrates domain model usage:
+        1. Get player from repository
+        2. Use domain model method to mark as tracked
+        3. Save via repository
+        4. Transform to response
 
-        Returns:
-            Updated player data.
-
-        Raises:
-            ValueError: If player not found.
+        :param puuid: Player's PUUID to track
+        :returns: Updated player data
+        :raises ValueError: If player not found
         """
-        # Update player to tracked status
-        stmt = (
-            update(Player)
-            .where(Player.puuid == puuid)
-            .where(Player.is_active)
-            .values(is_tracked=True, updated_at=datetime.now(timezone.utc))
-            .returning(Player)
-        )
+        # Step 1: Get player domain model
+        player_orm = await self.repository.get_by_puuid(puuid)
 
-        result = await self.db.execute(stmt)
-        player = result.scalar_one_or_none()
-
-        if not player:
+        if not player_orm:
             raise ValueError(f"Player not found: {puuid}")
 
-        await self.db.commit()
+        # Step 2: Use domain model method (business logic in model)
+        player_orm.mark_as_tracked()
+
+        # Step 3: Save via repository
+        updated_player = await self.repository.save(player_orm)
 
         logger.info(
             "Player marked as tracked",
             puuid=puuid,
-            summoner_name=player.summoner_name,
+            summoner_name=updated_player.summoner_name,
         )
 
-        return PlayerResponse.model_validate(player)
+        # Step 4: Transform to response
+        return player_orm_to_response(updated_player)
 
     async def untrack_player(self, puuid: str) -> PlayerResponse:
-        """Remove a player from tracked status.
+        """Remove a player from tracked status (REFACTORED).
 
-        Args:
-            puuid: Player's PUUID to untrack.
+        Same pattern as track_player but uses domain model's unmark method.
 
-        Returns:
-            Updated player data.
-
-        Raises:
-            ValueError: If player not found.
+        :param puuid: Player's PUUID to untrack
+        :returns: Updated player data
+        :raises ValueError: If player not found
         """
-        stmt = (
-            update(Player)
-            .where(Player.puuid == puuid)
-            .where(Player.is_active)
-            .values(is_tracked=False, updated_at=datetime.now(timezone.utc))
-            .returning(Player)
-        )
+        # Get player domain model
+        player_orm = await self.repository.get_by_puuid(puuid)
 
-        result = await self.db.execute(stmt)
-        player = result.scalar_one_or_none()
-
-        if not player:
+        if not player_orm:
             raise ValueError(f"Player not found: {puuid}")
 
-        await self.db.commit()
+        # Use domain model method
+        player_orm.unmark_as_tracked()
+
+        # Save via repository
+        updated_player = await self.repository.save(player_orm)
 
         logger.info(
             "Player unmarked as tracked",
             puuid=puuid,
-            summoner_name=player.summoner_name,
+            summoner_name=updated_player.summoner_name,
         )
 
-        return PlayerResponse.model_validate(player)
+        # Transform to response
+        return player_orm_to_response(updated_player)
 
     async def get_tracked_players(self) -> List[PlayerResponse]:
-        """Get all players currently marked for tracking.
+        """Get all players currently marked for tracking (REFACTORED).
 
-        Returns:
-            List of tracked players.
+        Thin orchestration: delegate to repository, transform list.
+
+        :returns: List of tracked players
         """
-        query = (
-            select(Player)
-            .where(Player.is_tracked)
-            .where(Player.is_active)
-            .order_by(Player.summoner_name)
-        )
+        # Delegate to repository
+        players_orm = await self.repository.get_tracked_players()
 
-        result = await self.db.execute(query)
-        players = result.scalars().all()
-
-        return [PlayerResponse.model_validate(player) for player in players]
+        # Transform list using transformer
+        return [player_orm_to_response(p) for p in players_orm]
 
     async def count_tracked_players(self) -> int:
-        """Get count of currently tracked players.
+        """Get count of currently tracked players (REFACTORED).
 
-        Returns:
-            Number of tracked players.
+        Simple orchestration using repository.
+
+        :returns: Number of tracked players
         """
-        query = (
-            select(func.count())
-            .select_from(Player)
-            .where(Player.is_tracked, Player.is_active)
-        )
-
-        result = await self.db.execute(query)
-        return result.scalar() or 0
+        # Delegate to repository and count results
+        players = await self.repository.get_tracked_players()
+        return len(players)
 
     # === Methods for Player Analyzer Job ===
 
     async def get_players_needing_matches(
         self, limit: int, target_matches: int
-    ) -> List[Player]:
+    ) -> List[PlayerORM]:
+        """Get discovered players with insufficient match history (REFACTORED).
+
+        Used by player analyzer job to find players needing more matches.
+
+        :param limit: Maximum number of players to return
+        :param target_matches: Target number of matches per player
+        :returns: List of player domain models needing match data
         """
-        Get discovered players with insufficient match history.
-
-        This is used by the player analyzer job to find players that need
-        more matches fetched before they can be analyzed.
-
-        Args:
-            limit: Maximum number of players to return
-            target_matches: Target number of matches per player
-
-        Returns:
-            List of Player objects needing match data
-        """
-        from app.features.matches.participants import MatchParticipant
-
-        stmt = (
-            select(Player, func.count(MatchParticipant.match_id).label("match_count"))
-            .join(
-                MatchParticipant, Player.puuid == MatchParticipant.puuid, isouter=True
-            )
-            .where(Player.is_tracked.is_(False))
-            .where(Player.is_active.is_(True))
-            .where(Player.matches_exhausted.is_(False))
-            .group_by(Player.puuid)
-            .having(func.count(MatchParticipant.match_id) < target_matches)
-            .limit(limit)
+        # Delegate complex join query to repository
+        players = await self.repository.get_players_needing_matches(
+            target_matches, limit
         )
-
-        result = await self.db.execute(stmt)
-        rows = result.all()
-        players = [row[0] for row in rows]
 
         logger.debug(
             "Found players needing matches",
@@ -786,13 +683,11 @@ class PlayerService:
             target_matches=target_matches,
         )
 
-        # Log detailed info for each player to diagnose stuck state
-        for row in rows:
-            player, match_count = row[0], row[1]
+        # Log detailed info for debugging
+        for player in players:
             logger.debug(
                 "Player needing matches details",
                 puuid=player.puuid,
-                current_matches=match_count,
                 target_matches=target_matches,
                 is_analyzed=player.is_analyzed,
                 is_tracked=player.is_tracked,
@@ -802,42 +697,22 @@ class PlayerService:
 
     async def get_players_ready_for_analysis(
         self, limit: int, min_matches: int = 20
-    ) -> List[Player]:
+    ) -> List[PlayerORM]:
+        """Get unanalyzed players with sufficient match history (REFACTORED).
+
+        Used by player analyzer job to find players ready for analysis.
+
+        Note: Checks player_analysis table directly instead of is_analyzed flag,
+        as the flag can be unreliable (set even when analysis fails).
+
+        :param limit: Maximum number of players to return
+        :param min_matches: Minimum number of matches required for analysis
+        :returns: List of player domain models ready for analysis
         """
-        Get unanalyzed players with sufficient match history for player analysis.
-
-        This is used by the player analyzer job to find players ready for
-        player analysis.
-
-        Note: We check the player_analysis table directly instead of using
-        the is_analyzed flag, as the flag can be unreliable (set to True
-        even when analysis fails to create a detection record).
-
-        Args:
-            limit: Maximum number of players to return
-            min_matches: Minimum number of matches required for analysis
-
-        Returns:
-            List of Player objects ready for analysis
-        """
-        from app.features.matches.participants import MatchParticipant
-        from app.features.player_analysis.models import PlayerAnalysis
-
-        stmt = (
-            select(Player, func.count(MatchParticipant.match_id).label("match_count"))
-            .join(MatchParticipant, Player.puuid == MatchParticipant.puuid)
-            .outerjoin(PlayerAnalysis, Player.puuid == PlayerAnalysis.puuid)
-            .where(Player.is_tracked.is_(False))
-            .where(Player.is_active.is_(True))
-            .where(PlayerAnalysis.puuid.is_(None))
-            .group_by(Player.puuid)
-            .having(func.count(MatchParticipant.match_id) >= min_matches)
-            .limit(limit)
+        # Delegate complex join query to repository
+        players = await self.repository.get_players_ready_for_analysis(
+            min_matches, limit
         )
-
-        result = await self.db.execute(stmt)
-        rows = result.all()
-        players = [row[0] for row in rows]
 
         logger.debug(
             "Found players ready for analysis",
@@ -845,13 +720,11 @@ class PlayerService:
             min_matches=min_matches,
         )
 
-        # Log detailed info for each player to diagnose analysis readiness
-        for row in rows:
-            player, match_count = row[0], row[1]
+        # Log detailed info for debugging
+        for player in players:
             logger.debug(
                 "Player ready for analysis details",
                 puuid=player.puuid,
-                current_matches=match_count,
                 min_matches=min_matches,
                 is_analyzed=player.is_analyzed,
                 is_tracked=player.is_tracked,
@@ -861,36 +734,23 @@ class PlayerService:
 
     async def get_players_for_ban_check(
         self, days: int, limit: int = 10
-    ) -> List[Player]:
+    ) -> List[PlayerORM]:
+        """Get detected smurfs that need ban status checking (REFACTORED).
+
+        Used by player analyzer job to find previously detected smurfs
+        that haven't had their ban status checked recently.
+
+        :param days: Number of days since last ban check
+        :param limit: Maximum number of players to return
+        :returns: List of player domain models needing ban check
         """
-        Get detected smurfs that need ban status checking.
+        from datetime import timedelta
 
-        This is used by the player analyzer job to find players that were
-        previously detected as smurfs and haven't had their ban status checked
-        recently.
-
-        Args:
-            days: Number of days since last ban check
-            limit: Maximum number of players to return
-
-        Returns:
-            List of Player objects needing ban check
-        """
-        from app.features.player_analysis.models import PlayerAnalysis
-        from datetime import datetime, timedelta
-
+        # Calculate cutoff date (business logic)
         cutoff = datetime.now() - timedelta(days=days)
 
-        stmt = (
-            select(Player)
-            .join(PlayerAnalysis, Player.puuid == PlayerAnalysis.puuid)
-            .where(PlayerAnalysis.is_smurf.is_(True))
-            .where(or_(Player.last_ban_check.is_(None), Player.last_ban_check < cutoff))
-            .limit(limit)
-        )
-
-        result = await self.db.execute(stmt)
-        players = list(result.scalars().all())
+        # Delegate join query to repository
+        players = await self.repository.get_players_for_ban_check(cutoff, limit)
 
         logger.debug(
             "Found players needing ban check",
@@ -901,32 +761,27 @@ class PlayerService:
         return players
 
     async def check_ban_status(
-        self, player: Player, riot_api_client: "RiotAPIClient"
+        self, player: PlayerORM, riot_api_client: "RiotAPIClient"
     ) -> bool:
-        """
-        Check if a player is banned by attempting to fetch their summoner data.
+        """Check if a player is banned by fetching summoner data (REFACTORED).
 
         A 404 response from the Riot API typically indicates the player is banned
         or has changed their name.
 
-        Args:
-            player: Player object to check
-            riot_api_client: RiotAPIClient instance (from jobs)
-
-        Returns:
-            True if player is likely banned, False if player is active
+        :param player: Player domain model to check
+        :param riot_api_client: RiotAPIClient instance (from jobs)
+        :returns: True if player is likely banned, False if player is active
         """
         from app.core.riot_api.constants import Platform
-        from datetime import datetime
 
         platform = Platform(player.platform.lower())
 
         # Attempt to fetch summoner data
         await riot_api_client.get_summoner_by_puuid(player.puuid, platform)
 
-        # Player found = not banned
+        # Player found = not banned, update timestamp
         player.last_ban_check = datetime.now()
-        await self.db.commit()
+        await self.repository.save(player)
 
         logger.debug("Player is active (not banned)", puuid=player.puuid)
         return False
@@ -940,27 +795,18 @@ class PlayerService:
         validate_non_empty=["platform"],
     )
     async def discover_players_from_match(self, match_dto: Any, platform: str) -> int:
-        """
-        Discover and create player records from match participants.
+        """Discover and create player records from match participants (REFACTORED).
 
-        This method checks if players exist in the database and creates
-        minimal player records for any new players discovered in a match.
-        These discovered players are marked as not tracked and not analyzed.
+        Checks if players exist in the database and creates minimal player records
+        for any new players discovered in a match. These discovered players are
+        marked as not tracked and not analyzed.
 
-        The method handles its own transaction boundaries to ensure
-        data consistency without requiring external transaction management.
-
-        Args:
-            match_dto: Match DTO from Riot API
-            platform: Platform for the players
-
-        Returns:
-            Number of newly discovered players
-
-        Raises:
-            PlayerServiceError: If match processing fails
-            ValidationError: If input parameters are invalid
-            DatabaseError: If database operations fail
+        :param match_dto: Match DTO from Riot API
+        :param platform: Platform for the players
+        :returns: Number of newly discovered players
+        :raises PlayerServiceError: If match processing fails
+        :raises ValidationError: If input parameters are invalid
+        :raises DatabaseError: If database operations fail
         """
         from app.features.matches.transformers import PlayerDataSanitizer
 
@@ -968,14 +814,11 @@ class PlayerService:
         discovered_count = 0
 
         for participant in match_dto.info.participants:
-            # Check if player exists in database
-            result = await self.db.execute(
-                select(Player).where(Player.puuid == participant.puuid)
-            )
-            existing_player = result.scalar_one_or_none()
+            # Check if player exists in database (delegate to repository)
+            existing_player = await self.repository.get_by_puuid(participant.puuid)
 
             if not existing_player:
-                # Sanitize player data
+                # Sanitize player data (business logic)
                 player_data = {
                     "riot_id": participant.riot_id_game_name,
                     "tag_line": participant.riot_id_tagline,
@@ -984,7 +827,7 @@ class PlayerService:
                 player_data = PlayerDataSanitizer.sanitize_player_fields(player_data)
 
                 # Create new player record marked for analysis
-                new_player = Player(
+                new_player = PlayerORM(
                     puuid=participant.puuid,
                     riot_id=player_data["riot_id"],
                     tag_line=player_data["tag_line"],
@@ -995,7 +838,9 @@ class PlayerService:
                     is_analyzed=False,  # Needs analysis
                     is_active=True,
                 )
-                self.db.add(new_player)
+
+                # Delegate creation to repository
+                await self.repository.create(new_player)
                 discovered_count += 1
 
                 logger.debug(
@@ -1008,9 +853,8 @@ class PlayerService:
                     ),
                 )
 
-        # Commit transaction for all discovered players
+        # Log results
         if discovered_count > 0:
-            await self.db.commit()
             logger.info(
                 "Discovered players from match",
                 match_id=match_dto.metadata.match_id,
@@ -1028,25 +872,20 @@ class PlayerService:
 
     @service_error_handler("PlayerService")
     async def update_player_rank(
-        self, player: Player, riot_api_client: "RiotAPIClient"
+        self, player: PlayerORM, riot_api_client: "RiotAPIClient"
     ) -> bool:
-        """Update player's current rank from Riot API.
+        """Update player's current rank from Riot API (REFACTORED).
 
         Fetches the player's ranked league entries and stores their
         Solo/Duo rank in the PlayerRank table.
 
-        Args:
-            player: Player to update rank for
-            riot_api_client: RiotAPIClient instance (from jobs)
-
-        Returns:
-            True if rank was updated, False if no rank data found or error occurred
-
-        Raises:
-            ValueError: If player has invalid platform
+        :param player: Player domain model to update rank for
+        :param riot_api_client: RiotAPIClient instance (from jobs)
+        :returns: True if rank was updated, False if no rank data found
+        :raises ValueError: If player has invalid platform
         """
         from app.core.riot_api.constants import Platform
-        from .ranks import PlayerRank
+        from .orm_models import PlayerRankORM
 
         logger.debug("Updating player rank", puuid=player.puuid)
 
@@ -1062,7 +901,7 @@ class PlayerService:
             logger.debug("No ranked data found for player", puuid=player.puuid)
             return False
 
-        # Find Solo/Duo ranked entry
+        # Find Solo/Duo ranked entry (business logic)
         solo_entry = next(
             (e for e in league_entries if e.queue_type == "RANKED_SOLO_5x5"), None
         )
@@ -1071,8 +910,8 @@ class PlayerService:
             logger.debug("No Solo/Duo rank found for player", puuid=player.puuid)
             return False
 
-        # Create rank record
-        rank_record = PlayerRank(
+        # Create rank domain model
+        rank_record = PlayerRankORM(
             puuid=player.puuid,
             queue_type=solo_entry.queue_type,
             tier=solo_entry.tier,
@@ -1090,7 +929,8 @@ class PlayerService:
             is_current=True,
         )
 
-        self.db.add(rank_record)
+        # Delegate creation to repository
+        await self.repository.create_rank(rank_record)
 
         logger.info(
             "Updated player rank",
@@ -1104,25 +944,12 @@ class PlayerService:
 
     async def get_player_rank(
         self, puuid: str, queue_type: str = "RANKED_SOLO_5x5"
-    ) -> "PlayerRank | None":
-        """Get the most recent rank for a player.
+    ) -> "PlayerRankORM | None":
+        """Get the most recent rank for a player (REFACTORED).
 
-        Args:
-            puuid: Player's PUUID
-            queue_type: Queue type (default: RANKED_SOLO_5x5)
-
-        Returns:
-            Most recent PlayerRank or None if no rank data exists
+        :param puuid: Player's PUUID
+        :param queue_type: Queue type (default: RANKED_SOLO_5x5)
+        :returns: Most recent PlayerRankORM or None if no rank data exists
         """
-        from sqlalchemy import select
-        from .ranks import PlayerRank
-
-        stmt = (
-            select(PlayerRank)
-            .where(PlayerRank.puuid == puuid)
-            .where(PlayerRank.queue_type == queue_type)
-            .order_by(PlayerRank.updated_at.desc())
-            .limit(1)
-        )
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        # Delegate query to repository
+        return await self.repository.get_rank_by_puuid(puuid, queue_type)
