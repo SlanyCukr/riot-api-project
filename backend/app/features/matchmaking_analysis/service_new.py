@@ -1,4 +1,5 @@
 from typing import List, Optional
+import structlog
 
 from app.features.matchmaking_analysis.repository import (
     MatchmakingAnalysisRepositoryInterface,
@@ -12,6 +13,8 @@ from app.features.matchmaking_analysis.schemas import (
     MatchmakingAnalysisResponse,
 )
 from app.core.enums import JobStatus
+
+logger = structlog.get_logger()
 
 
 class MatchmakingAnalysisService:
@@ -112,23 +115,29 @@ class MatchmakingAnalysisService:
                         # TODO: Implement actual matchmaking fairness calculations
 
                 except Exception as e:
-                    print(f"Error processing match {match.get('matchId')}: {e}")
+                    logger.error(
+                        "match_processing_error",
+                        match_id=match.get("matchId"),
+                        error=str(e),
+                    )
                     continue
 
             # Calculate final results (placeholder for now)
+            # TODO: Implement actual matchmaking analysis calculations
+            # TODO: Calculate real winrate from match data
+            # TODO: Calculate actual rank difference between teams
+            # TODO: Implement fairness score algorithm based on rank distribution
             analysis_results.update(
                 {
-                    "winrate": 0.5,  # Placeholder
-                    "avg_rank_difference": 25.0,  # Placeholder
-                    "fairness_score": 0.7,  # Placeholder
+                    "winrate": 0.5,  # Placeholder - will be calculated from actual match results
+                    "avg_rank_difference": 25.0,  # Placeholder - will be calculated from team rank differences
+                    "fairness_score": 0.7,  # Placeholder - will be calculated using fairness algorithm
                 }
             )
 
             # Save results
             await self.repository.save_analysis_results(analysis_id, analysis_results)
-            await self.repository.update_analysis_status(
-                analysis_id, JobStatus.COMPLETED
-            )
+            await self.repository.update_analysis_status(analysis_id, JobStatus.SUCCESS)
 
         except Exception as e:
             # Handle failure
