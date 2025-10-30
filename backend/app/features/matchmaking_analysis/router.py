@@ -1,74 +1,66 @@
-"""Matchmaking analysis API endpoints."""
+from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from .schemas import (
-    MatchmakingAnalysisRequest,
+from app.features.matchmaking_analysis.service_new import MatchmakingAnalysisService
+from app.features.matchmaking_analysis.dependencies import MatchmakingAnalysisServiceDep
+from app.features.matchmaking_analysis.schemas import (
+    MatchmakingAnalysisCreate,
     MatchmakingAnalysisResponse,
-    MatchmakingAnalysisStatusResponse,
+    MatchmakingAnalysisListResponse
 )
-from .dependencies import MatchmakingServiceDep
 
 router = APIRouter(prefix="/matchmaking-analysis", tags=["matchmaking-analysis"])
 
-
 @router.post("/start", response_model=MatchmakingAnalysisResponse)
 async def start_analysis(
-    request: MatchmakingAnalysisRequest,
-    service: MatchmakingServiceDep,
-):
-    """
-    Start a new matchmaking analysis for a player.
-
-    This will analyze the player's last 10 ranked matches and calculate
-    average winrates for teammates vs enemies.
-    """
+    request: MatchmakingAnalysisCreate,
+    service: MatchmakingAnalysisServiceDep
+) -> MatchmakingAnalysisResponse:
+    """Start a new matchmaking analysis"""
     try:
-        return await service.start_analysis(request.puuid)
+        return await service.start_analysis(request)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{analysis_id}", response_model=MatchmakingAnalysisStatusResponse)
-async def get_analysis_status(
-    analysis_id: int,
-    service: MatchmakingServiceDep,
-):
-    """Get the current status of a matchmaking analysis."""
-    result = await service.get_analysis_status(analysis_id)
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    return result
-
-
-@router.get("/player/{puuid}", response_model=MatchmakingAnalysisResponse)
-async def get_latest_analysis(
-    puuid: str,
-    service: MatchmakingServiceDep,
-):
-    """Get the latest analysis for a player."""
-    result = await service.get_latest_analysis(puuid)
-
-    if not result:
-        raise HTTPException(status_code=404, detail="No analysis found for this player")
-
-    return result
-
-
-@router.post("/{analysis_id}/cancel")
-async def cancel_analysis(
-    analysis_id: int,
-    service: MatchmakingServiceDep,
-):
-    """Cancel an ongoing matchmaking analysis."""
-    success = await service.cancel_analysis(analysis_id)
-
-    if not success:
         raise HTTPException(
-            status_code=404,
-            detail="Analysis not found or already completed/cancelled",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start analysis: {str(e)}"
         )
 
-    return {"message": "Analysis cancelled successfully"}
+@router.get("/job/{job_id}/status", response_model=MatchmakingAnalysisResponse)
+async def get_analysis_status(
+    job_id: str,
+    service: MatchmakingAnalysisServiceDep
+) -> MatchmakingAnalysisResponse:
+    """Get analysis job status"""
+    result = await service.get_analysis_status(job_id)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis job not found"
+        )
+    return result
+
+@router.get("/user/{user_id}/analyses", response_model=MatchmakingAnalysisListResponse)
+async def get_user_analyses(
+    user_id: str,
+    service: MatchmakingAnalysisServiceDep,
+    limit: int = 50
+) -> MatchmakingAnalysisListResponse:
+    """Get user's analysis history"""
+    analyses = await service.get_user_analyses(user_id, limit)
+    return MatchmakingAnalysisListResponse(analyses=analyses)
+
+@router.post("/job/{job_id}/execute", response_model=dict)
+async def execute_analysis(
+    job_id: str,
+    service: MatchmakingAnalysisServiceDep
+) -> dict:
+    """Execute analysis job (for background task execution)"""
+    try:
+        await service.execute_background_analysis(job_id)
+        return {"message": "Analysis execution started", "job_id": job_id}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to execute analysis: {str(e)}"
+        )

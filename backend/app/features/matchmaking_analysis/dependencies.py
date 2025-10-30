@@ -8,9 +8,9 @@ from app.features.matchmaking_analysis.repository import (
     SQLAlchemyMatchmakingAnalysisRepository,
     MatchmakingAnalysisRepositoryInterface,
 )
-from app.features.matchmaking_analysis.service import MatchmakingAnalysisService
+from app.features.matchmaking_analysis.service_new import MatchmakingAnalysisService
 from app.core.riot_api import RiotAPIClient
-from app.core.riot_api.data_manager import DataManager
+from app.core.riot_api.data_manager import RiotDataManager
 from app.features.matchmaking_analysis.gateway import MatchmakingGateway
 from app.features.matchmaking_analysis.transformers import (
     MatchmakingAnalysisTransformer,
@@ -35,7 +35,7 @@ MatchmakingAnalysisRepositoryDep = Annotated[
 # Gateway dependency
 def get_matchmaking_gateway(
     riot_client: Annotated[RiotAPIClient, Depends()],
-    data_manager: Annotated[DataManager, Depends()],
+    data_manager: Annotated[RiotDataManager, Depends()],
 ) -> MatchmakingGateway:
     return MatchmakingGateway(riot_client, data_manager)
 
