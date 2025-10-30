@@ -1,8 +1,11 @@
 from typing import List, Dict, Any, Optional
 import asyncio
+import structlog
 
 from app.core.riot_api import RiotAPIClient
 from app.core.riot_api.data_manager import RiotDataManager
+
+logger = structlog.get_logger(__name__)
 
 
 class MatchmakingGateway:
@@ -20,7 +23,7 @@ class MatchmakingGateway:
             return match_data
         except Exception as e:
             # Log error and return None - let service layer handle
-            print(f"Error fetching match {match_id}: {e}")
+            logger.error("match_fetch_error", match_id=match_id, error=str(e))
             return None
 
     async def get_player_recent_matches(
@@ -49,7 +52,7 @@ class MatchmakingGateway:
             return [{"matchId": match_id} for match_id in match_ids]
         except Exception as e:
             # Log error and return empty list
-            print(f"Error fetching match history for {puuid}: {e}")
+            logger.error("match_history_fetch_error", puuid=puuid, error=str(e))
             return []
 
     async def get_multiple_players_matches(
