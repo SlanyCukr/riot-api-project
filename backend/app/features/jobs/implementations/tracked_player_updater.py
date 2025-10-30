@@ -1,4 +1,4 @@
-"""Tracked Player Updater Job - Updates match history and rank for tracked players."""
+"""Tracked PlayerORM Updater Job - Updates match history and rank for tracked players."""
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..base import BaseJob
 from ..error_handling import handle_riot_api_errors
-from app.features.players.models import Player
+from app.features.players.orm_models import PlayerORM
 from app.core.riot_api.client import RiotAPIClient
 from app.core.riot_api.data_manager import RiotDataManager
 from app.core.riot_api.errors import NotFoundError
@@ -160,18 +160,18 @@ class TrackedPlayerUpdaterJob(BaseJob):
             players_discovered=summary["discovered"],
         )
 
-    async def _get_tracked_players(self, db: AsyncSession) -> List[Player]:
+    async def _get_tracked_players(self, db: AsyncSession) -> List[PlayerORM]:
         """Get all players marked as tracked.
 
         :param db: Database session.
         :type db: AsyncSession
         :returns: List of tracked players.
-        :rtype: List[Player]
+        :rtype: List[PlayerORM]
         """
         stmt = (
-            select(Player)
-            .where(Player.is_tracked)
-            .where(Player.is_active)
+            select(PlayerORM)
+            .where(PlayerORM.is_tracked)
+            .where(PlayerORM.is_active)
             .limit(self.max_tracked_players)
         )
         result = await db.execute(stmt)
@@ -184,14 +184,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
         log_context=lambda self, db, player: {"puuid": player.puuid},
     )
     async def _sync_tracked_player(
-        self, db: AsyncSession, player: Player
+        self, db: AsyncSession, player: PlayerORM
     ) -> Dict[str, int]:
         """Synchronize tracked player's matches and rank.
 
         :param db: Database session.
         :type db: AsyncSession
-        :param player: Player to synchronize.
-        :type player: Player
+        :param player: PlayerORM to synchronize.
+        :type player: PlayerORM
         :returns: Summary statistics.
         :rtype: Dict[str, int]
         """
@@ -239,13 +239,15 @@ class TrackedPlayerUpdaterJob(BaseJob):
 
         return {"matches": matches_processed, "discovered": players_discovered}
 
-    async def _fetch_new_matches(self, db: AsyncSession, player: Player) -> List[str]:
+    async def _fetch_new_matches(
+        self, db: AsyncSession, player: PlayerORM
+    ) -> List[str]:
         """Fetch new match IDs for a player since last check.
 
         :param db: Database session.
         :type db: AsyncSession
-        :param player: Player to fetch matches for.
-        :type player: Player
+        :param player: PlayerORM to fetch matches for.
+        :type player: PlayerORM
         :returns: List of new match IDs.
         :rtype: List[str]
         """
@@ -270,7 +272,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
             return new_match_ids
 
         except NotFoundError:
-            logger.warning("Player not found in Riot API", puuid=player.puuid)
+            logger.warning("PlayerORM not found in Riot API", puuid=player.puuid)
             return []
 
     @handle_riot_api_errors(
@@ -282,7 +284,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         },
     )
     async def _process_match(
-        self, db: AsyncSession, match_id: str, player: Player
+        self, db: AsyncSession, match_id: str, player: PlayerORM
     ) -> int:
         """Process a single match - fetch details and store participants.
 
@@ -291,7 +293,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :param match_id: Match ID to process.
         :type match_id: str
         :param player: The tracked player (for context).
-        :type player: Player
+        :type player: PlayerORM
         :returns: Number of discovered players.
         :rtype: int
         """
@@ -338,19 +340,19 @@ class TrackedPlayerUpdaterJob(BaseJob):
         critical=False,
         log_context=lambda self, db, player: {"puuid": player.puuid},
     )
-    async def _update_player_rank(self, db: AsyncSession, player: Player) -> None:
+    async def _update_player_rank(self, db: AsyncSession, player: PlayerORM) -> None:
         """Update player's current rank from Riot API.
 
         :param db: Database session.
         :type db: AsyncSession
-        :param player: Player to update rank for.
-        :type player: Player
+        :param player: PlayerORM to update rank for.
+        :type player: PlayerORM
         """
         from app.features.players.service import PlayerService
 
         player_service = PlayerService(db)
 
-        rank_updated = await player_service.update_player_rank(player, self.api_client)
+        rank_updated = await player_service.update_player_rank(player)
         if rank_updated:
             await self.safe_commit(
                 db,
@@ -374,13 +376,15 @@ class TrackedPlayerUpdaterJob(BaseJob):
         self.add_log_entry("matches_processed", summary["matches"])
         self.add_log_entry("players_discovered", summary["discovered"])
 
-    async def _get_existing_match_count(self, db: AsyncSession, player: Player) -> int:
+    async def _get_existing_match_count(
+        self, db: AsyncSession, player: PlayerORM
+    ) -> int:
         """Get count of existing matches for a player.
 
         :param db: Database session.
         :type db: AsyncSession
-        :param player: Player to count matches for.
-        :type player: Player
+        :param player: PlayerORM to count matches for.
+        :type player: PlayerORM
         :returns: Number of existing matches.
         :rtype: int
         """
@@ -390,14 +394,14 @@ class TrackedPlayerUpdaterJob(BaseJob):
         return await match_service.count_player_matches(player.puuid)
 
     async def _get_last_match_time(
-        self, db: AsyncSession, player: Player
+        self, db: AsyncSession, player: PlayerORM
     ) -> Optional[int]:
         """Get timestamp of player's most recent match in database.
 
         :param db: Database session.
         :type db: AsyncSession
-        :param player: Player to get last match time for.
-        :type player: Player
+        :param player: PlayerORM to get last match time for.
+        :type player: PlayerORM
         :returns: Timestamp in milliseconds, or None if no matches.
         :rtype: Optional[int]
         """
@@ -415,7 +419,7 @@ class TrackedPlayerUpdaterJob(BaseJob):
         :type last_match_time: Optional[int]
         :param existing_match_count: Number of existing matches.
         :type existing_match_count: int
-        :param puuid: Player PUUID for logging.
+        :param puuid: PlayerORM PUUID for logging.
         :type puuid: str
         :returns: Start time timestamp in seconds.
         :rtype: int
@@ -460,12 +464,12 @@ class TrackedPlayerUpdaterJob(BaseJob):
         return start_time
 
     async def _fetch_match_ids_in_batches(
-        self, player: Player, start_time: int
+        self, player: PlayerORM, start_time: int
     ) -> List[str]:
         """Fetch match IDs from Riot API in batches.
 
-        :param player: Player to fetch matches for.
-        :type player: Player
+        :param player: PlayerORM to fetch matches for.
+        :type player: PlayerORM
         :param start_time: Start time timestamp in seconds.
         :type start_time: int
         :returns: List of match IDs.

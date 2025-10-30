@@ -153,7 +153,7 @@ class BanCheckerJob(BaseJob):
         :param execution_summary: Execution summary dict for tracking metrics.
         :returns: True if banned, False if not banned, None if error occurred.
         """
-        return await self.player_service.check_ban_status(player, self.api_client)
+        return await self.player_service.check_ban_status(player)
 
     def _log_execution_summary(self, execution_summary: dict) -> None:
         """Log execution summary to job execution log."""

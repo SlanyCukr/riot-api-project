@@ -1,5 +1,7 @@
 # Jobs Documentation
 
+> **For implementation details:** See `backend/app/features/jobs/AGENTS.md` > **For API reference:** See `backend/app/features/jobs/README.md`
+
 This document describes the automated background jobs that run in the Riot API project to continuously fetch and analyze player data.
 
 ## Overview
@@ -189,15 +191,15 @@ erDiagram
 
 ### CRUD Operations Summary
 
-| Operation | Table                      | Purpose                             | Frequency   |
-| --------- | -------------------------- | ----------------------------------- | ----------- |
-| SELECT    | players                    | Get players needing matches         | Phase 1     |
-| SELECT    | players                    | Get players ready for analysis      | Phase 2     |
+| Operation | Table                     | Purpose                             | Frequency   |
+| --------- | ------------------------- | ----------------------------------- | ----------- |
+| SELECT    | players                   | Get players needing matches         | Phase 1     |
+| SELECT    | players                   | Get players ready for analysis      | Phase 2     |
 | SELECT    | players + player_analysis | Get smurfs for ban check            | Phase 3     |
-| SELECT    | match_participants         | Count player matches                | Phase 1 & 2 |
-| INSERT    | matches                    | Store fetched matches               | Phase 1     |
+| SELECT    | match_participants        | Count player matches                | Phase 1 & 2 |
+| INSERT    | matches                   | Store fetched matches               | Phase 1     |
 | INSERT    | player_analysis           | Store analysis results              | Phase 2     |
-| UPDATE    | players                    | Mark as analyzed, update timestamps | Phase 2 & 3 |
+| UPDATE    | players                   | Mark as analyzed, update timestamps | Phase 2 & 3 |
 
 ---
 

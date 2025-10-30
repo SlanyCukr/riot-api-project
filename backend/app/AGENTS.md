@@ -12,10 +12,26 @@ app/
 ├── core/                # Infrastructure (database, config, Riot API, etc.)
 │   ├── database.py
 │   ├── config.py
-│   ├── riot_api/
-│   └── ...
-└── features/            # Domain features (players, matches, player_analysis, etc.)
-    ├── players/
+│   ├── dependencies.py
+│   ├── exceptions.py
+│   ├── enums.py
+│   ├── models.py
+│   ├── decorators.py
+│   ├── validation.py
+│   ├── rate_limiter.py
+│   └── riot_api/
+│       ├── client.py
+│       ├── data_manager.py
+│       ├── rate_limiter.py
+│       ├── transformers.py
+│       ├── endpoints.py
+│       ├── constants.py
+│       ├── models.py
+│       ├── errors.py
+│       └── __init__.py
+└── features/            # Domain features
+    ├── auth/            # JWT authentication
+    ├── players/         # Enterprise pattern with repository
     ├── matches/
     ├── player_analysis/
     ├── matchmaking_analysis/
@@ -35,28 +51,50 @@ app/
 ### Router Registration Pattern
 
 ```python
-from app.features.players import players_router
-from app.features.matches import matches_router
+from app.features.auth import auth_router
+from app.features.players.router import router as players_router
+from app.features.matches.router import router as matches_router
+from app.features.player_analysis.router import router as player_analysis_router
+from app.features.jobs import jobs_router
+from app.features.settings.router import router as settings_router
+from app.features.matchmaking_analysis.router import router as matchmaking_router
 
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(players_router, prefix="/api/v1", tags=["players"])
 app.include_router(matches_router, prefix="/api/v1", tags=["matches"])
+app.include_router(player_analysis_router, prefix="/api/v1", tags=["player-analysis"])
+app.include_router(jobs_router, prefix="/api/v1", tags=["jobs"])
+app.include_router(settings_router, prefix="/api/v1", tags=["settings"])
+app.include_router(matchmaking_router, prefix="/api/v1", tags=["matchmaking-analysis"])
 ```
 
 ## Startup/Shutdown Lifecycle
 
+**Note**: The current `main.py` uses the older `@app.on_event()` pattern instead of the newer `lifespan` context manager.
+
 ```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    logger.info("Starting up Riot API Backend application")
+    await _validate_api_key_configuration()
+    await _start_scheduler_safely()
+    yield
+    logger.info("Shutting down Riot API Backend application")
+    await _shutdown_scheduler_safely()
+
+# Actual main.py uses this pattern:
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on app startup."""
-    # Database connection pool created automatically
-    # Background job scheduler starts
+    await _validate_api_key_configuration()
+    await _start_scheduler_safely()
     logger.info("application_started")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on app shutdown."""
-    # Scheduler stops gracefully
-    # Database connections close
+    await _shutdown_scheduler_safely()
     logger.info("application_shutdown")
 ```
 
@@ -102,6 +140,8 @@ from app.core.exceptions import RiotAPIError
 from app.features.players import PlayerService, Player, PlayerResponse
 from app.features.matches import MatchService, Match
 from app.features.player_analysis import PlayerAnalysisService
+from app.features.auth import auth_router
+from app.features.jobs import jobs_router, start_scheduler
 ```
 
 ### From Features (Direct)
@@ -110,6 +150,8 @@ from app.features.player_analysis import PlayerAnalysisService
 # Internal feature use
 from app.features.players.service import PlayerService
 from app.features.players.models import Player, Rank
+from app.features.players.repository import PlayerRepositoryInterface
+from app.features.players.orm_models import PlayerORM
 ```
 
 ## Dependency Injection
@@ -138,10 +180,10 @@ async def get_player(
 ## Middleware and CORS
 
 ```python
-# CORS configured for frontend development
+# CORS configured for frontend development (configured via settings)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -21,7 +21,7 @@ class PlayerRank(Base):
     """Player rank model storing ranked information."""
 
     __tablename__ = "player_ranks"
-    __table_args__ = {"schema": "core"}
+    __table_args__ = {"schema": "core", "extend_existing": True}
 
     # Primary key
     id: Mapped[int] = mapped_column(

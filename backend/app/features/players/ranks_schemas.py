@@ -65,4 +65,15 @@ class PlayerRankResponse(PlayerRankBase):
     total_games: int = Field(..., description="Total number of games played")
     display_rank: str = Field(..., description="Display rank (e.g., 'Gold II')")
 
+    # Additional computed fields from domain logic
+    is_provisional: Optional[bool] = Field(
+        None, description="Whether this rank is provisional (new account)"
+    )
+    is_fresh: Optional[bool] = Field(
+        None, description="Whether this rank record is recent"
+    )
+    mmr_estimate: Optional[float] = Field(
+        None, description="Estimated MMR (Matchmaking Rating)"
+    )
+
     model_config = ConfigDict(from_attributes=True)

@@ -29,7 +29,6 @@ services:
     build:
       target: development
     container_name: riot_api_app_backend_dev
-    user: "1000:1000"
     environment:
       LOG_LEVEL: DEBUG
       POSTGRES_DB: ${POSTGRES_DB}
@@ -37,7 +36,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ENVIRONMENT: dev
       WATCHFILES_FORCE_POLLING: "true"
-      UV_CACHE_DIR: /tmp/.uv-cache
+      UV_NO_CACHE: "1"
+      UV_PROJECT_ENVIRONMENT: /app/.venv
     ports:
       - "8000:8000"
     volumes:

@@ -52,6 +52,32 @@ class PlayerResponse(PlayerBase):
         None, description="When this player was last checked for ban status"
     )
 
+    # Computed fields from domain logic
+    win_rate: Optional[float] = Field(
+        None, description="Win rate as percentage (calculated from wins/losses)"
+    )
+    total_games: Optional[int] = Field(
+        None, description="Total number of games (wins + losses)"
+    )
+    display_rank: Optional[str] = Field(
+        None, description="Human-readable rank display (e.g., 'Gold II')"
+    )
+    is_new_account: Optional[bool] = Field(
+        None, description="Whether this is considered a new account (< level 30)"
+    )
+    is_veteran: Optional[bool] = Field(
+        None, description="Whether this is a veteran player (level 100+, 500+ games)"
+    )
+    is_high_elo: Optional[bool] = Field(
+        None, description="Whether this player is in high ELO (Diamond+)"
+    )
+    needs_data_refresh: Optional[bool] = Field(
+        None, description="Whether player data needs to be refreshed from Riot API"
+    )
+    smurf_likelihood: Optional[float] = Field(
+        None, description="Probability score (0.0-1.0) that this is a smurf account"
+    )
+
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -1,7 +1,13 @@
 # Extended Authentication Schema
 
-> **Status**: Design document for future implementation
-> **Current**: Only `users` table implemented (see `docs/docs/database.md`)
+> **⚠️ STATUS: PROPOSED - NOT IMPLEMENTED**
+>
+> This document describes a **future** extended authentication system for multi-user support.
+>
+> **Current implementation** only includes basic `auth.users` table.
+> See `docs/architecture/database.md` for current schema.
+>
+> **Related:** See `docs/tasks/technical-debt.md` for planned auth improvements (refresh tokens, account lockout, etc.).
 
 This document describes the planned authentication and authorization system for when the platform opens to public users.
 
@@ -472,6 +478,6 @@ def can_create_analysis(user_id: int) -> bool:
 
 ## See Also
 
-- [Database Schema](/docs/docs/database.md) - Current implementation (users table only)
+- [Database Schema](/docs/architecture/database.md) - Current implementation (users table only)
 - [Backend Guide](/backend/AGENTS.md) - API patterns and authentication middleware
 - [Frontend Guide](/frontend/AGENTS.md) - Auth UI components and protected routes

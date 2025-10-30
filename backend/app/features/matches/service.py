@@ -8,7 +8,7 @@ from sqlalchemy import select, func, desc
 
 from .models import Match
 from .participants import MatchParticipant
-from app.features.players.models import Player
+from app.features.players.orm_models import PlayerORM
 from .schemas import (
     MatchResponse,
     MatchListResponse,
@@ -53,7 +53,7 @@ class MatchService:
         Supports pagination for infinite scroll.
 
         Args:
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
             start: Start index for pagination
             count: Number of matches to return
             queue: Filter by queue ID
@@ -168,7 +168,7 @@ class MatchService:
         Calculate player statistics from recent matches.
 
         Args:
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
             queue: Filter by queue ID
             limit: Number of matches to analyze
 
@@ -252,7 +252,7 @@ class MatchService:
             return match_ids
         except NotFoundError as e:
             logger.warning(
-                "Player not found in Riot API",
+                "PlayerORM not found in Riot API",
                 puuid=puuid,
                 error=str(e),
             )
@@ -365,7 +365,7 @@ class MatchService:
 
         Args:
             riot_api_client: RiotAPIClient instance (from jobs)
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
             count: Maximum number of NEW matches to fetch (not total matches)
             queue: Queue ID filter (default: 420 = Ranked Solo/Duo)
             platform: Platform ID for the player
@@ -475,7 +475,7 @@ class MatchService:
         )
         # Ensure summoner_name is never null or empty
         if not summoner_name or summoner_name.strip() == "":
-            return "Unknown Player"
+            return "Unknown PlayerORM"
         return summoner_name
 
     async def _ensure_players_exist(
@@ -487,7 +487,7 @@ class MatchService:
         # Bulk check for existing players
         participant_puuids = {p["puuid"] for p in participants}
         existing_players_result = await self.db.execute(
-            select(Player.puuid).where(Player.puuid.in_(participant_puuids))
+            select(PlayerORM.puuid).where(PlayerORM.puuid.in_(participant_puuids))
         )
         existing_puuids = {row[0] for row in existing_players_result.all()}
 
@@ -497,7 +497,7 @@ class MatchService:
             return
 
         new_players = [
-            Player(
+            PlayerORM(
                 puuid=puuid,
                 summoner_name=self._get_summoner_name_for_puuid(puuid, participants),
                 platform=platform_id.lower(),
@@ -631,7 +631,7 @@ class MatchService:
         """Get count of matches for a player in database.
 
         Args:
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
 
         Returns:
             Number of matches in database
@@ -648,7 +648,7 @@ class MatchService:
         """Get timestamp of player's most recent match in database.
 
         Args:
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
 
         Returns:
             Timestamp in milliseconds, or None if no matches

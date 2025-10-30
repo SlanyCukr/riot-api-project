@@ -584,7 +584,9 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
         and aggregation to find players ready for analysis.
         """
         from app.features.matches.participants import MatchParticipant
-        from app.features.player_analysis.models import PlayerAnalysis
+        from app.features.player_analysis.orm_models import (
+            PlayerAnalysisORM as PlayerAnalysis,
+        )
 
         stmt = (
             select(PlayerORM)
@@ -620,7 +622,9 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
         Join query with PlayerAnalysis to find players marked as smurfs
         who need their ban status checked.
         """
-        from app.features.player_analysis.models import PlayerAnalysis
+        from app.features.player_analysis.orm_models import (
+            PlayerAnalysisORM as PlayerAnalysis,
+        )
 
         stmt = (
             select(PlayerORM)

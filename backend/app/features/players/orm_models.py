@@ -22,7 +22,9 @@ from app.core.models import Base
 
 if TYPE_CHECKING:
     from app.features.matches.participants import MatchParticipant
-    from app.features.player_analysis.models import PlayerAnalysis
+    from app.features.player_analysis.orm_models import (
+        PlayerAnalysisORM as PlayerAnalysis,
+    )
 
 
 class PlayerORM(Base):
@@ -39,7 +41,7 @@ class PlayerORM(Base):
         Index("idx_players_summoner_platform", "summoner_name", "platform"),
         Index("idx_players_riot_tag", "riot_id", "tag_line"),
         Index("idx_players_last_seen_active", "last_seen", "is_active"),
-        {"schema": "core"},
+        {"schema": "core", "extend_existing": True},
     )
 
     # ========================================================================
@@ -356,7 +358,7 @@ class PlayerRankORM(Base):
         Index("idx_ranks_queue_current", "queue_type", "is_current"),
         Index("idx_ranks_puuid_current", "puuid", "is_current"),
         Index("idx_ranks_tier_lp", "tier", "league_points"),
-        {"schema": "core"},
+        {"schema": "core", "extend_existing": True},
     )
 
     # ========================================================================

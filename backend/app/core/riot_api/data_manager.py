@@ -30,7 +30,7 @@ from app.features.players.schemas import PlayerResponse, PlayerCreate
 
 # TYPE_CHECKING imports for type annotations (not evaluated at runtime)
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players.orm_models import PlayerORM
 
 logger = structlog.get_logger(__name__)
 
@@ -48,7 +48,7 @@ class RiotDataManager:
         self.api_client = api_client
 
     # ===================
-    # Player Data Methods
+    # PlayerORM Data Methods
     # ===================
 
     async def get_player_by_riot_id(
@@ -66,25 +66,25 @@ class RiotDataManager:
             PlayerResponse if found/fetched, None if rate limited
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players.orm_models import PlayerORM
 
         riot_id = f"{game_name}#{tag_line}"
 
         try:
             # 1. Check database first
             result = await self.db.execute(
-                select(Player).where(
-                    Player.riot_id == game_name,
-                    Player.tag_line == tag_line,
-                    Player.platform == platform,
-                    Player.is_active,
+                select(PlayerORM).where(
+                    PlayerORM.riot_id == game_name,
+                    PlayerORM.tag_line == tag_line,
+                    PlayerORM.platform == platform,
+                    PlayerORM.is_active,
                 )
             )
             player = result.scalar_one_or_none()
 
             if player:
                 logger.debug(
-                    "Player found in database",
+                    "PlayerORM found in database",
                     riot_id=riot_id,
                     platform=platform,
                     puuid=player.puuid,
@@ -93,7 +93,7 @@ class RiotDataManager:
 
             # 2. Not in database, fetch from Riot API
             logger.info(
-                "Player not in database, fetching from Riot API",
+                "PlayerORM not in database, fetching from Riot API",
                 riot_id=riot_id,
                 platform=platform,
             )
@@ -124,7 +124,7 @@ class RiotDataManager:
             player = await self._upsert_player(player_data)
 
             logger.info(
-                "Player fetched and stored",
+                "PlayerORM fetched and stored",
                 riot_id=riot_id,
                 platform=platform,
                 puuid=player.puuid,
@@ -158,28 +158,30 @@ class RiotDataManager:
         Get player data by PUUID (database-first).
 
         Args:
-            puuid: Player PUUID
+            puuid: PlayerORM PUUID
             platform: Platform region
 
         Returns:
             PlayerResponse if found/fetched, None if rate limited
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players.orm_models import PlayerORM
 
         try:
             # 1. Check database first
             result = await self.db.execute(
-                select(Player).where(Player.puuid == puuid, Player.is_active)
+                select(PlayerORM).where(PlayerORM.puuid == puuid, PlayerORM.is_active)
             )
             player = result.scalar_one_or_none()
 
             if player:
-                logger.debug("Player found in database", puuid=puuid)
+                logger.debug("PlayerORM found in database", puuid=puuid)
                 return PlayerResponse.model_validate(player)
 
             # 2. Not in database, fetch from Riot API
-            logger.info("Player not in database, fetching from Riot API", puuid=puuid)
+            logger.info(
+                "PlayerORM not in database, fetching from Riot API", puuid=puuid
+            )
 
             platform_enum = Platform(platform.lower())
 
@@ -190,7 +192,9 @@ class RiotDataManager:
             # Ensure summoner_name is never null or empty
             summoner_name = summoner.name
             if not summoner_name or summoner_name.strip() == "":
-                summoner_name = "Unknown Player"  # Fallback for missing summoner name
+                summoner_name = (
+                    "Unknown PlayerORM"  # Fallback for missing summoner name
+                )
 
             player_data = PlayerCreate(
                 puuid=puuid,
@@ -205,7 +209,7 @@ class RiotDataManager:
 
             player = await self._upsert_player(player_data)
 
-            logger.info("Player fetched and stored", puuid=puuid)
+            logger.info("PlayerORM fetched and stored", puuid=puuid)
 
             return PlayerResponse.model_validate(player)
 
@@ -226,17 +230,17 @@ class RiotDataManager:
             )
             raise
 
-    async def _upsert_player(self, player_data: PlayerCreate) -> Player:
+    async def _upsert_player(self, player_data: PlayerCreate) -> PlayerORM:
         """
         Create or update player in database.
 
         Uses PostgreSQL UPSERT to handle duplicates.
         """
         # Lazy import to avoid circular dependency
-        from app.features.players.models import Player
+        from app.features.players.orm_models import PlayerORM
 
         stmt = (
-            insert(Player)
+            insert(PlayerORM)
             .values(
                 puuid=player_data.puuid,
                 riot_id=player_data.riot_id,
@@ -265,7 +269,7 @@ class RiotDataManager:
                     last_seen=datetime.now(timezone.utc),
                 ),
             )
-            .returning(Player)
+            .returning(PlayerORM)
         )
 
         result = await self.db.execute(stmt)

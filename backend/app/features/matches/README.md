@@ -4,6 +4,26 @@
 
 Manages League of Legends match data, including match retrieval, storage, and analysis. Provides detailed match information including participants, stats, and game timeline.
 
+## Architecture: Enterprise Pattern with Repository Layer
+
+The matches feature uses **enterprise architecture with repository pattern** following Martin Fowler's patterns:
+
+**Architecture Layers:**
+
+```
+Router → Service → Repository → Database
+                ↓
+          RiotAPIGateway (ACL)
+```
+
+**Key Design Patterns:**
+
+- **Repository Pattern**: Abstracts data access with collection-like interface
+- **Rich Domain Models**: ORM models contain both data and business logic
+- **Data Mapper**: Transformers separate ORM persistence from Pydantic models
+- **Anti-Corruption Layer (ACL)**: Gateway isolates Riot API from domain layer
+- **Interface Segregation**: Repository interface enables testing and flexibility
+
 ## API Endpoints
 
 ### Match Data

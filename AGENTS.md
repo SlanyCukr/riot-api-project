@@ -56,18 +56,21 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
 
 - `backend/app/core/`: Infrastructure (database, config, Riot API client, shared enums)
 - `backend/app/features/`: Domain features
-  - `features/players/`: Player management (search, tracking, rank info)
-  - `features/matches/`: Match data and statistics
+  - `features/auth/`: User authentication and authorization (JWT-based)
+  - `features/players/`: Player management (search, tracking, rank info) - **Uses enterprise pattern with repository layer**
+  - `features/matches/`: Match data and statistics - **Uses enterprise pattern with repository layer**
   - `features/player_analysis/`: Player analysis algorithms
   - `features/matchmaking_analysis/`: Matchmaking fairness evaluation
   - `features/jobs/`: Background job scheduling and execution
   - `features/settings/`: System configuration management
-  - Each feature contains: `router.py`, `service.py`, `models.py`, `schemas.py`, `dependencies.py`
+  - Standard features: `router.py`, `service.py`, `models.py`, `schemas.py`, `dependencies.py`
+  - Enterprise features (players, matches): + `repository.py`, `orm_models.py`, `transformers.py`
 
 ## Frontend (Feature-Based Architecture)
 
-- `frontend/app/`: Next.js pages (App Router)
+- `frontend/app/`: Next.js 16.0.0 pages (App Router) with React 19.2.0
 - `frontend/features/`: Feature modules
+  - `features/auth/`: Authentication (AuthProvider, ProtectedRoute, useAuth hook)
   - `features/players/`: Player components, hooks, utilities
   - `features/matches/`: Match components
   - `features/player-analysis/`: Analysis components
@@ -76,6 +79,7 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
   - `features/settings/`: Settings components
 - `frontend/components/`: Shared layout components and shadcn/ui
 - `frontend/lib/core/`: Core utilities (API client, schemas, validations)
+- **Tailwind CSS 4.1.14**: CSS-first configuration via `@theme` blocks in `globals.css` (no `tailwind.config.ts`)
 
 # Code Style
 
@@ -87,19 +91,33 @@ See `docker/AGENTS.md` for comprehensive command reference and deployment workfl
 
 - **Core vs. Features**: Infrastructure code in `core/`, domain code in `features/`
 - **Dependency Flow**: Features depend on core, never the reverse
-- **Public API**: Features expose public APIs through `__init__.py` exports
+- **Public API**: Some features expose public APIs through `__init__.py` exports (minimal to avoid circular dependencies)
 - **Import Examples**:
 
   ```python
-  # Backend - import from features
-  from app.features.players import PlayerService, Player, PlayerResponse
+  # Backend - direct module imports (preferred)
+  from app.features.players.service import PlayerService
+  from app.features.players.models import Player
+  from app.features.players.schemas import PlayerResponse
   from app.core.database import get_db
   from app.core.riot_api import RiotAPIClient
 
   # Frontend - import from features
   import { PlayerSearch } from '@/features/players'
+  import { useAuth } from '@/features/auth'
   import { api } from '@/lib/core/api'
   ```
+
+## Enterprise Patterns
+
+The **players and matches features** use enterprise architecture:
+
+- **Repository Pattern**: Data access abstraction
+- **Rich Domain Models**: ORM models with business logic
+- **Data Mapper**: Transformers separate ORM from Pydantic models
+- **Gateway Pattern**: External API integration (matches feature)
+
+See `backend/app/features/players/README.md` and `backend/app/features/matches/README.md` for details.
 
 # Database Migrations
 
@@ -137,12 +155,44 @@ See `backend/alembic/AGENTS.md` for comprehensive migration documentation.
 
 # Production Environment
 
-**When working on production issues, deployments, or server operations**, read `docs/production-rpi.md` for complete production server documentation.
+**When working on production issues, deployments, or server operations**, read `docs/production.md` for complete production server documentation.
 
-# Detailed Documentation
+# Documentation Structure
 
-- `docs/production-rpi.md`: **Production server access, deployment, and troubleshooting**
-- `docker/AGENTS.md`: **Comprehensive Docker Compose command reference**, builds, database operations, and production deployment
-- `backend/AGENTS.md`: Riot API integration and FastAPI patterns
-- `backend/alembic/AGENTS.md`: Database migrations with Alembic
-- `frontend/AGENTS.md`: Next.js patterns and shadcn/ui
+## Quick Reference
+
+- `AGENTS.md` (this file): Project quick reference for development
+- `CLAUDE.md`: Symlink to AGENTS.md
+
+## Comprehensive Guides
+
+- **Production**: `docs/production.md` - **Production server access, deployment, and troubleshooting**
+- **Docker**: `docker/AGENTS.md` - **Comprehensive Docker Compose command reference**, builds, database operations, and production deployment
+- **Backend**: `backend/AGENTS.md` - Riot API integration and FastAPI patterns
+- **Migrations**: `backend/alembic/AGENTS.md` - Database migrations with Alembic
+- **Frontend**: `frontend/AGENTS.md` - Next.js patterns and shadcn/ui
+- **Replication**: `REPLICATION_SETUP_SUMMARY.md` - PostgreSQL logical replication setup
+- **OpenSpec**: `openspec/AGENTS.md` - Change proposals and architecture decisions
+
+## Architecture Documentation
+
+- `docs/architecture/database.md` - Database schema and ERDs
+- `docs/architecture/jobs.md` - Background job workflows and configuration
+
+## How-To Guides
+
+- `docs/guides/migration.md` - Feature-based architecture migration guide
+- `docs/guides/riot-api.md` - Riot API integration patterns
+- `docs/guides/docker-troubleshooting.md` - Docker and WSL troubleshooting
+
+## Task Documentation
+
+- `docs/tasks/auth.md` - Extended authentication system (planned)
+- `docs/tasks/technical-debt.md` - Security improvements and tech debt tracking
+
+## Feature Documentation
+
+Each feature has its own README.md:
+
+- `backend/app/features/*/README.md` - Backend feature docs
+- `frontend/features/*/README.md` - Frontend feature docs (e.g., auth)

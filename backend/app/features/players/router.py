@@ -12,7 +12,6 @@ from .schemas import (
 from .ranks_schemas import PlayerRankResponse
 from .dependencies import (
     PlayerServiceDep,
-    RiotDataManagerDep,
     get_player_service,
 )
 from app.core.riot_api.constants import Platform
@@ -326,13 +325,10 @@ async def get_tracked_players(player_service: PlayerServiceDep):
         )
 
 
-async def _process_riot_id_tracking(
-    player_service, riot_data_manager, riot_id: str, platform: str
-):
+async def _process_riot_id_tracking(player_service, riot_id: str, platform: str):
     """Process tracking request with Riot ID."""
     game_name, tag_line = validate_riot_id(riot_id)
     return await player_service.add_and_track_player(
-        riot_data_manager=riot_data_manager,
         game_name=game_name,
         tag_line=tag_line,
         platform=platform,
@@ -358,7 +354,6 @@ async def _process_summoner_name_tracking(
 @router.post("/add-tracked", response_model=PlayerResponse)
 async def add_tracked_player(
     player_service: PlayerServiceDep,
-    riot_data_manager: RiotDataManagerDep,
     riot_id: str | None = Query(None, description="Riot ID in format name#tag"),
     summoner_name: str | None = Query(None, description="Summoner name"),
     platform: str = Query("eun1", description="Platform region"),
@@ -393,9 +388,7 @@ async def add_tracked_player(
 
     try:
         if riot_id:
-            return await _process_riot_id_tracking(
-                player_service, riot_data_manager, riot_id, platform
-            )
+            return await _process_riot_id_tracking(player_service, riot_id, platform)
 
         return await _process_summoner_name_tracking(
             player_service,

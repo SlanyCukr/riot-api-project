@@ -710,9 +710,9 @@ docker compose up backend
 ./scripts/alembic.sh upgrade head    # Recreate from migrations
 
 # Alternative: Reset volume completely
-./scripts/dev.sh --down
+docker compose down
 docker volume rm riot-api-project_postgres_data
-./scripts/dev.sh  # Migrations auto-run on startup
+docker compose up -d  # Migrations auto-run on startup
 ```
 
 ### Model Definitions

@@ -45,7 +45,7 @@ docker compose exec backend uv run alembic downgrade <revision_id>
 
 ### 1. Modify SQLAlchemy Models
 
-Edit your feature's `models.py`:
+**Standard Features**: Edit your feature's `models.py`:
 
 ```python
 # backend/app/features/player_analysis/models.py
@@ -60,6 +60,26 @@ class SmurfScore(BaseModel):
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
     confidence = Column(Float, nullable=False)
     factors = Column(String, nullable=False)  # JSON string
+```
+
+**Enterprise Features** (e.g., players): Edit your feature's `orm_models.py`:
+
+```python
+# backend/app/features/players/orm_models.py
+from app.core.models import BaseModel
+from sqlalchemy import Column, Integer, String
+
+class PlayerOrm(BaseModel):
+    """Player ORM model with business logic."""
+
+    __tablename__ = "players"
+
+    puuid = Column(String, unique=True, nullable=False)
+    game_name = Column(String, nullable=False)
+    tag_line = Column(String, nullable=False)
+
+    def __repr__(self):
+        return f"<PlayerOrm(game_name={self.game_name}, tag_line={self.tag_line})>"
 ```
 
 ### 2. Generate Migration
@@ -195,12 +215,12 @@ def downgrade():
 
 ## Automatic Migration on Startup
 
-The backend entrypoint automatically runs `alembic upgrade head` on startup, so migrations are applied when containers start:
+The backend entrypoint automatically runs `uv run alembic upgrade head` on startup, so migrations are applied when containers start:
 
-```python
+```bash
 # backend/entrypoint.sh
-alembic upgrade head
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run alembic upgrade head
+exec "$@"  # Runs the CMD from Dockerfile (uvicorn)
 ```
 
 This means:

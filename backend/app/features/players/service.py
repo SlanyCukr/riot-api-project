@@ -5,11 +5,11 @@ REFACTORED: Enterprise Architecture with Repository Pattern
 - All database queries delegated to PlayerRepository
 - Business logic lives in domain models (PlayerORM)
 - Transformers handle ORM ↔ Pydantic conversions
+- Anti-Corruption Layer via RiotAPIGateway isolates external API usage
 """
 
 from typing import List, Any, TYPE_CHECKING
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 from Levenshtein import distance as levenshtein_distance
 import structlog
 
@@ -17,13 +17,14 @@ from .orm_models import PlayerORM, PlayerRankORM
 from .schemas import PlayerResponse
 from .repository import PlayerRepositoryInterface
 from .transformers import player_orm_to_response
+from .gateway import RiotAPIGateway
 from app.core.exceptions import (
     PlayerServiceError,
 )
 from app.core.decorators import service_error_handler, input_validation
 
 if TYPE_CHECKING:
-    from app.core.riot_api.client import RiotAPIClient
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger(__name__)
 
@@ -41,16 +42,41 @@ class PlayerService:
     - Execute SQL queries directly (delegated to repository)
     - Contain business logic (lives in domain models)
     - Know about database implementation details
+    - Make direct API calls (use RiotAPIGateway instead)
     """
 
-    def __init__(self, repository: PlayerRepositoryInterface, db: AsyncSession):
-        """Initialize player service with repository.
+    def __init__(
+        self,
+        repository_or_db: PlayerRepositoryInterface | AsyncSession,
+        riot_gateway: RiotAPIGateway | None = None,
+    ):
+        """Initialize player service with repository and gateway.
 
-        :param repository: Player repository for data access
-        :param db: Database session (for legacy methods not yet refactored)
+        Supports two initialization modes:
+        1. New (recommended): Pass PlayerRepositoryInterface + RiotAPIGateway
+        2. Legacy (for jobs): Pass AsyncSession only (creates defaults)
+
+        :param repository_or_db: Repository instance or AsyncSession for legacy mode
+        :param riot_gateway: Anti-Corruption Layer for Riot API (new mode only)
         """
-        self.repository = repository
-        self.db = db  # Kept for legacy methods during incremental refactor
+        # Handle both new and legacy initialization
+        if isinstance(repository_or_db, AsyncSession):
+            # Legacy mode: create defaults (for backward compatibility with jobs)
+            from .repository import SQLAlchemyPlayerRepository
+            from app.core.riot_api.client import RiotAPIClient
+
+            # Create default repository and gateway for jobs
+            self.repository = SQLAlchemyPlayerRepository(repository_or_db)
+            self.riot_gateway = RiotAPIGateway(RiotAPIClient())
+        else:
+            # New mode: use provided dependencies
+            self.repository = repository_or_db
+            if riot_gateway is None:
+                raise ValueError(
+                    "riot_gateway is required when using new initialization mode. "
+                    "Use dependencies.get_player_service() for proper DI."
+                )
+            self.riot_gateway = riot_gateway
 
     @service_error_handler("PlayerService")
     @input_validation(
@@ -508,7 +534,6 @@ class PlayerService:
 
     async def add_and_track_player(
         self,
-        riot_data_manager,
         game_name: str | None = None,
         tag_line: str | None = None,
         summoner_name: str | None = None,
@@ -517,10 +542,9 @@ class PlayerService:
         """
         Fetch player from Riot API and immediately track them.
 
-        Combines get_player + track_player in one transaction.
+        Combines fetch_player + track_player in one transaction.
 
         Args:
-            riot_data_manager: RiotDataManager instance for Riot API calls
             game_name: Riot game name (for Riot ID search)
             tag_line: Riot tag line (for Riot ID search)
             summoner_name: Summoner name (legacy, database-only search)
@@ -532,15 +556,23 @@ class PlayerService:
         Raises:
             ValueError: If player not found
         """
-        # Fetch player data from Riot API (this will add to DB if not exists)
+        # Step 1: Fetch player data from Riot API using gateway
         if game_name and tag_line:
-            # Use RiotDataManager to fetch from API
-            player_response = await riot_data_manager.get_player_by_riot_id(
+            # Use RiotAPIGateway to fetch from API and get domain model
+            player_orm = await self.riot_gateway.fetch_player_profile(
                 game_name, tag_line, platform
             )
 
-            if not player_response:
-                raise ValueError(f"Player not found: {game_name}#{tag_line}")
+            # Step 2: Save to database (or update existing)
+            existing_player = await self.repository.get_by_puuid(player_orm.puuid)
+            if existing_player:
+                # Update existing player
+                updated_player = await self.repository.save(player_orm)
+                player_response = player_orm_to_response(updated_player)
+            else:
+                # Create new player
+                created_player = await self.repository.create(player_orm)
+                player_response = player_orm_to_response(created_player)
 
         elif summoner_name:
             # For summoner name, try database first
@@ -550,7 +582,7 @@ class PlayerService:
         else:
             raise ValueError("Either game_name+tag_line or summoner_name required")
 
-        # Check if already tracked
+        # Step 3: Check if already tracked
         if player_response.is_tracked:
             logger.info(
                 "Player is already tracked",
@@ -559,7 +591,7 @@ class PlayerService:
             )
             return player_response
 
-        # Track the player
+        # Step 4: Track the player
         tracked_player = await self.track_player(player_response.puuid)
 
         logger.info(
@@ -761,7 +793,8 @@ class PlayerService:
         return players
 
     async def check_ban_status(
-        self, player: PlayerORM, riot_api_client: "RiotAPIClient"
+        self,
+        player: PlayerORM,
     ) -> bool:
         """Check if a player is banned by fetching summoner data (REFACTORED).
 
@@ -769,22 +802,20 @@ class PlayerService:
         or has changed their name.
 
         :param player: Player domain model to check
-        :param riot_api_client: RiotAPIClient instance (from jobs)
         :returns: True if player is likely banned, False if player is active
         """
-        from app.core.riot_api.constants import Platform
+        # Use gateway to check ban status (handles 404 = banned logic)
+        is_banned = await self.riot_gateway.check_ban_status(player)
 
-        platform = Platform(player.platform.lower())
+        # Update timestamp if player is active (not banned)
+        if not is_banned:
+            player.last_ban_check = datetime.now()
+            await self.repository.save(player)
 
-        # Attempt to fetch summoner data
-        await riot_api_client.get_summoner_by_puuid(player.puuid, platform)
-
-        # Player found = not banned, update timestamp
-        player.last_ban_check = datetime.now()
-        await self.repository.save(player)
-
-        logger.debug("Player is active (not banned)", puuid=player.puuid)
-        return False
+        logger.debug(
+            "Player ban status checked", puuid=player.puuid, is_banned=is_banned
+        )
+        return is_banned
 
     # ============================================
     # Helper Methods for Jobs
@@ -872,7 +903,8 @@ class PlayerService:
 
     @service_error_handler("PlayerService")
     async def update_player_rank(
-        self, player: PlayerORM, riot_api_client: "RiotAPIClient"
+        self,
+        player: PlayerORM,
     ) -> bool:
         """Update player's current rank from Riot API (REFACTORED).
 
@@ -880,64 +912,39 @@ class PlayerService:
         Solo/Duo rank in the PlayerRank table.
 
         :param player: Player domain model to update rank for
-        :param riot_api_client: RiotAPIClient instance (from jobs)
         :returns: True if rank was updated, False if no rank data found
         :raises ValueError: If player has invalid platform
         """
-        from app.core.riot_api.constants import Platform
-        from .orm_models import PlayerRankORM
 
         logger.debug("Updating player rank", puuid=player.puuid)
 
-        # Convert platform string to Platform enum
-        platform_enum = Platform(player.platform.lower())
-
-        # Fetch rank data from Riot API using PUUID-based endpoint
-        league_entries = await riot_api_client.get_league_entries_by_puuid(
-            player.puuid, platform_enum
+        # Use gateway to fetch and transform rank data
+        rank_orms = await self.riot_gateway.fetch_player_ranks(
+            player.puuid, player.platform
         )
 
-        if not league_entries:
+        if not rank_orms:
             logger.debug("No ranked data found for player", puuid=player.puuid)
             return False
 
         # Find Solo/Duo ranked entry (business logic)
-        solo_entry = next(
-            (e for e in league_entries if e.queue_type == "RANKED_SOLO_5x5"), None
+        solo_rank = next(
+            (r for r in rank_orms if r.queue_type == "RANKED_SOLO_5x5"), None
         )
 
-        if not solo_entry:
+        if not solo_rank:
             logger.debug("No Solo/Duo rank found for player", puuid=player.puuid)
             return False
 
-        # Create rank domain model
-        rank_record = PlayerRankORM(
-            puuid=player.puuid,
-            queue_type=solo_entry.queue_type,
-            tier=solo_entry.tier,
-            rank=solo_entry.rank,
-            league_points=solo_entry.league_points,
-            wins=solo_entry.wins,
-            losses=solo_entry.losses,
-            veteran=solo_entry.veteran,
-            inactive=solo_entry.inactive,
-            fresh_blood=solo_entry.fresh_blood,
-            hot_streak=solo_entry.hot_streak,
-            league_id=(
-                solo_entry.league_id if hasattr(solo_entry, "league_id") else None
-            ),
-            is_current=True,
-        )
-
         # Delegate creation to repository
-        await self.repository.create_rank(rank_record)
+        await self.repository.create_rank(solo_rank)
 
         logger.info(
             "Updated player rank",
             puuid=player.puuid,
-            tier=solo_entry.tier,
-            rank=solo_entry.rank,
-            lp=solo_entry.league_points,
+            tier=solo_rank.tier,
+            rank=solo_rank.rank,
+            lp=solo_rank.league_points,
         )
 
         return True
