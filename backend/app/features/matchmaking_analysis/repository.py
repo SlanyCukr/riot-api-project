@@ -1,4 +1,4 @@
-from typing import Protocol, List, Optional, Dict, Any
+from typing import Protocol, List, Optional, Dict, Any, runtime_checkable
 from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from app.features.matchmaking_analysis.schemas import MatchmakingAnalysisCreate
 from app.core.enums import JobStatus
 
 
+@runtime_checkable
 class MatchmakingAnalysisRepositoryInterface(Protocol):
     """Repository interface for matchmaking analysis data operations"""
 
