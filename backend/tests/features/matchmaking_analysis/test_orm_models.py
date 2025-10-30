@@ -1,5 +1,5 @@
 from app.features.matchmaking_analysis.orm_models import JobExecutionORM
-from app.features.jobs.models import JobStatus
+from app.core.enums import JobStatus
 
 
 def test_job_execution_domain_methods():

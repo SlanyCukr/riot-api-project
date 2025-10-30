@@ -1,13 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from sqlalchemy import String, Text, DateTime, Float, Integer, JSON
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
 
-from app.features.jobs.models import JobStatus
-
-Base = declarative_base()
+from app.core.models import Base
+from app.core.enums import JobStatus
 
 
 class JobExecutionORM(Base):
@@ -27,7 +25,9 @@ class JobExecutionORM(Base):
     progress: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
@@ -40,7 +40,7 @@ class JobExecutionORM(Base):
     def start_analysis(self) -> None:
         """Initialize analysis and set status to RUNNING"""
         self.status = JobStatus.RUNNING
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(timezone.utc)
 
     def calculate_progress(self, total_matches: int, processed_matches: int) -> float:
         """Calculate analysis completion percentage"""
@@ -53,7 +53,7 @@ class JobExecutionORM(Base):
         """Handle analysis failure with proper error tracking"""
         self.status = JobStatus.FAILED
         self.error_message = error_message
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
 
     def get_analysis_results(self) -> Dict[str, Any]:
         """Retrieve computed analysis metrics"""
