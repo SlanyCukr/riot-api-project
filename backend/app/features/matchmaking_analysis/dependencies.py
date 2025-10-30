@@ -1,26 +1,56 @@
-"""Dependencies for the matchmaking analysis feature."""
-
 from typing import Annotated
-from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import get_db
-from app.core.riot_api.client import RiotAPIClient
-from app.core.dependencies import get_riot_client
-from .service import MatchmakingAnalysisService
+from fastapi import Depends
+
+from app.core.database import get_db
+from app.features.matchmaking_analysis.repository import (
+    SQLAlchemyMatchmakingAnalysisRepository,
+    MatchmakingAnalysisRepositoryInterface,
+)
+from app.features.matchmaking_analysis.service import MatchmakingAnalysisService
+from app.core.riot_api import RiotAPIClient
+from app.core.riot_api.data_manager import DataManager
+from app.features.matchmaking_analysis.gateway import MatchmakingGateway
+from app.features.matchmaking_analysis.transformers import (
+    MatchmakingAnalysisTransformer,
+)
+
+# Database dependency
+DatabaseDep = Annotated[AsyncSession, Depends(get_db)]
 
 
-async def get_matchmaking_service(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    riot_client: Annotated[RiotAPIClient, Depends(get_riot_client)],
-) -> MatchmakingAnalysisService:
-    """Get matchmaking analysis service instance."""
-    return MatchmakingAnalysisService(db, riot_client)
+# Repository dependency
+def get_matchmaking_analysis_repository(
+    db: DatabaseDep,
+) -> MatchmakingAnalysisRepositoryInterface:
+    return SQLAlchemyMatchmakingAnalysisRepository(db)
 
 
-# Type alias for cleaner dependency injection
-MatchmakingServiceDep = Annotated[
-    MatchmakingAnalysisService, Depends(get_matchmaking_service)
+MatchmakingAnalysisRepositoryDep = Annotated[
+    MatchmakingAnalysisRepositoryInterface, Depends(get_matchmaking_analysis_repository)
 ]
 
-__all__ = ["get_matchmaking_service", "MatchmakingServiceDep"]
+
+# Gateway dependency
+def get_matchmaking_gateway(
+    riot_client: Annotated[RiotAPIClient, Depends()],
+    data_manager: Annotated[DataManager, Depends()],
+) -> MatchmakingGateway:
+    return MatchmakingGateway(riot_client, data_manager)
+
+
+MatchmakingGatewayDep = Annotated[MatchmakingGateway, Depends(get_matchmaking_gateway)]
+
+
+# Service dependency
+def get_matchmaking_analysis_service(
+    repository: MatchmakingAnalysisRepositoryDep, gateway: MatchmakingGatewayDep
+) -> MatchmakingAnalysisService:
+    transformer = MatchmakingAnalysisTransformer()
+    return MatchmakingAnalysisService(repository, gateway, transformer)
+
+
+MatchmakingAnalysisServiceDep = Annotated[
+    MatchmakingAnalysisService, Depends(get_matchmaking_analysis_service)
+]
