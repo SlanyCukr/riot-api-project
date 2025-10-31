@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from app.main import app
 
 
@@ -9,12 +9,22 @@ def client():
     return TestClient(app)
 
 
+@patch("app.core.dependencies.get_riot_client")
+@patch("app.features.matchmaking_analysis.dependencies.get_matchmaking_gateway")
 @patch(
     "app.features.matchmaking_analysis.dependencies.get_matchmaking_analysis_service"
 )
-def test_start_analysis_endpoint(mock_get_service, client):
+def test_start_analysis_endpoint(
+    mock_get_service, mock_get_gateway, mock_get_riot_client, client
+):
     """Test start analysis endpoint uses new enterprise service"""
-    # Setup
+    # Setup - mock the Riot API client to avoid API key requirement
+    mock_riot_client = MagicMock()
+    mock_get_riot_client.return_value = mock_riot_client
+
+    mock_gateway = MagicMock()
+    mock_get_gateway.return_value = mock_gateway
+
     mock_service = AsyncMock()
     mock_service.start_analysis.return_value = {
         "id": "job-123",

@@ -11,7 +11,9 @@ class MatchmakingAnalysisCreate(BaseModel):
     """Schema for creating a new matchmaking analysis."""
 
     user_id: str = Field(..., description="User ID requesting the analysis")
-    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Analysis parameters")
+    parameters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Analysis parameters"
+    )
 
 
 class MatchmakingAnalysisRequest(BaseModel):
@@ -100,4 +102,6 @@ class MatchmakingAnalysisStatusResponse(BaseModel):
 class MatchmakingAnalysisListResponse(BaseModel):
     """Response containing a list of matchmaking analyses."""
 
-    analyses: list[MatchmakingAnalysisResponse] = Field(default_factory=list, description="List of analyses")
+    analyses: list[MatchmakingAnalysisResponse] = Field(
+        default_factory=list, description="List of analyses"
+    )

@@ -11,7 +11,7 @@ from sqlalchemy import (
     String,
     Index,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.core.models import Base
@@ -132,8 +132,8 @@ class PlayerRank(Base):
         comment="Whether this is the current rank for the player",
     )
 
-    # Relationships
-    player = relationship("Player", back_populates="ranks")
+    # Relationships - Note: This model is deprecated, use PlayerRankORM from orm_models.py
+    # player = relationship("PlayerORM", back_populates="ranks")
 
     def __repr__(self) -> str:
         """Return string representation of the player rank."""

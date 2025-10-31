@@ -11,6 +11,7 @@ REFACTORED: Enterprise Architecture with Repository Pattern
 from typing import List, Any, TYPE_CHECKING
 from datetime import datetime
 from Levenshtein import distance as levenshtein_distance
+from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
 from .orm_models import PlayerORM, PlayerRankORM

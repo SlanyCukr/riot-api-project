@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
+from app.core.enums import JobStatus
 from app.features.matchmaking_analysis.repository import (
     SQLAlchemyMatchmakingAnalysisRepository,
 )
@@ -65,7 +66,7 @@ async def test_update_analysis_status(repository, mock_db):
     mock_db.commit = AsyncMock()
 
     # Execute
-    await repository.update_analysis_status("job-123", "running")
+    await repository.update_analysis_status("job-123", JobStatus.RUNNING)
 
     # Verify
     mock_db.execute.assert_called_once()
@@ -74,18 +75,20 @@ async def test_update_analysis_status(repository, mock_db):
 
 def test_repository_interface_implementation(repository):
     """Test that SQLAlchemy repository properly implements the interface"""
-    from app.features.matchmaking_analysis.repository import MatchmakingAnalysisRepositoryInterface
+    from app.features.matchmaking_analysis.repository import (
+        MatchmakingAnalysisRepositoryInterface,
+    )
 
     # Verify the repository implements the interface
     assert isinstance(repository, MatchmakingAnalysisRepositoryInterface)
 
     # Verify all expected interface methods are present
     expected_methods = {
-        'create_analysis',
-        'get_analysis_by_id',
-        'update_analysis_status',
-        'get_user_analyses',
-        'save_analysis_results'
+        "create_analysis",
+        "get_analysis_by_id",
+        "update_analysis_status",
+        "get_user_analyses",
+        "save_analysis_results",
     }
     implementation_methods = set(type(repository).__dict__.keys())
     assert expected_methods.issubset(implementation_methods)

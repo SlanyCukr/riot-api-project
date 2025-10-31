@@ -10,8 +10,8 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from .models import MatchmakingAnalysis, AnalysisStatus
-from app.features.matches.models import Match
-from app.features.matches.participants import MatchParticipant
+from app.features.matches.orm_models import MatchORM
+from app.features.matches.participants_orm import MatchParticipantORM
 from .schemas import (
     MatchmakingAnalysisResponse,
     MatchmakingAnalysisStatusResponse,
@@ -246,14 +246,14 @@ class MatchmakingAnalysisService:
             await self.db.commit()
 
             logger.info(
-                "Matchmaking analysis completed",
+                "MatchORMmaking analysis completed",
                 analysis_id=analysis_id,
                 results=results,
             )
 
         except Exception as e:
             logger.error(
-                "Matchmaking analysis failed",
+                "MatchORMmaking analysis failed",
                 analysis_id=analysis_id,
                 error=str(e),
                 exc_info=True,
@@ -287,13 +287,13 @@ class MatchmakingAnalysisService:
         """
         # Check DB for existing ranked matches
         result = await self.db.execute(
-            select(MatchParticipant.match_id)
-            .join(Match, MatchParticipant.match_id == Match.match_id)
+            select(MatchParticipantORM.match_id)
+            .join(MatchORM, MatchParticipantORM.match_id == MatchORM.match_id)
             .where(
-                MatchParticipant.puuid == puuid,
-                Match.queue_id == 420,  # Ranked Solo/Duo only
+                MatchParticipantORM.puuid == puuid,
+                MatchORM.queue_id == 420,  # Ranked Solo/Duo only
             )
-            .order_by(Match.game_creation.desc())
+            .order_by(MatchORM.game_creation.desc())
             .limit(count)
         )
         db_matches = [row[0] for row in result.all()]
@@ -352,8 +352,8 @@ class MatchmakingAnalysisService:
         """
         # Check database first
         result = await self.db.execute(
-            select(MatchParticipant.puuid, MatchParticipant.team_id).where(
-                MatchParticipant.match_id == match_id
+            select(MatchParticipantORM.puuid, MatchParticipantORM.team_id).where(
+                MatchParticipantORM.match_id == match_id
             )
         )
         participants = result.all()
@@ -393,7 +393,7 @@ class MatchmakingAnalysisService:
     async def _store_match(self, match_dto) -> None:
         """Store match and participants in database."""
         try:
-            # Convert MatchDTO to dict for transformer
+            # Convert MatchORMDTO to dict for transformer
             match_data_dict = {
                 "metadata": {
                     "matchId": match_dto.metadata.match_id,
@@ -445,7 +445,7 @@ class MatchmakingAnalysisService:
 
             # Upsert match
             match_stmt = (
-                insert(Match)
+                insert(MatchORM)
                 .values(**transformed["match"])
                 .on_conflict_do_nothing(index_elements=["match_id"])
             )
@@ -454,7 +454,7 @@ class MatchmakingAnalysisService:
             # Upsert participants
             for participant_dict in transformed["participants"]:
                 participant_stmt = (
-                    insert(MatchParticipant)
+                    insert(MatchParticipantORM)
                     .values(**participant_dict)
                     .on_conflict_do_nothing(index_elements=["match_id", "puuid"])
                 )
@@ -484,9 +484,9 @@ class MatchmakingAnalysisService:
         """
         # Check database first
         result = await self.db.execute(
-            select(MatchParticipant.win).where(
-                MatchParticipant.match_id == match_id,
-                MatchParticipant.puuid == puuid,
+            select(MatchParticipantORM.win).where(
+                MatchParticipantORM.match_id == match_id,
+                MatchParticipantORM.puuid == puuid,
             )
         )
         win_status = result.scalar_one_or_none()
@@ -519,8 +519,8 @@ class MatchmakingAnalysisService:
         """Mark a match as processed after analyzing all its participants."""
         try:
             await self.db.execute(
-                update(Match)
-                .where(Match.match_id == match_id)
+                update(MatchORM)
+                .where(MatchORM.match_id == match_id)
                 .values(is_processed=True)
             )
             await self.db.commit()
@@ -602,7 +602,7 @@ class MatchmakingAnalysisService:
 
         Args:
             analysis_id: ID of the analysis
-            match_id: Match ID to process
+            match_id: MatchORM ID to process
             target_puuid: PUUID of the target player
             requests_completed: Number of requests completed so far
             total_estimated: Total estimated requests
@@ -757,13 +757,13 @@ class MatchmakingAnalysisService:
             Tuple of (winrate if enough matches, all DB results for fallback)
         """
         result = await self.db.execute(
-            select(MatchParticipant.win)
-            .join(Match, MatchParticipant.match_id == Match.match_id)
+            select(MatchParticipantORM.win)
+            .join(MatchORM, MatchParticipantORM.match_id == MatchORM.match_id)
             .where(
-                MatchParticipant.puuid == puuid,
-                Match.queue_id == 420,  # Ranked Solo/Duo only
+                MatchParticipantORM.puuid == puuid,
+                MatchORM.queue_id == 420,  # Ranked Solo/Duo only
             )
-            .order_by(Match.game_creation.desc())
+            .order_by(MatchORM.game_creation.desc())
             .limit(match_count)
         )
         db_wins = result.all()

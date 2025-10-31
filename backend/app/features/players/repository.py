@@ -122,7 +122,7 @@ class PlayerRepositoryInterface(ABC):
     async def get_recent_opponents(self, puuid: str, limit: int) -> list[PlayerORM]:
         """Get recent opponents for a player with join query.
 
-        Complex query with MatchParticipant joins.
+        Complex query with MatchParticipantORM joins.
 
         :param puuid: Player's PUUID
         :param limit: Maximum opponents to return
@@ -158,7 +158,7 @@ class PlayerRepositoryInterface(ABC):
     ) -> list[PlayerORM]:
         """Get discovered players with insufficient match history.
 
-        Complex query with MatchParticipant join and aggregation.
+        Complex query with MatchParticipantORM join and aggregation.
 
         :param target_matches: Target number of matches per player
         :param limit: Maximum players to return
@@ -172,7 +172,7 @@ class PlayerRepositoryInterface(ABC):
     ) -> list[PlayerORM]:
         """Get unanalyzed players with sufficient match history.
 
-        Complex query with MatchParticipant join, PlayerAnalysis outer join,
+        Complex query with MatchParticipantORM join, PlayerAnalysis outer join,
         and aggregation.
 
         :param min_matches: Minimum number of matches required
@@ -418,13 +418,12 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
 
     async def get_recent_opponents(self, puuid: str, limit: int) -> list[PlayerORM]:
         """Get recent opponents for a player with join query."""
-        from app.features.matches.participants import MatchParticipant
 
         # Subquery: Get recent matches for the player
         recent_matches_subq = (
-            select(MatchParticipant.match_id)
-            .where(MatchParticipant.puuid == puuid)
-            .order_by(MatchParticipant.id.desc())
+            select(MatchParticipantORM.match_id)
+            .where(MatchParticipantORM.puuid == puuid)
+            .order_by(MatchParticipantORM.id.desc())
             .limit(limit * 5)  # Get more matches to find enough opponents
             .subquery()
         )
@@ -433,10 +432,10 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
         stmt = (
             select(PlayerORM)
             .options(selectinload(PlayerORM.ranks))
-            .join(MatchParticipant, PlayerORM.puuid == MatchParticipant.puuid)
+            .join(MatchParticipantORM, PlayerORM.puuid == MatchParticipantORM.puuid)
             .where(
-                MatchParticipant.match_id.in_(select(recent_matches_subq)),
-                MatchParticipant.puuid != puuid,
+                MatchParticipantORM.match_id.in_(select(recent_matches_subq)),
+                MatchParticipantORM.puuid != puuid,
                 PlayerORM.is_active == True,  # noqa: E712
                 PlayerORM.summoner_name.isnot(None),
                 PlayerORM.summoner_name != "",
@@ -541,17 +540,16 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
     ) -> list[PlayerORM]:
         """Get discovered players with insufficient match history.
 
-        Complex query with left outer join to MatchParticipant,
+        Complex query with left outer join to MatchParticipantORM,
         group by, and having clause for aggregation.
         """
-        from app.features.matches.participants import MatchParticipant
 
         stmt = (
             select(PlayerORM)
             .options(selectinload(PlayerORM.ranks))
             .join(
-                MatchParticipant,
-                PlayerORM.puuid == MatchParticipant.puuid,
+                MatchParticipantORM,
+                PlayerORM.puuid == MatchParticipantORM.puuid,
                 isouter=True,
             )
             .where(
@@ -560,7 +558,7 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
                 PlayerORM.matches_exhausted == False,  # noqa: E712
             )
             .group_by(PlayerORM.puuid)
-            .having(func.count(MatchParticipant.match_id) < target_matches)
+            .having(func.count(MatchParticipantORM.match_id) < target_matches)
             .limit(limit)
         )
 
@@ -580,10 +578,9 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
     ) -> list[PlayerORM]:
         """Get unanalyzed players with sufficient match history.
 
-        Complex query with MatchParticipant join, PlayerAnalysis outer join,
+        Complex query with MatchParticipantORM join, PlayerAnalysis outer join,
         and aggregation to find players ready for analysis.
         """
-        from app.features.matches.participants import MatchParticipant
         from app.features.player_analysis.orm_models import (
             PlayerAnalysisORM as PlayerAnalysis,
         )
@@ -591,7 +588,7 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
         stmt = (
             select(PlayerORM)
             .options(selectinload(PlayerORM.ranks))
-            .join(MatchParticipant, PlayerORM.puuid == MatchParticipant.puuid)
+            .join(MatchParticipantORM, PlayerORM.puuid == MatchParticipantORM.puuid)
             .outerjoin(PlayerAnalysis, PlayerORM.puuid == PlayerAnalysis.puuid)
             .where(
                 PlayerORM.is_tracked == False,  # noqa: E712
@@ -599,7 +596,7 @@ class SQLAlchemyPlayerRepository(PlayerRepositoryInterface):
                 PlayerAnalysis.puuid.is_(None),  # No analysis exists
             )
             .group_by(PlayerORM.puuid)
-            .having(func.count(MatchParticipant.match_id) >= min_matches)
+            .having(func.count(MatchParticipantORM.match_id) >= min_matches)
             .limit(limit)
         )
 

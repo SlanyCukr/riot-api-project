@@ -53,6 +53,14 @@ dev = [
     "radon>=6.0.1",
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
 [tool.black]
 line-length = 88
 target-version = ['py313']
@@ -92,7 +100,6 @@ reportUnknownParameterType = "warning"
 reportUnknownVariableType = "none"  # Disabled - user requested to skip these 92 errors
 reportUnknownMemberType = "warning"
 reportUntypedFunctionDecorator = "warning"
-reportUntypedClassDef = "warning"
 reportUntypedNamedTuple = "warning"
 reportUntypedBaseClass = "warning"
 

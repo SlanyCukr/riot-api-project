@@ -21,10 +21,8 @@ from sqlalchemy.sql import func
 from app.core.models import Base
 
 if TYPE_CHECKING:
-    from app.features.matches.participants import MatchParticipant
-    from app.features.player_analysis.orm_models import (
-        PlayerAnalysisORM as PlayerAnalysis,
-    )
+    from app.features.matches.participants_orm import MatchParticipantORM
+    from app.features.player_analysis.orm_models import PlayerAnalysisORM
 
 
 class PlayerORM(Base):
@@ -180,12 +178,12 @@ class PlayerORM(Base):
         cascade="all, delete-orphan",
     )
 
-    match_participations: Mapped[list["MatchParticipant"]] = relationship(
+    match_participations: Mapped[list["MatchParticipantORM"]] = relationship(
         back_populates="player",
         cascade="all, delete-orphan",
     )
 
-    player_analyses: Mapped[list["PlayerAnalysis"]] = relationship(
+    player_analyses: Mapped[list["PlayerAnalysisORM"]] = relationship(
         back_populates="player",
         cascade="all, delete-orphan",
     )

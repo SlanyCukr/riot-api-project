@@ -7,10 +7,13 @@ This module provides transformation logic to convert between:
 Following Martin Fowler's Data Mapper pattern to keep layers independent.
 """
 
+from decimal import Decimal
+import uuid
+
 from .orm_models import MatchORM
 from .participants_orm import MatchParticipantORM
-from .schemas import MatchResponse
 from .participants_schemas import MatchParticipantResponse
+from .schemas import MatchResponse
 
 
 class MatchTransformer:
@@ -20,11 +23,8 @@ class MatchTransformer:
     def to_response_schema(match_orm: MatchORM) -> MatchResponse:
         """Transform Match ORM to API response schema.
 
-        Args:
-            match_orm: Domain model from database
-
-        Returns:
-            Pydantic schema for API response
+        :param match_orm: Domain model from database
+        :returns: Pydantic schema for API response
         """
         return MatchResponse(
             match_id=match_orm.match_id,
@@ -39,8 +39,10 @@ class MatchTransformer:
             game_end_timestamp=match_orm.game_end_timestamp,
             tournament_id=match_orm.tournament_id,
             is_processed=match_orm.is_processed,
+            processing_error=match_orm.processing_error,
             created_at=match_orm.created_at,
             updated_at=match_orm.updated_at,
+            game_creation_datetime=match_orm.get_game_creation_datetime(),
         )
 
 
@@ -62,9 +64,8 @@ class MatchParticipantTransformer:
         return MatchParticipantResponse(
             id=participant_orm.id,
             match_id=participant_orm.match_id,
-            puuid=participant_orm.puuid,
-            summoner_name=participant_orm.summoner_name,
-            summoner_level=participant_orm.summoner_level,
+            puuid=uuid.UUID(participant_orm.puuid),
+            summoner_name=participant_orm.summoner_name or "",
             team_id=participant_orm.team_id,
             champion_id=participant_orm.champion_id,
             champion_name=participant_orm.champion_name,
@@ -75,7 +76,9 @@ class MatchParticipantTransformer:
             gold_earned=participant_orm.gold_earned,
             vision_score=participant_orm.vision_score,
             cs=participant_orm.cs,
-            kda=float(participant_orm.calculate_kda()),  # Computed from domain logic
+            kda=Decimal(
+                str(participant_orm.calculate_kda())
+            ),  # Computed from domain logic
             champ_level=participant_orm.champ_level,
             total_damage_dealt=participant_orm.total_damage_dealt,
             total_damage_dealt_to_champions=participant_orm.total_damage_dealt_to_champions,
@@ -84,8 +87,6 @@ class MatchParticipantTransformer:
             individual_position=participant_orm.individual_position,
             team_position=participant_orm.team_position,
             role=participant_orm.role,
-            riot_id_name=participant_orm.riot_id_name,
-            riot_id_tagline=participant_orm.riot_id_tagline,
             created_at=participant_orm.created_at,
             updated_at=participant_orm.updated_at,
         )

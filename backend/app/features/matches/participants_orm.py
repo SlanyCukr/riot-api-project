@@ -25,8 +25,7 @@ from app.core.models import Base
 
 if TYPE_CHECKING:
     from app.features.matches.orm_models import MatchORM
-    # TODO: Uncomment after service is refactored to use PlayerORM
-    # from app.features.players.orm_models import PlayerORM
+    from app.features.players.orm_models import PlayerORM
 
 
 class MatchParticipantORM(Base):
@@ -268,16 +267,57 @@ class MatchParticipantORM(Base):
         back_populates="participants",
     )
 
-    # TODO: Uncomment after service is refactored to use PlayerORM
-    # player: Mapped["PlayerORM"] = relationship(
-    #     "PlayerORM",
-    #     back_populates="match_participations",
-    #     foreign_keys=[puuid],
-    # )
+    player: Mapped["PlayerORM"] = relationship(
+        "PlayerORM",
+        back_populates="match_participations",
+        foreign_keys=[puuid],
+    )
 
     # ========================================================================
     # RICH DOMAIN MODEL - Business Logic Methods
     # ========================================================================
+
+    @staticmethod
+    def aggregate_participant_stats(
+        matches: list["MatchORM"],
+        participants_by_match: dict[str, "MatchParticipantORM"],
+    ) -> tuple[int, int, int, int, int, int]:
+        """Aggregate statistics from match participants.
+
+        Business logic to calculate total stats across multiple matches for a player.
+
+        :param matches: List of MatchORM objects
+        :param participants_by_match: Dictionary mapping match_id to MatchParticipantORM
+        :returns: Tuple of (kills, deaths, assists, cs, vision, wins)
+        """
+        totals = {
+            "kills": 0,
+            "deaths": 0,
+            "assists": 0,
+            "cs": 0,
+            "vision": 0,
+            "wins": 0,
+        }
+
+        for match in matches:
+            participant = participants_by_match.get(match.match_id)
+            if participant:
+                totals["kills"] += participant.kills
+                totals["deaths"] += participant.deaths
+                totals["assists"] += participant.assists
+                totals["cs"] += participant.cs
+                totals["vision"] += participant.vision_score
+                if participant.win:
+                    totals["wins"] += 1
+
+        return (
+            totals["kills"],
+            totals["deaths"],
+            totals["assists"],
+            totals["cs"],
+            totals["vision"],
+            totals["wins"],
+        )
 
     def calculate_kda(self) -> float:
         """Calculate KDA (Kill-Death-Assist) ratio.
@@ -290,6 +330,22 @@ class MatchParticipantORM(Base):
         if self.deaths == 0:
             return float(self.kills + self.assists)
         return (self.kills + self.assists) / self.deaths
+
+    @staticmethod
+    def calculate_kda_from_values(kills: int, deaths: int, assists: int) -> float:
+        """Calculate KDA (Kill-Death-Assist) ratio from raw values.
+
+        Business rule: (kills + assists) / deaths
+        If deaths is 0, return kills + assists (perfect KDA).
+
+        :param kills: Number of kills
+        :param deaths: Number of deaths
+        :param assists: Number of assists
+        :returns: KDA ratio as float
+        """
+        if deaths == 0:
+            return float(kills + assists)
+        return (kills + assists) / deaths
 
     def is_carry_performance(self) -> bool:
         """Determine if this was a carry performance.

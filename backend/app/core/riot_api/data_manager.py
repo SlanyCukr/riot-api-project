@@ -296,12 +296,12 @@ class RiotDataManager:
             MatchDTO if found/fetched, None if rate limited
         """
         # Lazy import to avoid circular dependency
-        from app.features.matches.models import Match
+        from app.features.matches.orm_models import MatchORM
 
         try:
             # 1. Check database first
             result = await self.db.execute(
-                select(Match).where(Match.match_id == match_id)
+                select(MatchORM).where(MatchORM.match_id == match_id)
             )
             match = result.scalar_one_or_none()
 

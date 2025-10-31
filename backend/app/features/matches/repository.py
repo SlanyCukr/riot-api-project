@@ -28,11 +28,8 @@ class MatchRepositoryInterface(ABC):
     async def get_by_id(self, match_id: str) -> Optional[MatchORM]:
         """Get match by ID with eager-loaded participants.
 
-        Args:
-            match_id: Match identifier
-
-        Returns:
-            MatchORM if found, None otherwise
+        :param match_id: Match identifier
+        :returns: MatchORM if found, None otherwise
         """
         pass
 
@@ -48,16 +45,13 @@ class MatchRepositoryInterface(ABC):
     ) -> list[MatchORM]:
         """Find matches for a player with filtering.
 
-        Args:
-            puuid: Player PUUID
-            limit: Maximum number of matches to return
-            offset: Offset for pagination
-            queue_id: Optional queue filter
-            start_time: Optional start timestamp filter (milliseconds)
-            end_time: Optional end timestamp filter (milliseconds)
-
-        Returns:
-            List of MatchORM objects with participants eager-loaded
+        :param puuid: Player PUUID
+        :param limit: Maximum number of matches to return
+        :param offset: Offset for pagination
+        :param queue_id: Optional queue filter
+        :param start_time: Optional start timestamp filter (milliseconds)
+        :param end_time: Optional end timestamp filter (milliseconds)
+        :returns: List of MatchORM objects with participants eager-loaded
         """
         pass
 
@@ -71,14 +65,11 @@ class MatchRepositoryInterface(ABC):
     ) -> int:
         """Count total matches for a player.
 
-        Args:
-            puuid: Player PUUID
-            queue_id: Optional queue filter
-            start_time: Optional start timestamp filter
-            end_time: Optional end timestamp filter
-
-        Returns:
-            Total match count
+        :param puuid: Player PUUID
+        :param queue_id: Optional queue filter
+        :param start_time: Optional start timestamp filter
+        :param end_time: Optional end timestamp filter
+        :returns: Total match count
         """
         pass
 
@@ -86,11 +77,8 @@ class MatchRepositoryInterface(ABC):
     async def get_player_last_match_time(self, puuid: str) -> Optional[int]:
         """Get timestamp of player's most recent match.
 
-        Args:
-            puuid: Player PUUID
-
-        Returns:
-            Timestamp in milliseconds, or None if no matches
+        :param puuid: Player PUUID
+        :returns: Timestamp in milliseconds, or None if no matches
         """
         pass
 
@@ -98,11 +86,8 @@ class MatchRepositoryInterface(ABC):
     async def filter_existing_matches(self, match_ids: list[str]) -> list[str]:
         """Filter out matches that already exist in database.
 
-        Args:
-            match_ids: List of match IDs to check
-
-        Returns:
-            List of match IDs NOT in database (new matches)
+        :param match_ids: List of match IDs to check
+        :returns: List of match IDs NOT in database (new matches)
         """
         pass
 
@@ -110,11 +95,8 @@ class MatchRepositoryInterface(ABC):
     async def create(self, match: MatchORM) -> MatchORM:
         """Add new match to database.
 
-        Args:
-            match: Match domain object to persist
-
-        Returns:
-            Persisted match with updated fields
+        :param match: Match domain object to persist
+        :returns: Persisted match with updated fields
         """
         pass
 
@@ -122,11 +104,8 @@ class MatchRepositoryInterface(ABC):
     async def save(self, match: MatchORM) -> MatchORM:
         """Save existing match changes.
 
-        Args:
-            match: Match domain object with changes
-
-        Returns:
-            Saved match with updated timestamps
+        :param match: Match domain object with changes
+        :returns: Saved match with updated timestamps
         """
         pass
 
@@ -134,8 +113,7 @@ class MatchRepositoryInterface(ABC):
     async def mark_as_processed(self, match_ids: list[str]) -> None:
         """Mark matches as processed for analysis.
 
-        Args:
-            match_ids: List of match IDs to mark
+        :param match_ids: List of match IDs to mark
         """
         pass
 

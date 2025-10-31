@@ -12,7 +12,7 @@ from app.core import Base, get_global_settings
 
 # Import all feature models so Alembic can detect them
 from app.features.players.orm_models import PlayerORM  # noqa: F401
-from app.features.matches.models import Match  # noqa: F401
+from app.features.matches.orm_models import MatchORM  # noqa: F401
 from app.features.player_analysis.orm_models import PlayerAnalysisORM  # noqa: F401
 from app.features.matchmaking_analysis.models import MatchmakingAnalysis  # noqa: F401
 from app.features.jobs.models import JobConfiguration, JobExecution  # noqa: F401
