@@ -2,7 +2,9 @@
 
 ## Overview
 
-The `frontend/features/` directory contains domain-specific UI components, hooks, and utilities organized by feature. Each feature is self-contained with all related frontend code, mirroring the backend's feature-based architecture.
+The `frontend/features/` directory contains domain-specific UI components, hooks, and utilities
+organized by feature. Each feature is self-contained with all related frontend code, mirroring the
+backend's feature-based architecture.
 
 ## Feature-Based Architecture
 
@@ -11,10 +13,12 @@ The `frontend/features/` directory contains domain-specific UI components, hooks
 1. **Feature Cohesion**: All UI code related to a domain feature lives together
 2. **Clear Boundaries**: Features expose public APIs via `index.ts`
 3. **Page Composition**: Pages in `app/` import and compose feature components
-4. **Shared vs Feature**: Shared layout/infrastructure in `components/`, feature-specific in `features/`
+4. **Shared vs Feature**: Shared layout/infrastructure in `components/`, feature-specific in
+   `features/`
 
 ### Existing Features
 
+- **`auth/`** - Authentication (AuthProvider, ProtectedRoute, useAuth)
 - **`players/`** - Player search, cards, stats, tracked players management
 - **`matches/`** - Match history, opponent statistics
 - **`player-analysis/`** - Player analysis results display
@@ -48,14 +52,12 @@ Export the feature's public interface for use by pages:
 
 ```typescript
 // features/players/index.ts
-export { PlayerSearch } from "./components/player-search";
-export { PlayerCard } from "./components/player-card";
-export { PlayerStats } from "./components/player-stats";
-export { AddTrackedPlayer } from "./components/add-tracked-player";
-export { TrackedPlayersList } from "./components/tracked-players-list";
-
-// Export hooks if they're part of the public API
-export { usePlayerSearch } from "./hooks/use-player-search";
+export { PlayerSearch } from './components/player-search';
+export { PlayerCard } from './components/player-card';
+export { PlayerStats } from './components/player-stats';
+export { AddTrackedPlayer } from './components/add-tracked-player';
+export { TrackedPlayersList } from './components/tracked-players-list';
+export { TrackPlayerButton } from './components/track-player-button';
 ```
 
 #### `components/` - Feature Components
@@ -64,49 +66,103 @@ React components specific to this feature:
 
 ```typescript
 // features/players/components/player-search.tsx
-"use client"
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { api } from '@/lib/core/api'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Search, User, AlertCircle, UserPlus, Loader2 } from 'lucide-react';
+import { z } from 'zod';
+
+import { Player, PlayerSchema } from '@/lib/core/schemas';
+import { playerSearchSchema, type PlayerSearchForm } from '@/lib/core/validations';
+import { validatedGet, addTrackedPlayer, searchPlayerSuggestions } from '@/lib/core/api';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+// Constants for autocomplete behavior
+const SUGGESTION_DEBOUNCE_MS = 300;
+const MIN_SEARCH_LENGTH = 1;
 
 interface PlayerSearchProps {
-  onPlayerSelect?: (player: Player) => void
+  onPlayerFound: (player: Player) => void;
 }
 
-export function PlayerSearch({ onPlayerSelect }: PlayerSearchProps) {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+export function PlayerSearch({ onPlayerFound }: PlayerSearchProps) {
+  const [showTrackOption, setShowTrackOption] = useState(false);
+  const [lastSearchParams, setLastSearchParams] = useState<PlayerSearchForm | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debouncing pattern
+  const form = useForm<PlayerSearchForm>({
+    resolver: zodResolver(playerSearchSchema),
+    defaultValues: {
+      searchValue: '',
+      platform: 'eun1',
+    },
+  });
+
+  // eslint-disable-next-line react-hooks/incompatible-library -- React Hook Form watch() is intentionally not memoizable
+  const searchValue = form.watch('searchValue');
+  const platform = form.watch('platform');
+
+  // Debounce search value for autocomplete
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
+      setDebouncedSearchValue(searchValue);
+    }, SUGGESTION_DEBOUNCE_MS);
 
-  // TanStack Query for data fetching
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['player-suggestions', debouncedSearch],
-    queryFn: () => api.get(`/players/suggestions?q=${debouncedSearch}`),
-    enabled: debouncedSearch.length >= 3,
-  })
+    return () => clearTimeout(timer);
+  }, [searchValue]);
 
-  return (
-    <div className="space-y-4">
-      <Input
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder="Search players..."
-      />
-      {isLoading && <p>Loading...</p>}
-      {error && <p>Error loading suggestions</p>}
-      {/* Render suggestions */}
-    </div>
-  )
+  // Fetch suggestions when debounced value changes
+  const { data: suggestionsResult, isLoading: suggestionsLoading } = useQuery({
+    queryKey: ['player-suggestions', debouncedSearchValue, platform],
+    queryFn: async () => {
+      if (debouncedSearchValue.length < MIN_SEARCH_LENGTH) {
+        return { success: true as const, data: [] };
+      }
+
+      const result = await searchPlayerSuggestions({
+        q: debouncedSearchValue,
+        platform: platform,
+        limit: 5,
+      });
+
+      return result;
+    },
+    enabled: debouncedSearchValue.length >= MIN_SEARCH_LENGTH,
+    retry: 1,
+    retryDelay: 500,
+  });
+
+  const suggestions = useMemo(() => {
+    return suggestionsResult?.success ? suggestionsResult.data : [];
+  }, [suggestionsResult]);
+
+  // ... (rest of the component continues with keyboard navigation, mutations, etc.)
 }
 ```
 
@@ -124,37 +180,143 @@ export function PlayerSearch({ onPlayerSelect }: PlayerSearchProps) {
 Reusable logic extracted into hooks:
 
 ```typescript
-// features/players/hooks/use-player-search.ts
+// features/auth/context/auth-context.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/core/api";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
+import { getToken, setToken, removeToken } from "../utils/token-manager";
+import type { User, LoginCredentials, AuthContextType } from "../types";
 
-export function usePlayerSearch(initialQuery: string = "") {
-  const [searchTerm, setSearchTerm] = useState(initialQuery);
-  const [debouncedSearch, setDebouncedSearch] = useState(initialQuery);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  const query = useQuery({
-    queryKey: ["player-search", debouncedSearch],
-    queryFn: () => api.get(`/players/suggestions?q=${debouncedSearch}`),
-    enabled: debouncedSearch.length >= 3,
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  // Check for token synchronously on initialization to avoid flash
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !!getToken();
   });
+  const router = useRouter();
 
-  return {
-    searchTerm,
-    setSearchTerm,
-    suggestions: query.data,
-    isLoading: query.isLoading,
-    error: query.error,
+  // Check authentication status on mount and after login
+  const checkAuth = useCallback(async () => {
+    const token = getToken();
+
+    if (!token) {
+      setUser(null);
+      setIsLoading(false);
+      removeToken(); // Ensure both localStorage and cookie are cleared
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setToken(token); // Ensure token is in sync across storage mechanisms
+      } else {
+        // Token invalid or expired
+        removeToken();
+        setUser(null);
+      }
+    } catch (error) {
+      // Only log errors in development
+      if (process.env.NODE_ENV === "development") {
+        console.error("Auth check failed:", error);
+      }
+      removeToken();
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initialize auth state on mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const login = async (credentials: LoginCredentials) => {
+    setIsLoading(true);
+    try {
+      // OAuth2 password flow requires form-data format
+      const formData = new URLSearchParams();
+      formData.append("username", credentials.email); // OAuth2 uses 'username' field
+      formData.append("password", credentials.password);
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Login failed");
+      }
+
+      const data = await response.json();
+
+      // Store token using centralized token manager
+      setToken(data.access_token);
+
+      // Fetch user data
+      await checkAuth();
+
+      // Redirect to home page
+      router.push("/");
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
   };
+
+  const logout = () => {
+    removeToken(); // Use centralized token removal
+    setUser(null);
+    router.push("/sign-in");
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isLoading,
+        login,
+        logout,
+        checkAuth,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
 ```
 
@@ -198,7 +360,7 @@ export function formatRank(tier: string, rank: string, lp: number): string {
 
    ```typescript
    // features/my-feature/index.ts
-   export { MyComponent } from "./components/my-component";
+   export { MyComponent } from './components/my-component';
    ```
 
 4. **Use in pages**:
@@ -218,35 +380,35 @@ export function formatRank(tier: string, rank: string, lp: number): string {
 
 ```typescript
 // Import sibling components/hooks/utils
-import { PlayerCard } from "./player-card";
-import { usePlayerData } from "../hooks/use-player-data";
-import { formatRank } from "../utils/player-formatters";
+import { PlayerCard } from './player-card';
+import { usePlayerData } from '../hooks/use-player-data';
+import { formatRank } from '../utils/player-formatters';
 ```
 
 ### From Core Lib
 
 ```typescript
-import { api } from "@/lib/core/api";
-import { playerSchema } from "@/lib/core/schemas";
-import { cn } from "@/lib/utils";
+import { api } from '@/lib/core/api';
+import { playerSchema } from '@/lib/core/schemas';
+import { cn } from '@/lib/utils';
 ```
 
 ### From Shared Components
 
 ```typescript
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { SidebarNav } from '@/components/sidebar-nav';
 ```
 
 ### From Other Features (Use Public API)
 
 ```typescript
 // ✅ Correct: Import from public API
-import { PlayerCard } from "@/features/players";
+import { PlayerCard } from '@/features/players';
 
 // ❌ Wrong: Import internal components
-import { PlayerCard } from "@/features/players/components/player-card";
+import { PlayerCard } from '@/features/players/components/player-card';
 ```
 
 ### In Pages (Feature Composition)

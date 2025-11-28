@@ -1,12 +1,12 @@
 # Utility Scripts
 
-This directory contains utility scripts for Docker cleanup. All Docker Compose commands are now executed directly - see `docker/AGENTS.md` for comprehensive command reference.
+This directory contains utility scripts for Docker cleanup and database replication. All Docker Compose commands are now executed directly - see `docker/AGENTS.md` for comprehensive command reference.
 
 ## Available Scripts
 
 ### Docker Cleanup (`docker-cleanup.sh`)
 
-Removes unused Docker resources to free up disk space:
+Removes unused Docker resources and resolves port conflicts:
 
 ```bash
 ./scripts/docker-cleanup.sh
@@ -14,17 +14,47 @@ Removes unused Docker resources to free up disk space:
 
 **What it cleans**:
 
-- Stopped containers
-- Dangling images (untagged)
-- Unused build cache
-- Unused networks
-- Dangling volumes
+- Stops local PostgreSQL service to prevent port conflicts
+- Stops Docker Compose services
+- Removes orphaned containers (riot_api, postgres on port 5432)
+- Removes orphaned networks
+- Verifies ports 3000, 5432, 8000 are free
 
 **When to use**:
 
+- Port conflicts on startup
 - Disk space running low
 - Build cache causing issues
 - After major changes to Docker configuration
+- Before switching between development and production
+
+### PostgreSQL Replication Setup (`setup-replication-dev.sh`)
+
+Sets up PostgreSQL logical replication from production to development environment:
+
+```bash
+./scripts/setup-replication-dev.sh
+```
+
+**What it does**:
+
+- Configures development database as replica of production
+- Sets up logical replication slots and subscriptions
+- Handles connection and authentication setup
+- Monitors replication status
+
+**When to use**:
+
+- Initial development environment setup
+- After production database schema changes
+- When replication needs to be re-established
+- For testing production-like data locally
+
+**Prerequisites**:
+
+- Production database accessible from development environment
+- Appropriate PostgreSQL permissions
+- Network connectivity between environments
 
 ## Docker Compose Commands
 
@@ -70,6 +100,7 @@ pre-commit run --all-files
 
 ❌ **Don't**:
 
-- Clear `/tmp/.buildx-cache` manually (use docker-cleanup.sh)
+- Clear `/tmp/.buildx-cache` manually (use `docker system prune -f` or docker-cleanup.sh)
 - Skip pre-commit hooks with `--no-verify`
 - Create wrapper scripts (use direct Docker commands instead)
+- Run local PostgreSQL service while using Docker Compose (port conflicts)

@@ -1,32 +1,98 @@
 # Tech Stack
 
-- Next.js 15 + React 19 (App Router)
-- TypeScript + Tailwind CSS 4 + shadcn/ui (New York)
-- TanStack Query v5 + Zod v4
-- react-hook-form + Axios + next-themes
-- sonner + lucide-react
-- Autocomplete/suggestions with debouncing
+- **Next.js 16.0.0** with App Router + **React 19.2.0**
+- **TypeScript 5** with strict mode
+- **Tailwind CSS 4.1.14** with CSS-first configuration (@theme blocks)
+- **shadcn/ui** components (New York style)
+- **TanStack Query v5.90.2** for data fetching and caching
+- **Zod v4.1.12** for runtime validation
+- **react-hook-form v7.65.0** + @hookform/resolvers v5.2.2 for form handling
+- **Axios v1.12.2** for HTTP client
+- **next-themes v0.4.6** for dark mode support
+- **sonner v2.0.7** for toast notifications
+- **lucide-react v0.545.0** for icons
 
 # Project Structure
 
-## Feature-Based Architecture
+```
+frontend/
+├── app/                        # Next.js App Router pages
+│   ├── layout.tsx             # Root layout with providers
+│   ├── page.tsx               # Home/dashboard
+│   ├── globals.css            # Global styles + Tailwind CSS 4 @theme
+│   ├── error.tsx              # Global error boundary
+│   ├── loading.tsx            # Global loading state
+│   ├── not-found.tsx          # 404 page
+│   ├── player-analysis/       # Player analysis page
+│   ├── matchmaking-analysis/  # Matchmaking analysis page
+│   ├── jobs/                  # Background jobs page
+│   ├── tracked-players/       # Player tracking page
+│   ├── settings/              # System settings page
+│   ├── sign-in/               # Authentication pages
+│   ├── license/               # License page
+│   └── privacy-policy/        # Privacy policy page
+├── features/                   # Feature-based modules
+│   ├── auth/                  # Authentication (AuthProvider, ProtectedRoute, useAuth)
+│   ├── players/               # Player components (search, cards, stats)
+│   ├── matches/               # Match components (history, encounters)
+│   ├── player-analysis/       # Player analysis components
+│   ├── matchmaking/           # Matchmaking analysis components
+│   ├── jobs/                  # Job management components
+│   └── settings/              # Settings components
+├── components/
+│   ├── ui/                    # shadcn/ui components (never edit manually)
+│   ├── sidebar-nav.tsx        # Navigation sidebar
+│   ├── theme-provider.tsx     # Theme context provider
+│   ├── theme-toggle.tsx       # Dark mode toggle
+│   ├── providers.tsx          # TanStack Query provider
+│   └── loading-skeleton.tsx   # Loading states
+├── lib/
+│   ├── core/                  # Core utilities
+│   │   ├── api.ts            # API client with Zod validation
+│   │   ├── schemas.ts        # Zod schemas for API types
+│   │   └── validations.ts    # Form validation schemas
+│   └── utils.ts               # Generic utilities (cn helper)
+├── hooks/
+│   └── use-toast.ts           # Toast notifications
+└── components.json            # shadcn/ui configuration
+```
 
-The frontend uses **feature-based organization** where related components, hooks, and utilities are grouped by domain:
+## Architectural Principles
 
-### Pages (`app/`)
+### 1. Feature Organization
 
-Next.js App Router pages (routing structure unchanged):
+- **Feature modules** contain domain-specific UI, logic, and utilities
+- **Shared components** are layout/infrastructure only
+- **Pages** import from features and compose them
 
-- `app/page.tsx` - Home/dashboard
-- `app/player-analysis/page.tsx` - Player analysis
-- `app/matchmaking-analysis/page.tsx` - Matchmaking fairness
-- `app/tracked-players/page.tsx` - Tracked players management
-- `app/jobs/page.tsx` - Background jobs control
-- `app/settings/page.tsx` - System settings
+### 2. Component Placement Rules
 
-### Feature Modules (`features/`)
+- If component is used by ONE feature → `features/<feature>/components/`
+- If component is shared layout/infrastructure → `components/`
+- If component is shadcn/ui → `components/ui/` (never move)
+
+### 3. Public Exports
+
+Features expose clean public APIs via `index.ts`:
+
+```typescript
+// features/players/index.ts
+export { PlayerSearch } from './components/player-search';
+export { PlayerCard } from './components/player-card';
+export { PlayerStats } from './components/player-stats';
+```
+
+## Feature Modules (`features/`)
 
 Each feature contains components, hooks, and utilities specific to that domain:
+
+**`features/auth/`** - Authentication
+
+- `components/protected-route.tsx` - Route protection component
+- `components/sign-in-form.tsx` - Login form with validation
+- `context/auth-context.tsx` - Authentication state management
+- `types.ts` - TypeScript type definitions
+- `utils/token-manager.ts` - Token management utilities
 
 **`features/players/`** - Player management
 
@@ -35,9 +101,7 @@ Each feature contains components, hooks, and utilities specific to that domain:
 - `components/player-stats.tsx` - Player statistics
 - `components/add-tracked-player.tsx` - Add to tracking
 - `components/tracked-players-list.tsx` - Tracked players table
-- `hooks/` - Player-specific hooks
-- `utils/` - Player utility functions
-- `index.ts` - Public exports
+- `components/track-player-button.tsx` - Track player button
 
 **`features/matches/`** - Match data
 
@@ -111,49 +175,53 @@ Features expose clean public APIs:
 
 ```typescript
 // features/players/index.ts
-export { PlayerSearch } from "./components/player-search";
-export { PlayerCard } from "./components/player-card";
-export { PlayerStats } from "./components/player-stats";
+export { PlayerSearch } from './components/player-search';
+export { PlayerCard } from './components/player-card';
+export { PlayerStats } from './components/player-stats';
+export { AddTrackedPlayer } from './components/add-tracked-player';
+export { TrackedPlayersList } from './components/tracked-players-list';
+export { TrackPlayerButton } from './components/track-player-button';
 ```
 
 ## Import Patterns
 
-### Importing from Features
+### Importing from Features (Recommended)
 
 ```typescript
-// Import from feature's public API
-import { PlayerSearch, PlayerCard } from "@/features/players";
-import { MatchHistory } from "@/features/matches";
-import { JobCard } from "@/features/jobs";
-
-// Or import directly
-import { PlayerSearch } from "@/features/players/components/player-search";
+// Import from feature's public API via index.ts
+import { PlayerSearch, PlayerCard } from '@/features/players';
+import { ProtectedRoute, useAuth } from '@/features/auth';
+import { MatchHistory } from '@/features/matches';
+import { JobCard } from '@/features/jobs';
 ```
 
 ### Importing from Core
 
 ```typescript
-import { api } from "@/lib/core/api";
-import { playerSchema } from "@/lib/core/schemas";
+import { api } from '@/lib/core/api';
+import { playerSchema } from '@/lib/core/schemas';
+import { cn } from '@/lib/utils';
 ```
 
 ### Importing Shared Components
 
 ```typescript
-import { Button } from "@/components/ui/button";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { Button } from '@/components/ui/button';
+import { SidebarNav } from '@/components/sidebar-nav';
+import { LoadingSkeleton } from '@/components/loading-skeleton';
 ```
 
 ### Page Composition Example
 
 ```typescript
 // app/player-analysis/page.tsx
-import { PlayerSearch, PlayerAnalysis } from '@/features/players'
+import { PlayerSearch, PlayerStats } from '@/features/players'
 import { PlayerAnalysisResults } from '@/features/player-analysis'
+import { LoadingSkeleton } from '@/components/loading-skeleton'
 
 export default function PlayerAnalysisPage() {
   return (
-    <div>
+    <div className="space-y-8">
       <PlayerSearch />
       <PlayerAnalysisResults />
     </div>
@@ -192,12 +260,12 @@ When creating a new feature module:
 3. **Create index file**: `features/my-feature/index.ts`
    ```typescript
    // Export public API
-   export { MyComponent } from "./components/my-component";
-   export { useMyHook } from "./hooks/use-my-hook";
+   export { MyComponent } from './components/my-component';
+   export { useMyHook } from './hooks/use-my-hook';
    ```
 4. **Import in pages**:
    ```typescript
-   import { MyComponent } from "@/features/my-feature";
+   import { MyComponent } from '@/features/my-feature';
    ```
 
 ## Adding Components to Existing Features

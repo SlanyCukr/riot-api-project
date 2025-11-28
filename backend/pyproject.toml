@@ -24,7 +24,6 @@ dependencies = [
     "python-multipart>=0.0.20",
     "slowapi>=0.1.9",
     "sqlalchemy>=2.0.43",
-    "sqlmodel>=0.0.14",
     "structlog>=25.4.0",
     "tenacity>=9.1.2",
     "uvicorn[standard]>=0.37.0",
@@ -49,9 +48,18 @@ dev = [
     "isort>=6.1.0",
     "flake8>=7.3.0",
     "mypy>=1.18.2",
+    "pyright>=1.1.400",
     "vulture>=2.14",
     "radon>=6.0.1",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
 
 [tool.black]
 line-length = 88
@@ -63,7 +71,7 @@ multi_line_output = 3
 
 [tool.bandit]
 exclude_dirs = ["tests", "tools", "alembic"]
-skips = ["B101", "B106", "B601", "B104", "B311"]
+skips = ["B101", "B601", "B104", "B311"]
 
 [tool.pyright]
 include = ["app", "main.py"]
@@ -92,7 +100,6 @@ reportUnknownParameterType = "warning"
 reportUnknownVariableType = "none"  # Disabled - user requested to skip these 92 errors
 reportUnknownMemberType = "warning"
 reportUntypedFunctionDecorator = "warning"
-reportUntypedClassDef = "warning"
 reportUntypedNamedTuple = "warning"
 reportUntypedBaseClass = "warning"
 

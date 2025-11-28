@@ -134,6 +134,46 @@ repos:
         pass_filenames: false
         stages: [manual] # Optional - only runs when explicitly called
 
+  # Prettier - Code formatter for frontend and configuration files
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        types_or:
+          [javascript, jsx, ts, tsx, json, yaml, markdown, css, scss, html]
+        exclude: ^frontend/node_modules/
+        additional_dependencies:
+          - prettier@3.1.0
+
+  # Pyright - Static type checker with Pydantic validation (using uvx)
+  - repo: local
+    hooks:
+      - id: pyright-uvx
+        name: Pyright Type Checking (includes Pydantic validation)
+        entry: bash -c 'export LC_ALL=C.UTF-8 &&
+          echo "🔍 Running Pyright type checking using uvx..." &&
+          cd backend &&
+          uvx pyright --project pyproject.toml --outputjson ||
+          (echo "❌ Pyright type checking failed! Fix type errors before committing." && exit 1)'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+
+      # Pyright warnings (non-blocking for gradual adoption)
+      - id: pyright-uvx-warnings
+        name: Pyright Type Checking (warnings only)
+        entry: bash -c 'export LC_ALL=C.UTF-8 &&
+          echo "🔍 Running Pyright type checking (warnings) using uvx..." &&
+          cd backend &&
+          uvx pyright --project pyproject.toml --level warning --outputjson ||
+          echo "⚠️  Pyright found type warnings (non-blocking)"'
+        language: system
+        files: ^backend/.*\.py$
+        exclude: ^(backend/tests/|backend/alembic/|backend/scripts/)
+        pass_filenames: false
+        stages: [manual] # Only runs when explicitly called
+
 # Configuration for pre-commit
 default_stages: [pre-commit]
 fail_fast: false

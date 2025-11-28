@@ -271,40 +271,19 @@ class PlayerAnalysisService:
 ## Database Model
 
 ```python
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
-
-class PlayerAnalysisBase(SQLModel):
-    """Base player analysis schema with shared fields."""
-
-    is_smurf: bool = Field(default=False, description="Whether player is detected as smurf")
-    confidence: str | None = Field(default=None, max_length=32)
-    smurf_score: float = Field(default=0.0, description="Overall smurf score (0.0-1.0)")
-
-class PlayerAnalysis(PlayerAnalysisBase, table=True):
+class PlayerAnalysis(BaseModel):
     """Player analysis result."""
 
     __tablename__ = "player_analysis"
-    __table_args__ = {"schema": "core"}
 
-    id: int | None = Field(default=None, primary_key=True)
-    puuid: str = Field(
-        foreign_key="core.players.puuid",
-        max_length=78,
-        index=True
-    )
-    last_analysis: datetime | None = Field(default=None)
-
-    # Factor scores stored as JSONB
-    factor_scores: dict = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False)
-    )
+    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
+    overall_score = Column(Float, nullable=False)
+    factor_scores = Column(JSON, nullable=False)  # Dict of factor results
+    confidence_level = Column(String, nullable=False)  # HIGH/MEDIUM/LOW
+    analysis_timestamp = Column(DateTime, nullable=False)
 
     # Relationships
-    player: "Player" = Relationship(back_populates="player_analyses")
+    player = relationship("Player", back_populates="player_analysis")
 ```
 
 ## Adding a New Analyzer

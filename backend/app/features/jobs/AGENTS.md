@@ -1,5 +1,7 @@
 # Background Jobs Feature
 
+> **For user documentation:** See `docs/architecture/jobs.md`
+
 ## Overview
 
 The jobs feature manages background task scheduling and execution using APScheduler. This feature has unique architecture with job implementations, error handling, and execution tracking.

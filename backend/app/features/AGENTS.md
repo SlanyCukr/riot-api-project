@@ -15,7 +15,8 @@ The `backend/app/features/` directory contains domain-specific business logic or
 
 ### Existing Features
 
-- **`players/`** - Player management (search, tracking, rank info)
+- **`auth/`** - User authentication and authorization (JWT-based)
+- **`players/`** - Player management with enterprise architecture (search, tracking, rank info)
 - **`matches/`** - Match data and statistics
 - **`player_analysis/`** - Player analysis algorithms (see feature-specific AGENTS.md)
 - **`matchmaking_analysis/`** - Matchmaking fairness evaluation
@@ -25,6 +26,8 @@ The `backend/app/features/` directory contains domain-specific business logic or
 ## Standard Feature Structure
 
 Every feature follows this structure:
+
+**Standard Feature Structure:**
 
 ```
 features/<feature_name>/
@@ -36,6 +39,25 @@ features/<feature_name>/
 ├── dependencies.py      # Dependency injection helpers
 ├── tests/               # Feature-specific tests
 └── README.md            # Feature documentation (optional)
+```
+
+**Enterprise Feature Structure (players):**
+
+```
+features/players/
+├── __init__.py          # Public API exports
+├── router.py            # FastAPI routes
+├── service.py           # Business orchestration
+├── repository.py        # Repository pattern interface + implementation
+├── orm_models.py        # Rich domain models (SQLAlchemy)
+├── models.py            # Pydantic domain models
+├── schemas.py           # API request/response schemas
+├── transformers.py      # Data mapper between ORM and domain
+├── dependencies.py      # Dependency injection
+├── ranks.py             # Rank-related domain models
+├── ranks_schemas.py     # Rank API schemas
+├── tests/               # Feature tests
+└── README.md            # Enterprise architecture documentation
 ```
 
 ### File Responsibilities
@@ -177,75 +199,45 @@ class PlayerService:
 - Handle errors gracefully
 - Return early to reduce complexity
 
-#### `models.py` - Database Models
+#### `models.py` - Database Models (Standard Features)
 
-Define SQLModel models following the Base → Table → API schemas pattern:
+Define SQLAlchemy models with proper relationships:
 
 ```python
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 
-class PlayerBase(SQLModel):
-    """Base player schema with shared fields."""
+from app.core.models import BaseModel
 
-    game_name: str = Field(max_length=128, description="Player's game name")
-    tag_line: str = Field(max_length=32, description="Player's tag line")
-    summoner_level: int | None = Field(default=None, description="Summoner level")
-    is_tracked: bool = Field(default=False, description="Whether player is tracked")
-
-class Player(PlayerBase, table=True):
+class Player(BaseModel):
     """Player database model."""
 
     __tablename__ = "players"
-    __table_args__ = {"schema": "core"}
 
-    puuid: str = Field(primary_key=True, max_length=78, index=True)
-
-    # Relationships
-    ranks: list["PlayerRank"] = Relationship(
-        back_populates="player",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
-    match_participations: list["MatchParticipant"] = Relationship(
-        back_populates="player",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
-
-class PlayerRankBase(SQLModel):
-    """Base rank schema with shared fields."""
-
-    tier: str = Field(max_length=16, description="Rank tier")
-    rank: str = Field(max_length=4, description="Rank division")
-    league_points: int = Field(default=0, ge=0, description="League points")
-    wins: int = Field(default=0, ge=0, description="Number of wins")
-    losses: int = Field(default=0, ge=0, description="Number of losses")
-
-class PlayerRank(PlayerRankBase, table=True):
-    """Rank information for a player."""
-
-    __tablename__ = "player_ranks"
-    __table_args__ = {"schema": "core"}
-
-    id: int | None = Field(default=None, primary_key=True)
-    puuid: str = Field(
-        foreign_key="core.players.puuid",
-        max_length=78,
-        index=True
-    )
+    puuid = Column(String, unique=True, nullable=False, index=True)
+    game_name = Column(String, nullable=False)
+    tag_line = Column(String, nullable=False)
+    summoner_level = Column(Integer)
+    is_tracked = Column(Boolean, default=False, nullable=False)
 
     # Relationships
-    player: Player = Relationship(back_populates="ranks")
+    ranks = relationship("Rank", back_populates="player", cascade="all, delete-orphan")
+    matches = relationship("PlayerMatch", back_populates="player")
 ```
+
+**For Enterprise Features (players):**
+
+- **`orm_models.py`** - Rich domain models with business logic (SQLAlchemy)
+- **`models.py`** - Clean Pydantic domain models (separate from persistence)
 
 **Model Guidelines:**
 
-- Use SQLModel's Base → Table → API schemas pattern
-- Define base models with shared fields, table models with `table=True`
-- Use `Field()` for validation and constraints
-- Define relationships with `Relationship()` (capitalized)
-- Use `sa_relationship_kwargs` for SQLAlchemy-specific options
+- Inherit from `BaseModel` (provides `id`, `created_at`, `updated_at`)
+- Use proper indexes on frequently queried columns
+- Define relationships with `back_populates`
+- Use cascades appropriately
 - Add docstrings to all models
-- See `backend/SQLMODEL_MIGRATION_GUIDE.md` for comprehensive patterns
+- For enterprise features, separate persistence (ORM) from domain (Pydantic) models
 
 #### `schemas.py` - Pydantic Schemas
 
@@ -344,6 +336,8 @@ def get_player_service(
    from app.features.my_feature import my_feature_router
    app.include_router(my_feature_router, prefix="/api/v1", tags=["my_feature"])
    ```
+
+**Note**: Current `main.py` uses the older `@app.on_event()` pattern instead of the newer `lifespan` context manager for startup/shutdown events.
 
 10. **Write tests** in `tests/features/my_feature/`
 11. **Document feature** (optional README.md or AGENTS.md if complex)

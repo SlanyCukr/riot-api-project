@@ -2,7 +2,7 @@
 
 **Date**: 2025-10-28
 **Status**: Planning
-**Effort Estimate**: 15-20 hours
+**Effort Estimate**: 12-16 hours
 **Approach**: SQLAlchemy 2.0 + Pydantic v2 with Enterprise Patterns
 
 ---
@@ -16,9 +16,8 @@
 5. [Implementation Guide](#implementation-guide)
 6. [Code Examples](#code-examples)
 7. [Data Flow](#data-flow)
-8. [Testing Strategy](#testing-strategy)
-9. [Effort Breakdown](#effort-breakdown)
-10. [Success Criteria](#success-criteria)
+8. [Effort Breakdown](#effort-breakdown)
+9. [Success Criteria](#success-criteria)
 
 ---
 
@@ -570,164 +569,9 @@ async def create_player(
     return await service.create_player(player_data)
 ```
 
-### Phase 6: Update Tests (4-5 hours)
+### Phase 6: Update Documentation (1 hour)
 
-**6.1 Repository Tests**
-
-```python
-# tests/features/players/test_repository.py
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.features.players.orm_models import PlayerORM
-from app.features.players.repository import SQLAlchemyPlayerRepository
-
-@pytest.mark.asyncio
-async def test_get_by_puuid(db: AsyncSession):
-    """Test repository get_by_puuid method."""
-    # Arrange
-    player = PlayerORM(
-        puuid="test-puuid-123",
-        riot_id="TestPlayer",
-        tag_line="NA1",
-        platform="na1",
-    )
-    db.add(player)
-    await db.commit()
-
-    repo = SQLAlchemyPlayerRepository(db)
-
-    # Act
-    result = await repo.get_by_puuid("test-puuid-123")
-
-    # Assert
-    assert result is not None
-    assert result.puuid == "test-puuid-123"
-    assert result.riot_id == "TestPlayer"
-
-@pytest.mark.asyncio
-async def test_find_by_riot_id(db: AsyncSession):
-    """Test repository find_by_riot_id method."""
-    # Arrange
-    player = PlayerORM(
-        puuid="test-puuid-456",
-        riot_id="AnotherPlayer",
-        tag_line="EUW",
-        platform="euw1",
-    )
-    db.add(player)
-    await db.commit()
-
-    repo = SQLAlchemyPlayerRepository(db)
-
-    # Act
-    result = await repo.find_by_riot_id("AnotherPlayer", "EUW", "euw1")
-
-    # Assert
-    assert result is not None
-    assert result.riot_id == "AnotherPlayer"
-```
-
-**6.2 Domain Model Tests**
-
-```python
-# tests/features/players/test_orm_models.py
-import pytest
-from app.features.players.orm_models import PlayerORM
-
-def test_is_new_account():
-    """Test domain logic: new account detection."""
-    # New account
-    player = PlayerORM(puuid="test", account_level=25, platform="na1")
-    assert player.is_new_account() is True
-
-    # Veteran account
-    player = PlayerORM(puuid="test", account_level=150, platform="na1")
-    assert player.is_new_account() is False
-
-def test_calculate_win_rate():
-    """Test domain calculation: win rate."""
-    player = PlayerORM(puuid="test", wins=60, losses=40, platform="na1")
-    assert player.calculate_win_rate() == 60.0
-
-    # Handle zero games
-    player_no_games = PlayerORM(puuid="test2", wins=0, losses=0, platform="na1")
-    assert player_no_games.calculate_win_rate() == 0.0
-
-def test_validate_for_tracking():
-    """Test domain validation rules."""
-    # Valid player
-    player = PlayerORM(
-        puuid="test",
-        riot_id="Player",
-        tag_line="NA1",
-        platform="na1"
-    )
-    errors = player.validate_for_tracking()
-    assert len(errors) == 0
-
-    # Invalid: missing riot_id
-    player_invalid = PlayerORM(puuid="test", platform="na1")
-    errors = player_invalid.validate_for_tracking()
-    assert len(errors) > 0
-    assert "Missing Riot ID" in errors[0]
-```
-
-**6.3 Service Tests (with Mocked Repository)**
-
-```python
-# tests/features/players/test_service.py
-import pytest
-from unittest.mock import AsyncMock, Mock
-from app.features.players.service import PlayerService
-from app.features.players.orm_models import PlayerORM
-from app.features.players.exceptions import PlayerNotFoundError
-
-@pytest.mark.asyncio
-async def test_get_player_success():
-    """Test service get_player with mocked repository."""
-    # Arrange
-    mock_repo = Mock()
-    player_orm = PlayerORM(
-        puuid="test-puuid",
-        riot_id="TestPlayer",
-        tag_line="NA1",
-        platform="na1",
-        wins=50,
-        losses=30,
-    )
-    mock_repo.get_by_puuid = AsyncMock(return_value=player_orm)
-
-    mock_riot_gateway = Mock()
-    service = PlayerService(mock_repo, mock_riot_gateway)
-
-    # Act
-    result = await service.get_player("test-puuid")
-
-    # Assert
-    assert result.puuid == "test-puuid"
-    assert result.riot_id == "TestPlayer"
-    # Verify computed field uses domain logic
-    assert result.smurf_likelihood is not None
-    mock_repo.get_by_puuid.assert_called_once_with("test-puuid")
-
-@pytest.mark.asyncio
-async def test_get_player_not_found():
-    """Test service handles player not found."""
-    # Arrange
-    mock_repo = Mock()
-    mock_repo.get_by_puuid = AsyncMock(return_value=None)
-
-    mock_riot_gateway = Mock()
-    service = PlayerService(mock_repo, mock_riot_gateway)
-
-    # Act & Assert
-    with pytest.raises(PlayerNotFoundError):
-        await service.get_player("nonexistent-puuid")
-```
-
-### Phase 7: Update Documentation (1 hour)
-
-**7.1 Update `__init__.py` exports**
+**6.1 Update `__init__.py` exports**
 
 ```python
 # features/players/__init__.py
@@ -761,7 +605,7 @@ __all__ = [
 ]
 ```
 
-**7.2 Update README.md**
+**6.2 Update README.md**
 
 Document new architecture, patterns applied, and how to extend.
 
@@ -2004,184 +1848,6 @@ class PlayerService:
 
 ---
 
-## Testing Strategy
-
-### Layer-by-Layer Testing Approach
-
-#### 1. Domain Model Tests (No Database Required)
-
-**Purpose**: Test business logic in isolation
-
-```python
-# tests/features/players/test_orm_models.py
-def test_calculate_smurf_likelihood_high():
-    """Test smurf detection logic."""
-    player = PlayerORM(
-        puuid="test",
-        account_level=25,  # New account
-        platform="na1"
-    )
-    # Add rank with high win rate
-    rank = PlayerRankORM(
-        tier="DIAMOND",
-        rank="II",
-        wins=70,
-        losses=30,
-        is_current=True
-    )
-    player.ranks.append(rank)
-
-    score = player.calculate_smurf_likelihood()
-    assert score >= 0.7  # High likelihood
-```
-
-**Benefits**:
-- Fast (no database I/O)
-- Test pure business logic
-- Easy to set up test data
-
-#### 2. Repository Tests (With Test Database)
-
-**Purpose**: Test data access layer
-
-```python
-# tests/features/players/test_repository.py
-@pytest.mark.asyncio
-async def test_get_tracked_players(db: AsyncSession):
-    """Test repository filtering."""
-    # Setup: Create tracked and untracked players
-    tracked = PlayerORM(puuid="tracked", is_tracked=True, platform="na1")
-    untracked = PlayerORM(puuid="untracked", is_tracked=False, platform="na1")
-    db.add_all([tracked, untracked])
-    await db.commit()
-
-    # Execute
-    repo = SQLAlchemyPlayerRepository(db)
-    result = await repo.get_tracked_players()
-
-    # Assert
-    assert len(result) == 1
-    assert result[0].puuid == "tracked"
-```
-
-**Benefits**:
-- Test SQL queries work correctly
-- Catch relationship loading issues
-- Verify database constraints
-
-#### 3. Service Tests (With Mocked Repository)
-
-**Purpose**: Test orchestration logic without database
-
-```python
-# tests/features/players/test_service.py
-@pytest.mark.asyncio
-async def test_track_player_with_validation():
-    """Test service orchestrates validation and tracking."""
-    # Mock repository
-    mock_repo = Mock()
-    player_orm = PlayerORM(
-        puuid="test",
-        riot_id="Player",
-        tag_line="NA1",
-        platform="na1"
-    )
-    mock_repo.get_by_puuid = AsyncMock(return_value=player_orm)
-    mock_repo.save = AsyncMock(return_value=player_orm)
-
-    # Mock gateway
-    mock_gateway = Mock()
-
-    # Execute
-    service = PlayerService(mock_repo, mock_gateway)
-    result = await service.track_player("test")
-
-    # Assert
-    assert result.puuid == "test"
-    assert player_orm.is_tracked is True  # Domain model updated
-    mock_repo.save.assert_called_once()  # Repository called
-```
-
-**Benefits**:
-- Fast (no database or external APIs)
-- Test service orchestration logic
-- Easy to test error paths
-
-#### 4. Integration Tests (Full Stack)
-
-**Purpose**: Test complete request flow
-
-```python
-# tests/features/players/test_integration.py
-@pytest.mark.asyncio
-async def test_get_player_endpoint(client: AsyncClient, db: AsyncSession):
-    """Test complete GET /players/{puuid} flow."""
-    # Setup: Create player in database
-    player = PlayerORM(
-        puuid="test-integration",
-        riot_id="TestPlayer",
-        tag_line="NA1",
-        platform="na1",
-        account_level=50,
-        wins=100,
-        losses=80,
-    )
-    db.add(player)
-    await db.commit()
-
-    # Execute: Make HTTP request
-    response = await client.get("/api/v1/players/test-integration")
-
-    # Assert: Full response validation
-    assert response.status_code == 200
-    data = response.json()
-    assert data["puuid"] == "test-integration"
-    assert data["riot_id"] == "TestPlayer"
-    assert "smurf_likelihood" in data  # Computed field present
-```
-
-**Benefits**:
-- Catches integration issues
-- Validates API contracts
-- Tests dependency injection
-
-### Test Coverage Goals
-
-```
-Domain Models:     100% (all business logic methods)
-Repository:         95% (all queries + error paths)
-Service:            90% (orchestration + transformations)
-Router:             80% (happy path + error handling)
-Integration:        70% (key user flows)
-```
-
-### Mocking Strategy
-
-```python
-# tests/conftest.py
-from unittest.mock import Mock, AsyncMock
-
-@pytest.fixture
-def mock_player_repository() -> Mock:
-    """Mock repository for service tests."""
-    repo = Mock(spec=PlayerRepositoryInterface)
-    # Add default behaviors
-    repo.get_by_puuid = AsyncMock(return_value=None)
-    repo.create = AsyncMock(side_effect=lambda x: x)
-    return repo
-
-@pytest.fixture
-def mock_riot_gateway() -> Mock:
-    """Mock Riot API gateway for service tests."""
-    gateway = Mock(spec=RiotAPIGateway)
-    gateway.fetch_player_profile = AsyncMock(
-        return_value=PlayerORM(puuid="test", platform="na1")
-    )
-    return gateway
-```
-
----
-
 ## Effort Breakdown
 
 ### Phase-by-Phase Estimates
@@ -2193,16 +1859,15 @@ def mock_riot_gateway() -> Mock:
 | **Phase 3: Repository** | Interface + implementation, all queries | 3-4 | Medium |
 | **Phase 4: Service** | Refactor to thin orchestration, add transformers | 4-5 | High |
 | **Phase 5: Router/DI** | Update dependencies, minimal router changes | 1-2 | Low |
-| **Phase 6: Tests** | Repository, service, integration tests | 4-5 | Medium |
-| **Phase 7: Documentation** | Update exports, README, code comments | 1 | Low |
-| **TOTAL** | | **16-21 hours** | |
+| **Phase 6: Documentation** | Update exports, README, code comments | 1 | Low |
+| **TOTAL** | | **12-16 hours** | |
 
 ### Complexity Factors
 
 **Low Complexity (easier than expected)**:
 - Router changes minimal (already using dependency injection)
 - ORM models straightforward (just add type hints + methods)
-- Tests easier with clear layer separation
+- Clear layer separation simplifies implementation
 
 **High Complexity (takes longer)**:
 - Refactoring service layer (current service does everything)
@@ -2212,9 +1877,9 @@ def mock_riot_gateway() -> Mock:
 ### Risk Buffer
 
 Add **20% buffer** for unexpected issues:
-- **Estimated**: 16-21 hours
-- **With buffer**: 19-25 hours
-- **Realistic range**: **20-25 hours** for players feature
+- **Estimated**: 12-16 hours
+- **With buffer**: 14-19 hours
+- **Realistic range**: **14-19 hours** for players feature
 
 ---
 
@@ -2245,12 +1910,6 @@ Add **20% buffer** for unexpected issues:
   - [ ] RiotAPIGateway returns domain models (ORM)
   - [ ] No Riot DTOs visible outside gateway
 
-- [ ] **Tests Written**
-  - [ ] Domain model unit tests (100% coverage of business logic)
-  - [ ] Repository tests with test database
-  - [ ] Service tests with mocked repository
-  - [ ] Integration tests for key flows
-
 - [ ] **Type Safety Validated**
   - [ ] mypy passes with strict mode
   - [ ] pyright passes with strict mode
@@ -2272,14 +1931,13 @@ Add **20% buffer** for unexpected issues:
   - [ ] DELETE /players/{puuid}/track
 
 - [ ] **No regressions**
-  - [ ] All existing tests pass
   - [ ] No performance degradation
   - [ ] Same API contracts maintained
 
 - [ ] **New capabilities enabled**
-  - [ ] Easy to mock repository in tests
-  - [ ] Business logic testable without database
   - [ ] Clear layer boundaries obvious to new developers
+  - [ ] Easy to understand where to add new features
+  - [ ] Business logic centralized in domain models
 
 ### Quality Gates
 

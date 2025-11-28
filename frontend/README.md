@@ -1,12 +1,13 @@
 # Frontend - Riot API Web Application
 
-Next.js 15 frontend for the Riot API Match History & Player Analysis application. Provides an intuitive interface for analyzing League of Legends player data and matchmaking fairness.
+Next.js 16 frontend for the Riot API Match History & Player Analysis application. Provides an
+intuitive interface for analyzing League of Legends player data and matchmaking fairness.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 with App Router + React 19
+- **Framework**: Next.js 16 with App Router + React 19.2.0
 - **Language**: TypeScript 5
-- **Styling**: Tailwind CSS 4 + shadcn/ui components
+- **Styling**: Tailwind CSS 4 (CSS-first configuration) + shadcn/ui components
 - **Data Fetching**: TanStack Query (React Query) for caching and state management
 - **Forms**: react-hook-form with Zod validation
 - **HTTP Client**: Axios
@@ -20,23 +21,33 @@ frontend/
 ├── app/                        # Next.js App Router
 │   ├── layout.tsx             # Root layout with providers
 │   ├── page.tsx               # Dashboard (main route)
-│   └── globals.css            # Global styles + CSS variables
+│   ├── globals.css            # Global styles + Tailwind CSS 4 @theme config
+│   └── sign-in/               # Authentication pages
+├── features/                   # Feature modules
+│   ├── auth/                  # Authentication (AuthProvider, ProtectedRoute, useAuth)
+│   ├── players/               # Player components
+│   ├── matches/               # Match components
+│   ├── player-analysis/       # Analysis components
+│   ├── matchmaking/           # Matchmaking components
+│   ├── jobs/                  # Job management components
+│   └── settings/              # Settings components
 ├── components/
 │   ├── ui/                    # shadcn/ui components
-│   ├── player-search.tsx      # Player search form
-│   ├── player-card.tsx        # Player information display
-│   ├── match-history.tsx      # Match history table
-│   ├── player-analysis.tsx    # Player analysis results
-│   ├── matchmaking-analysis.tsx  # Matchmaking analysis component
-│   └── providers.tsx          # Client providers (TanStack Query)
+│   ├── sidebar-nav.tsx        # Shared layout components
+│   ├── theme-provider.tsx     # Theme context
+│   ├── theme-toggle.tsx       # Dark mode toggle
+│   └── providers.tsx          # TanStack Query provider
 ├── lib/
-│   ├── utils.ts               # Utility functions (cn helper)
-│   ├── api.ts                 # API client with Zod validation
-│   ├── schemas.ts             # Zod schemas for API types
-│   └── validations.ts         # Form validation schemas
+│   ├── core/                  # Core utilities
+│   │   ├── api.ts            # API client with Zod validation
+│   │   ├── schemas.ts        # Zod schemas for API types
+│   │   └── validations.ts    # Form validation schemas
+│   └── utils.ts               # Generic utilities (cn helper)
+├── hooks/
+│   └── use-toast.ts           # Toast notifications
 ├── components.json            # shadcn/ui configuration
 ├── next.config.ts             # Next.js configuration
-├── tailwind.config.ts         # Tailwind CSS configuration
+├── postcss.config.mjs         # PostCSS with Tailwind CSS 4
 └── tsconfig.json              # TypeScript configuration
 ```
 
@@ -86,6 +97,41 @@ npm run start    # Start production server
 npm run lint     # Run ESLint
 ```
 
+## Styling with Tailwind CSS 4
+
+This project uses **Tailwind CSS 4** with **CSS-first configuration** (no `tailwind.config.ts`):
+
+- **Configuration**: Via `@theme` blocks in `app/globals.css`
+- **Custom Properties**: CSS variables for colors, fonts, spacing
+- **Dark Mode**: Custom variants with `@custom-variant dark`
+- **PostCSS**: Configured in `postcss.config.mjs` with `@tailwindcss/postcss`
+
+**Example from globals.css:**
+
+```css
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: oklch(0.7 0.2 250);
+  --font-sans: 'Montserrat', sans-serif;
+}
+
+@custom-variant dark (&:is(.dark, .dark *)) {
+  --color-background: oklch(0.15 0 0);
+}
+```
+
+## Authentication
+
+Protected routes with JWT-based authentication:
+
+- **Auth Context**: `features/auth/context/AuthContext.tsx` provides `useAuth` hook
+- **Protected Routes**: `<ProtectedRoute>` wrapper component checks authentication
+- **Sign In**: `/sign-in` page with email/password form
+- **Token Storage**: JWT stored in localStorage, validated on app load
+
+All main pages are wrapped in `<ProtectedRoute>` for access control.
+
 ## Features
 
 ### Player Search
@@ -128,11 +174,11 @@ npm run lint     # Run ESLint
 All API responses are validated at runtime using Zod schemas:
 
 ```typescript
-import { validatedGet } from "@/lib/api";
-import { PlayerSchema } from "@/lib/schemas";
+import { validatedGet } from '@/lib/api';
+import { PlayerSchema } from '@/lib/schemas';
 
-const player = await validatedGet(PlayerSchema, "/players/search", {
-  riot_id: "PlayerName#TAG",
+const player = await validatedGet(PlayerSchema, '/players/search', {
+  riot_id: 'PlayerName#TAG',
 });
 ```
 
@@ -141,12 +187,12 @@ const player = await validatedGet(PlayerSchema, "/players/search", {
 Forms use react-hook-form with Zod for type-safe validation:
 
 ```typescript
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 const form = useForm({
   resolver: zodResolver(searchSchema),
-  defaultValues: { searchValue: "", platform: "eun1" },
+  defaultValues: { searchValue: '', platform: 'eun1' },
 });
 ```
 
@@ -155,10 +201,10 @@ const form = useForm({
 TanStack Query provides automatic caching and background refetching:
 
 ```typescript
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
 
 const { data, isLoading } = useQuery({
-  queryKey: ["player", riotId],
+  queryKey: ['player', riotId],
   queryFn: () => fetchPlayer(riotId),
 });
 ```

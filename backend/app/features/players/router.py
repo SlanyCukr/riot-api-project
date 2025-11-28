@@ -6,13 +6,12 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 import structlog
 
-from .models import (
-    PlayerPublic,
-    PlayerRankPublic,
+from .schemas import (
+    PlayerResponse,
 )
+from .ranks_schemas import PlayerRankResponse
 from .dependencies import (
     PlayerServiceDep,
-    RiotDataManagerDep,
     get_player_service,
 )
 from app.core.riot_api.constants import Platform
@@ -65,7 +64,7 @@ def validate_riot_id(riot_id: str) -> tuple[str, str]:
     return game_name, tag_line
 
 
-@router.get("/search", response_model=list[PlayerPublic])
+@router.get("/search", response_model=list[PlayerResponse])
 @limiter.limit("100/minute")
 async def search_player(
     request: Request,
@@ -95,7 +94,7 @@ async def search_player(
         platform: Platform region (e.g., "eun1", "euw1", "na1")
 
     Returns:
-        list[PlayerPublic]: Array of up to 10 matching players,
+        list[PlayerResponse]: Array of up to 10 matching players,
                               sorted by relevance (empty array if none found)
 
     Examples:
@@ -130,7 +129,7 @@ async def search_player(
         )
 
 
-@router.get("/suggestions", response_model=list[PlayerPublic])
+@router.get("/suggestions", response_model=list[PlayerResponse])
 async def get_player_suggestions(
     request: Request,
     player_service: PlayerServiceDep,
@@ -165,7 +164,7 @@ async def get_player_suggestions(
         limit: Maximum number of suggestions to return (default: 5, max: 10)
 
     Returns:
-        list[PlayerPublic]: Array of up to `limit` matching players,
+        list[PlayerResponse]: Array of up to `limit` matching players,
                               sorted by relevance (empty array if none found)
 
     Examples:
@@ -199,17 +198,16 @@ async def get_player_suggestions(
         )
 
 
-@router.get("/{puuid}", response_model=PlayerPublic)
+@router.get("/{puuid}", response_model=PlayerResponse)
 async def get_player_by_puuid(puuid: str, player_service: PlayerServiceDep):
     """Get player information by PUUID."""
-    try:
-        player = await player_service.get_player_by_puuid(puuid)
-        return player
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    player = await player_service.get_player_by_puuid(puuid)
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return player
 
 
-@router.get("/{puuid}/recent-opponents", response_model=list[PlayerPublic])
+@router.get("/{puuid}/recent-opponents", response_model=list[PlayerResponse])
 async def get_player_recent_opponents(
     puuid: str,
     player_service: PlayerServiceDep,
@@ -223,7 +221,7 @@ async def get_player_recent_opponents(
 # === Player Tracking Endpoints ===
 
 
-@router.post("/{puuid}/track", response_model=PlayerPublic)
+@router.post("/{puuid}/track", response_model=PlayerResponse)
 async def track_player(puuid: str, player_service: PlayerServiceDep):
     """
     Mark a player for automated tracking and monitoring.
@@ -255,7 +253,7 @@ async def track_player(puuid: str, player_service: PlayerServiceDep):
         )
 
 
-@router.delete("/{puuid}/track", response_model=PlayerPublic)
+@router.delete("/{puuid}/track", response_model=PlayerResponse)
 async def untrack_player(puuid: str, player_service: PlayerServiceDep):
     """
     Remove a player from automated tracking.
@@ -308,7 +306,7 @@ async def get_tracking_status(puuid: str, player_service: PlayerServiceDep):
         )
 
 
-@router.get("/tracked/list", response_model=list[PlayerPublic])
+@router.get("/tracked/list", response_model=list[PlayerResponse])
 async def get_tracked_players(player_service: PlayerServiceDep):
     """
     Get all players currently marked for tracking.
@@ -327,13 +325,10 @@ async def get_tracked_players(player_service: PlayerServiceDep):
         )
 
 
-async def _process_riot_id_tracking(
-    player_service, riot_data_manager, riot_id: str, platform: str
-):
+async def _process_riot_id_tracking(player_service, riot_id: str, platform: str):
     """Process tracking request with Riot ID."""
     game_name, tag_line = validate_riot_id(riot_id)
     return await player_service.add_and_track_player(
-        riot_data_manager=riot_data_manager,
         game_name=game_name,
         tag_line=tag_line,
         platform=platform,
@@ -356,10 +351,9 @@ async def _process_summoner_name_tracking(
         )
 
 
-@router.post("/add-tracked", response_model=PlayerPublic)
+@router.post("/add-tracked", response_model=PlayerResponse)
 async def add_tracked_player(
     player_service: PlayerServiceDep,
-    riot_data_manager: RiotDataManagerDep,
     riot_id: str | None = Query(None, description="Riot ID in format name#tag"),
     summoner_name: str | None = Query(None, description="Summoner name"),
     platform: str = Query("eun1", description="Platform region"),
@@ -394,9 +388,7 @@ async def add_tracked_player(
 
     try:
         if riot_id:
-            return await _process_riot_id_tracking(
-                player_service, riot_data_manager, riot_id, platform
-            )
+            return await _process_riot_id_tracking(player_service, riot_id, platform)
 
         return await _process_summoner_name_tracking(
             player_service,
@@ -442,7 +434,7 @@ def _handle_tracking_unexpected_error(
 # === Player Rank Endpoints ===
 
 
-@router.get("/{puuid}/rank", response_model=PlayerRankPublic | None)
+@router.get("/{puuid}/rank", response_model=PlayerRankResponse | None)
 async def get_player_current_rank(
     puuid: str,
     player_service: PlayerServiceDep,
@@ -467,7 +459,7 @@ async def get_player_current_rank(
         rank = await player_service.get_player_rank(puuid, queue_type)
 
         if rank:
-            return PlayerRankPublic.model_validate(rank)
+            return PlayerRankResponse.model_validate(rank)
         return None
     except Exception as e:
         logger.error(

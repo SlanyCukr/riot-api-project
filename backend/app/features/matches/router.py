@@ -1,15 +1,16 @@
 """Match API endpoints for the Riot API application."""
 
-from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 
-from .schemas import (
-    MatchListResponse,
-    MatchStatsResponse,
-)
+from fastapi import APIRouter, HTTPException, Query
+
 from .dependencies import (
     MatchServiceDep,
     get_match_service,
+)
+from .schemas import (
+    MatchListResponse,
+    MatchStatsResponse,
 )
 
 router = APIRouter(prefix="/matches", tags=["matches"])

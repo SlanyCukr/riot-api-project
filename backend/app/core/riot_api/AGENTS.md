@@ -13,6 +13,9 @@
 - `transformers.py` - API response to DB model conversion
 - `endpoints.py` - Riot API endpoint definitions
 - `constants.py` - Region, platform, and queue enums
+- `models.py` - Riot API data models
+- `errors.py` - Riot API-specific exceptions
+- `__init__.py` - Public exports (RiotAPIClient, RiotDataManager)
 
 # Commands
 

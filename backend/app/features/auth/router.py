@@ -1,14 +1,15 @@
 """Authentication router with login, logout, and user management endpoints."""
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limiter import limiter
-from app.core.database import get_db
 from .dependencies import get_current_active_user, get_current_admin_user
-from .models import User, Token, UserCreate, UserPublic
+from .models import User
+from .schemas import Token, UserCreate, UserResponse
 from .service import AuthService, get_auth_service
 
 router = APIRouter()
@@ -20,7 +21,6 @@ async def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
-    db: AsyncSession = Depends(get_db),
 ) -> Token:
     """Login endpoint using OAuth2 password flow.
 
@@ -28,9 +28,7 @@ async def login(
     Updates last_login timestamp on successful authentication.
     """
     # Authenticate user
-    user = await auth_service.authenticate_user(
-        form_data.username, form_data.password, db
-    )
+    user = await auth_service.authenticate_user(form_data.username, form_data.password)
 
     if not user:
         raise HTTPException(
@@ -46,7 +44,16 @@ async def login(
         )
 
     # Create access token
-    access_token = auth_service.create_access_token(user)
+    access_token_expires = timedelta(
+        minutes=auth_service.settings.jwt_access_token_expire_minutes
+    )
+    access_token = auth_service.create_access_token(
+        data={"sub": user.email, "user_id": user.id},
+        expires_delta=access_token_expires,
+    )
+
+    # Update last login timestamp
+    await auth_service.update_last_login(user.id)
 
     return Token(access_token=access_token, token_type="bearer")  # nosec B106
 
@@ -76,7 +83,7 @@ async def logout(
     return {"message": "Successfully logged out"}
 
 
-@router.get("/me", response_model=UserPublic)
+@router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
@@ -85,14 +92,13 @@ async def get_current_user_info(
 
 
 @router.post(
-    "/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 @limiter.limit("3/minute")
 async def register_user(
     request: Request,
     user_create: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
-    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Register a new user account.
 
@@ -103,14 +109,10 @@ async def register_user(
     - At least one digit
     - At least one special character
     """
-    try:
-        return await auth_service.create_user(user_create, db)
-    except ValueError as e:
-        # Handle duplicate email or other validation errors
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return await auth_service.create_user(user_create)
 
 
-@router.get("/users", response_model=list[UserPublic])
+@router.get("/users", response_model=list[UserResponse])
 async def list_users(
     current_user: User = Depends(get_current_admin_user),
     auth_service: AuthService = Depends(get_auth_service),

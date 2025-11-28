@@ -8,9 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-
-# Git worktrees
-.worktrees/
 build/
 develop-eggs/
 dist/
@@ -264,10 +261,15 @@ openspec/
 CODE_REVIEW*.md
 code-reviews/
 
-.claude/
+!.claude/skills
+!.claude/commands/*
+.claude/settings.local.json
+.claude/.claude
 
 docs/production-rpi.md
 SQLMODEL_REFACTORING_GUIDE.md
 
 # GitHub Copilot environment-specific instructions
 .github/copilot-instructions.md
+
+user_pass_marek.txt

@@ -46,13 +46,14 @@ async with get_db() as db:
 - `jwt_secret_key` - JWT token signing secret
 
 **Notes**:
+
 - Riot API key is stored in database only. Use `get_riot_api_key(db)` function to retrieve it.
-- Database URL is constructed from POSTGRES_* components, not set directly
+- Database URL is constructed from POSTGRES\_\* components, not set directly
 - Region/platform hardcoded to europe/eun1 in backend code
 
-### `logging.py` - Structured Logging
+### Structured Logging
 
-- **`structlog`** configuration with JSON output
+- **`structlog`** configuration with JSON output (configured in main.py)
 - **Context keys** for trace ability
 - **Request ID tracking** for request correlation
 
@@ -65,6 +66,8 @@ logger.error("api_error", error=str(e), endpoint="/summoner/v4")
 ```
 
 **Never use f-strings in log messages** - use context keys instead.
+
+**Note**: Logging configuration is handled in `main.py` with processors for JSON output, context merging, and job log capture.
 
 ### `exceptions.py` - Custom Exceptions
 
@@ -86,7 +89,7 @@ if response.status_code == 404:
 
 - **`get_db()`**: Database session (imported from database.py)
 - **`get_settings()`**: Application settings (imported from config.py)
-- **`get_riot_api_client()`**: Riot API client instance
+- **`get_riot_client()`**: Riot API client instance with async context manager
 - **`get_riot_data_manager()`**: Riot data manager (preferred over direct client)
 
 ```python
@@ -99,6 +102,8 @@ async def get_player(
 ):
     return await data_manager.get_summoner_by_puuid(puuid, platform)
 ```
+
+**Note**: The dependency injection uses modern `Annotated` types and handles API key retrieval from database automatically.
 
 ### `enums.py` - Shared Enumerations
 
@@ -113,13 +118,23 @@ if rank.tier == Tier.CHALLENGER:
     print("Top player!")
 ```
 
-### `models.py` - Core Type Definitions
+### `models.py` - Base Model Class
 
-This file previously contained the SQLAlchemy Base class, which has been fully replaced by SQLModel.
-All models now use SQLModel for combined ORM and validation.
+- **`Base`**: SQLAlchemy declarative base
+- **`BaseModel`**: Abstract base with common fields (`id`, `created_at`, `updated_at`)
 
-**Note:** All application models now use SQLModel's pattern of Base → Table → API schemas.
-See `backend/SQLMODEL_MIGRATION_GUIDE.md` for comprehensive SQLModel usage patterns.
+```python
+from app.core.models import BaseModel
+
+class Player(BaseModel):
+    __tablename__ = "players"
+
+    puuid = Column(String, unique=True, nullable=False)
+    game_name = Column(String)
+    tag_line = Column(String)
+```
+
+**Note**: The base models use SQLAlchemy 2.0 with Mapped types for type safety.
 
 ### `validation.py` - Shared Validation Utilities
 
@@ -160,6 +175,9 @@ Key modules:
 - `rate_limiter.py` - Token bucket rate limiter
 - `transformers.py` - API response transformations
 - `endpoints.py` - Riot API endpoint definitions
+- `constants.py` - Region, platform, and queue enums
+- `models.py` - Riot API data models
+- `errors.py` - Riot API-specific exceptions
 
 ## Architectural Rules
 
@@ -249,8 +267,8 @@ from app.core.enums import Tier, Platform, QueueType
 # Exceptions
 from app.core.exceptions import RiotAPIError, RateLimitError, PlayerNotFoundError
 
-# Note: Models are now SQLModel-based and imported from feature modules
-# See backend/SQLMODEL_MIGRATION_GUIDE.md for SQLModel usage patterns
+# Models
+from app.core.models import Base, BaseModel
 
 # Logging
 import structlog

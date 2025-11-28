@@ -41,9 +41,6 @@ class BaseJob(ABC):
         self.job_config_id = job_config_id
         self.job_config: Optional[JobConfiguration] = None
         self.job_execution: Optional[JobExecution] = None
-        self.execution_id: Optional[int] = (
-            None  # Store ID separately to avoid lazy loading issues
-        )
         self.metrics = defaultdict(int)
         self.metrics.update(
             {
@@ -114,13 +111,10 @@ class BaseJob(ABC):
                 raise Exception("Failed to create job execution record")
             await db.refresh(self.job_execution)
 
-            # Store execution ID separately to avoid lazy loading issues
-            self.execution_id = self.job_execution.id
-
             logger.debug(
                 "Job execution started",
                 job_config_id=self.job_config_id,
-                execution_id=self.execution_id,
+                execution_id=self.job_execution.id,
             )
 
         except Exception as e:
@@ -330,19 +324,19 @@ class BaseJob(ABC):
                 error=str(e),
                 error_type=type(e).__name__,
                 job_config_id=self.job_config_id,
-                execution_id=self.execution_id,
+                execution_id=self.job_execution.id if self.job_execution else None,
             )
             return False
 
     def _get_job_logs(self) -> List[Dict[str, Any]]:
         """Extract logs for this job execution."""
-        if self.execution_id is None:
+        if self.job_execution is None:
             return []
 
         return [
             entry
             for entry in job_log_capture.entries
-            if entry.get("job_execution_id") == self.execution_id
+            if entry.get("job_execution_id") == self.job_execution.id
         ]
 
     def _strip_redundant_fields(
