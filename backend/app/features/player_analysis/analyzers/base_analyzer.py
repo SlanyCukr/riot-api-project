@@ -6,14 +6,15 @@ should inherit from to ensure consistent interface and behavior.
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict, Any, List
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 import structlog
 
 from ..schemas import DetectionFactor
 from ..config import DETECTION_WEIGHTS, DETECTION_THRESHOLDS
 
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players.orm_models import PlayerORM
+    from app.features.players.ranks import PlayerRank
 
 logger = structlog.get_logger(__name__)
 
@@ -36,21 +37,24 @@ class BaseFactorAnalyzer(ABC):
     async def analyze(
         self,
         puuid: str,
-        recent_matches: List[Dict[str, Any]],
-        player: "Player",
-        db: Any,
+        matches_data: List[Dict[str, Any]],
+        player_data: "PlayerORM",
+        rank_history: Optional[List["PlayerRank"]],
     ) -> DetectionFactor:
         """
         Analyze a specific detection factor.
 
-        :param puuid: Player UUID
+        This is a pure function that receives all required data as parameters
+        and does not access the database directly.
+
+        :param puuid: Player PUUID
         :type puuid: str
-        :param recent_matches: List of recent match data
-        :type recent_matches: List[Dict[str, Any]]
-        :param player: Player model instance
-        :type player: Player
-        :param db: Database session
-        :type db: Any
+        :param matches_data: Pre-fetched match data as list of dictionaries
+        :type matches_data: List[Dict[str, Any]]
+        :param player_data: Pre-fetched player ORM instance
+        :type player_data: PlayerORM
+        :param rank_history: Pre-fetched rank history (newest first)
+        :type rank_history: Optional[List[PlayerRank]]
         :returns: DetectionFactor with analysis results
         :rtype: DetectionFactor
         :raises AnalysisError: If analysis fails
@@ -108,7 +112,7 @@ class BaseFactorAnalyzer(ABC):
     def _log_analysis_start(self, puuid: str, context: Dict[str, Any] = None):
         """Log the start of factor analysis.
 
-        :param puuid: Player UUID
+        :param puuid: PlayerORM UUID
         :type puuid: str
         :param context: Additional context for logging
         :type context: Dict[str, Any]
@@ -130,7 +134,7 @@ class BaseFactorAnalyzer(ABC):
     ):
         """Log the result of factor analysis.
 
-        :param puuid: Player UUID
+        :param puuid: PlayerORM UUID
         :type puuid: str
         :param value: Analyzed value
         :type value: float
@@ -157,7 +161,7 @@ class BaseFactorAnalyzer(ABC):
 
         :param error: Exception that occurred during analysis
         :type error: Exception
-        :param puuid: Player UUID
+        :param puuid: PlayerORM UUID
         :type puuid: str
         :returns: DetectionFactor representing the error
         :rtype: DetectionFactor

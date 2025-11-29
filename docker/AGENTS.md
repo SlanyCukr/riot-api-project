@@ -52,10 +52,11 @@ docker compose exec backend uv run alembic revision --autogenerate -m "descripti
 
 **Docker Files** (`docker/` directory):
 
-- `docker-bake.hcl` - Docker Bake build configuration (parallel builds)
+- `docker-bake.hcl` - Docker Bake build configuration (parallel builds, RPi5 optimized)
 - `backend/Dockerfile` - Multi-stage Python build (base → deps → lint → dev → builder → production)
 - `frontend/Dockerfile` - Multi-stage Node.js build (base → deps → lint → builder → runner → dev)
 - `postgres/init.sql` - Database initialization script
+- `postgres/configure_replication.sh` - PostgreSQL logical replication setup for production
 
 ---
 
@@ -83,9 +84,11 @@ docker compose -f compose.yaml -f compose.override.yaml up -d
 
 - Development build targets (`target: development`)
 - Volume mounts for two-way sync (`./backend:/app`, `./frontend:/app`)
-- User mapping hardcoded to `1000:1000` (prevents root-owned files in volumes on WSL2/Linux)
+- Container names for development (`riot_api_app_frontend_dev`, `riot_api_app_backend_dev`)
 - Debug logging (`LOG_LEVEL: DEBUG`)
-- Development-specific environment variables (`WATCHFILES_FORCE_POLLING`, `UV_CACHE_DIR`)
+- Development-specific environment variables (`WATCHFILES_FORCE_POLLING`, `UV_NO_CACHE`, `UV_PROJECT_ENVIRONMENT`)
+- Frontend uses `npm run dev` for hot reload
+- Backend uses development volume mounts with `.venv` exclusion
 
 ### Production (Explicit Override)
 
@@ -405,7 +408,7 @@ docker system df
 ### Cleanup Unused Resources
 
 ```bash
-./scripts/docker-cleanup.sh  # Removes stopped containers, unused images, build cache
+./scripts/docker-cleanup.sh  # Removes stopped containers, unused images, build cache, and stops local PostgreSQL
 ```
 
 ---
@@ -419,7 +422,18 @@ Both backend and frontend use optimized multi-stage builds:
 3. **Lint**: Linting and code quality checks
 4. **Development**: Full dev environment with tools
 5. **Builder**: Compiles/builds application
-6. **Production**: Minimal runtime-only image
+6. **Production** (backend) / **Runner** (frontend): Minimal runtime-only image
+
+**Build Target Names:**
+
+- **Backend**:
+  - Development: `target: development`
+  - Production: `target: production`
+- **Frontend**:
+  - Development: `target: development`
+  - Production: `target: runner` (Next.js naming convention)
+
+**Note**: Frontend uses "runner" instead of "production" following Next.js Docker conventions. Both are production-ready.
 
 **Benefits**:
 
@@ -465,26 +479,30 @@ docker compose -f compose.yaml -f compose.prod.yaml up -d
 
 # Verify health
 docker compose -f compose.yaml -f compose.prod.yaml ps
-curl http://localhost:8086/health  # Backend health check
-curl http://localhost:8088          # Frontend check
+curl http://localhost:8000/health  # Backend health check
+curl http://localhost:3000          # Frontend check
 ```
 
 ---
 
 ## Environment Variables
 
-Required `.env` file variables (application configuration only):
+**For complete list**, see `.env.example` in project root.
+
+**Key variables:**
 
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials (automatically constructed into connection URL)
-- `NEXT_PUBLIC_API_URL` - Frontend API URL
-- `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
 - `JWT_SECRET_KEY` - JWT signing secret (generate with: `python -c 'import secrets; print(secrets.token_hex(32))'`)
+- `NEXT_PUBLIC_API_URL` - Frontend API URL (build-time variable)
+- `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
 
 **Notes**:
+
 - Riot API key is stored in database only (not in `.env`). Set via web UI at `/settings` after first startup.
 - Region/platform hardcoded to europe/eun1 in backend code
-- Database URL is constructed from POSTGRES_* components, not set directly
+- Database URL is constructed from POSTGRES\_\* components, not set directly
 - Job scheduler always runs (individual jobs controlled via database)
+- `JOB_SCHEDULER_ENABLED` is set in compose files (not required in `.env`)
 
 **Docker infrastructure** (project name, ports, user mapping) is configured in compose files, not in `.env`.
 

@@ -15,7 +15,8 @@ The `backend/app/features/` directory contains domain-specific business logic or
 
 ### Existing Features
 
-- **`players/`** - Player management (search, tracking, rank info)
+- **`auth/`** - User authentication and authorization (JWT-based)
+- **`players/`** - Player management with enterprise architecture (search, tracking, rank info)
 - **`matches/`** - Match data and statistics
 - **`player_analysis/`** - Player analysis algorithms (see feature-specific AGENTS.md)
 - **`matchmaking_analysis/`** - Matchmaking fairness evaluation
@@ -25,6 +26,8 @@ The `backend/app/features/` directory contains domain-specific business logic or
 ## Standard Feature Structure
 
 Every feature follows this structure:
+
+**Standard Feature Structure:**
 
 ```
 features/<feature_name>/
@@ -36,6 +39,25 @@ features/<feature_name>/
 ├── dependencies.py      # Dependency injection helpers
 ├── tests/               # Feature-specific tests
 └── README.md            # Feature documentation (optional)
+```
+
+**Enterprise Feature Structure (players):**
+
+```
+features/players/
+├── __init__.py          # Public API exports
+├── router.py            # FastAPI routes
+├── service.py           # Business orchestration
+├── repository.py        # Repository pattern interface + implementation
+├── orm_models.py        # Rich domain models (SQLAlchemy)
+├── models.py            # Pydantic domain models
+├── schemas.py           # API request/response schemas
+├── transformers.py      # Data mapper between ORM and domain
+├── dependencies.py      # Dependency injection
+├── ranks.py             # Rank-related domain models
+├── ranks_schemas.py     # Rank API schemas
+├── tests/               # Feature tests
+└── README.md            # Enterprise architecture documentation
 ```
 
 ### File Responsibilities
@@ -177,7 +199,7 @@ class PlayerService:
 - Handle errors gracefully
 - Return early to reduce complexity
 
-#### `models.py` - Database Models
+#### `models.py` - Database Models (Standard Features)
 
 Define SQLAlchemy models with proper relationships:
 
@@ -201,22 +223,12 @@ class Player(BaseModel):
     # Relationships
     ranks = relationship("Rank", back_populates="player", cascade="all, delete-orphan")
     matches = relationship("PlayerMatch", back_populates="player")
-
-class Rank(BaseModel):
-    """Rank information for a player."""
-
-    __tablename__ = "ranks"
-
-    player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
-    tier = Column(String, nullable=False)
-    rank = Column(String, nullable=False)
-    league_points = Column(Integer, nullable=False, default=0)
-    wins = Column(Integer, nullable=False, default=0)
-    losses = Column(Integer, nullable=False, default=0)
-
-    # Relationships
-    player = relationship("Player", back_populates="ranks")
 ```
+
+**For Enterprise Features (players):**
+
+- **`orm_models.py`** - Rich domain models with business logic (SQLAlchemy)
+- **`models.py`** - Clean Pydantic domain models (separate from persistence)
 
 **Model Guidelines:**
 
@@ -225,6 +237,7 @@ class Rank(BaseModel):
 - Define relationships with `back_populates`
 - Use cascades appropriately
 - Add docstrings to all models
+- For enterprise features, separate persistence (ORM) from domain (Pydantic) models
 
 #### `schemas.py` - Pydantic Schemas
 
@@ -323,6 +336,8 @@ def get_player_service(
    from app.features.my_feature import my_feature_router
    app.include_router(my_feature_router, prefix="/api/v1", tags=["my_feature"])
    ```
+
+**Note**: Current `main.py` uses the older `@app.on_event()` pattern instead of the newer `lifespan` context manager for startup/shutdown events.
 
 10. **Write tests** in `tests/features/my_feature/`
 11. **Document feature** (optional README.md or AGENTS.md if complex)

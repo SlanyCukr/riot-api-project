@@ -5,14 +5,15 @@ This module analyzes player win rates as part of the player analysis
 algorithm, looking for unusually high win rates that may indicate smurfing.
 """
 
-from typing import TYPE_CHECKING, Dict, Any, List
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
 from ..schemas import DetectionFactor
 
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players.ranks import PlayerRank
+    from app.features.players.orm_models import PlayerORM
 
 logger = structlog.get_logger(__name__)
 
@@ -32,28 +33,28 @@ class WinRateFactorAnalyzer(BaseFactorAnalyzer):
     async def analyze(
         self,
         puuid: str,
-        recent_matches: List[Dict[str, Any]],
-        player: "Player",
-        db: Any,
+        matches_data: List[Dict[str, Any]],
+        player_data: "PlayerORM",
+        rank_history: Optional[List["PlayerRank"]],
     ) -> DetectionFactor:
         """
         Analyze win rate for player analysis.
 
-        :param puuid: Player UUID
+        :param puuid: Player PUUID
         :type puuid: str
-        :param recent_matches: List of recent match data
-        :type recent_matches: List[Dict[str, Any]]
-        :param player: Player model instance
-        :type player: Player
-        :param db: Database session
-        :type db: Any
+        :param matches_data: Pre-fetched match data
+        :type matches_data: List[Dict[str, Any]]
+        :param player_data: Pre-fetched player ORM instance
+        :type player_data: PlayerORM
+        :param rank_history: Pre-fetched rank history (not used by this analyzer)
+        :type rank_history: Optional[List[PlayerRank]]
         :returns: DetectionFactor with win rate analysis results
         :rtype: DetectionFactor
         """
-        self._log_analysis_start(puuid, {"match_count": len(recent_matches)})
+        self._log_analysis_start(puuid, {"match_count": len(matches_data)})
 
         try:
-            if not recent_matches:
+            if not matches_data:
                 return self._create_factor(
                     value=0.0,
                     meets_threshold=False,
@@ -62,8 +63,8 @@ class WinRateFactorAnalyzer(BaseFactorAnalyzer):
                 )
 
             # Calculate win rate
-            wins = sum(1 for match in recent_matches if match.get("win", False))
-            total_games = len(recent_matches)
+            wins = sum(1 for match in matches_data if match.get("win", False))
+            total_games = len(matches_data)
             win_rate = wins / total_games
 
             # Check against threshold

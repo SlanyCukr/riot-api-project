@@ -390,15 +390,17 @@ def get_database_url(self) -> str:
 **What Was Changed:**
 
 1. **Backend Configuration** (`backend/app/core/config.py`):
+
    - Removed `riot_api_key` field from `Settings` class
    - `get_riot_api_key(db)` function retrieves from database only
    - Raises clear error if API key not configured in database
 
 2. **Documentation Updates**:
+
    - Removed `RIOT_API_KEY` from `.env.example`
    - Updated `README.md` setup instructions
    - Updated `docker/AGENTS.md` environment variables section
-   - Updated `docs/guides/deployment.md` secrets section
+   - Updated `docs/production.md` secrets section
    - Updated `backend/README.md` key variables list
    - Updated `backend/app/core/AGENTS.md` configuration docs
 
@@ -418,6 +420,7 @@ def get_database_url(self) -> str:
 **Migration for Existing Users:**
 
 Users with API key in `.env` should:
+
 1. Set API key via web UI at `/settings`
 2. Remove `RIOT_API_KEY` line from `.env`
 3. Restart services

@@ -1,138 +1,128 @@
-"""Matchmaking analysis model for tracking analysis state and results."""
+"""Domain models for matchmaking analysis feature (Pydantic, separate from ORM)."""
 
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from enum import Enum
-
-from sqlalchemy import (
-    BigInteger,
-    DateTime as SQLDateTime,
-    String,
-    Text,
-    Index,
-    ForeignKey,
-)
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
-
-from app.core.models import Base
+from pydantic import BaseModel, Field, ConfigDict
 
 
-class AnalysisStatus(str, Enum):
-    """Status of matchmaking analysis."""
+class MatchmakingAnalysis(BaseModel):
+    """Rich domain model for matchmaking analysis job."""
 
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    model_config = ConfigDict(from_attributes=False)
 
+    id: str
+    user_id: str
+    job_type: str = Field(default="matchmaking_analysis")
+    status: str
+    parameters: Optional[dict] = None
+    result: Optional[dict] = None
+    error_message: Optional[str] = None
+    progress: float = Field(default=0.0, ge=0.0, le=100.0)
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
-class MatchmakingAnalysis(Base):
-    """Matchmaking analysis model for tracking analysis progress and results."""
+    # Analysis-specific fields
+    matches_analyzed: int = Field(default=0, ge=0)
+    winrate: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    avg_rank_difference: Optional[float] = Field(default=None, ge=0.0)
+    fairness_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
-    __tablename__ = "matchmaking_analyses"
+    # Rich domain methods
 
-    # Primary key
-    id: Mapped[int] = mapped_column(
-        BigInteger,
-        primary_key=True,
-        comment="Auto-incrementing primary key",
-    )
+    def is_running(self) -> bool:
+        """Check if analysis is currently running."""
+        return self.status == "running"
 
-    # Foreign key to player
-    puuid: Mapped[str] = mapped_column(
-        String(78),
-        ForeignKey("core.players.puuid", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Player PUUID this analysis is for",
-    )
+    def is_completed(self) -> bool:
+        """Check if analysis has completed (successfully or failed)."""
+        return self.status in ["completed", "success", "failed"]
 
-    # Analysis status and progress
-    status: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        default=AnalysisStatus.PENDING.value,
-        index=True,
-        comment="Current status of the analysis",
-    )
+    def is_successful(self) -> bool:
+        """Check if analysis completed successfully."""
+        return self.status == "success"
 
-    progress: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        comment="Number of API requests completed",
-    )
-
-    total_requests: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        default=1000,
-        comment="Estimated total API requests needed",
-    )
-
-    # Time estimation
-    estimated_minutes_remaining: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        default=20,
-        comment="Estimated minutes remaining for completion",
-    )
-
-    # Results - stored as JSON for flexibility
-    results: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
-        nullable=True,
-        comment="Analysis results as JSON (team/enemy winrates)",
-    )
-
-    # Error tracking
-    error_message: Mapped[Optional[str]] = mapped_column(
-        Text,
-        nullable=True,
-        comment="Error message if analysis failed",
-    )
-
-    # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        comment="When this analysis was created",
-    )
-
-    started_at: Mapped[Optional[datetime]] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=True,
-        comment="When this analysis was started",
-    )
-
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=True,
-        comment="When this analysis was completed",
-    )
-
-    updated_at: Mapped[datetime] = mapped_column(
-        SQLDateTime(timezone=True),
-        nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="When this analysis record was last updated",
-    )
-
-    # Indexes for efficient querying
-    __table_args__ = (
-        Index("ix_matchmaking_analyses_puuid_status", "puuid", "status"),
-        Index("ix_matchmaking_analyses_created_at", "created_at"),
-        {"schema": "core"},
-    )
-
-    def __repr__(self) -> str:
-        """String representation of the analysis."""
+    def has_results(self) -> bool:
+        """Check if analysis has computed results."""
         return (
-            f"<MatchmakingAnalysis(id={self.id}, puuid={self.puuid}, "
-            f"status={self.status}, progress={self.progress}/{self.total_requests})>"
+            self.result is not None
+            and self.matches_analyzed > 0
+            and self.winrate is not None
         )
+
+    def get_progress_percentage(self) -> float:
+        """Get progress as percentage value."""
+        return min(100.0, max(0.0, self.progress))
+
+    def get_duration_seconds(self) -> Optional[float]:
+        """Get analysis duration in seconds."""
+        if not self.started_at:
+            return None
+
+        end_time = self.completed_at or datetime.now()
+        return (end_time - self.started_at).total_seconds()
+
+
+class MatchmakingMetrics(BaseModel):
+    """Domain model for analysis metrics with business logic."""
+
+    matches_analyzed: int = Field(..., ge=0)
+    player_winrate: float = Field(..., ge=0.0, le=1.0)
+    team_avg_winrate: float = Field(..., ge=0.0, le=1.0)
+    enemy_avg_winrate: float = Field(..., ge=0.0, le=1.0)
+    avg_rank_difference: float = Field(..., ge=0.0)
+    fairness_score: float = Field(..., ge=0.0, le=1.0)
+    player_puuid: str
+    region: str
+
+    def get_fairness_grade(self) -> str:
+        """Get letter grade for fairness score."""
+        if self.fairness_score >= 0.9:
+            return "A+"
+        elif self.fairness_score >= 0.8:
+            return "A"
+        elif self.fairness_score >= 0.7:
+            return "B"
+        elif self.fairness_score >= 0.6:
+            return "C"
+        elif self.fairness_score >= 0.5:
+            return "D"
+        else:
+            return "F"
+
+    def is_fair_match(self) -> bool:
+        """Check if match is considered fair (score >= 0.7)."""
+        return self.fairness_score >= 0.7
+
+    def get_winrate_quality(self) -> str:
+        """Get description of winrate quality."""
+        if self.player_winrate >= 0.6:
+            return "Excellent"
+        elif self.player_winrate >= 0.5:
+            return "Good"
+        elif self.player_winrate >= 0.4:
+            return "Average"
+        else:
+            return "Below Average"
+
+
+class MatchDataPoint(BaseModel):
+    """Single match data point for analysis."""
+
+    match_id: str
+    player_win: bool
+    team_winrates: List[float]
+    enemy_winrates: List[float]
+    rank_difference: float
+
+    def get_team_count(self) -> int:
+        """Get number of teammates analyzed."""
+        return len(self.team_winrates)
+
+    def get_enemy_count(self) -> int:
+        """Get number of enemies analyzed."""
+        return len(self.enemy_winrates)
+
+    def is_balanced_match(self) -> bool:
+        """Check if this match was balanced (small rank difference)."""
+        return self.rank_difference <= 200.0

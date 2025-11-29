@@ -19,3 +19,13 @@ class Tier(str, Enum):
     MASTER = "MASTER"
     GRANDMASTER = "GRANDMASTER"
     CHALLENGER = "CHALLENGER"
+
+
+class JobStatus(str, Enum):
+    """Enumeration of job execution statuses."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    RATE_LIMITED = "RATE_LIMITED"

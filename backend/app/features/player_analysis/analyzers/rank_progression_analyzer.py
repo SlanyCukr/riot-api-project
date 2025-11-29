@@ -6,7 +6,6 @@ rapid climbing that may indicate smurf behavior.
 """
 
 from typing import TYPE_CHECKING, Dict, Any, List, Optional
-from sqlalchemy import select, desc
 import structlog
 
 from .base_analyzer import BaseFactorAnalyzer
@@ -15,7 +14,7 @@ from app.features.players.ranks import PlayerRank
 from app.core.enums import Tier
 
 if TYPE_CHECKING:
-    from app.features.players.models import Player
+    from app.features.players.orm_models import PlayerORM
 
 logger = structlog.get_logger(__name__)
 
@@ -49,30 +48,28 @@ class RankProgressionFactorAnalyzer(BaseFactorAnalyzer):
     async def analyze(
         self,
         puuid: str,
-        recent_matches: List[Dict[str, Any]],
-        player: "Player",
-        db: Any,
+        matches_data: List[Dict[str, Any]],
+        player_data: "PlayerORM",
+        rank_history: Optional[List["PlayerRank"]],
     ) -> DetectionFactor:
         """
         Analyze rank progression for player analysis.
 
-        :param puuid: Player UUID
+        :param puuid: Player PUUID
         :type puuid: str
-        :param recent_matches: List of recent match data
-        :type recent_matches: List[Dict[str, Any]]
-        :param player: Player model instance
-        :type player: Player
-        :param db: Database session
-        :type db: Any
+        :param matches_data: Pre-fetched match data (not used by this analyzer)
+        :type matches_data: List[Dict[str, Any]]
+        :param player_data: Pre-fetched player ORM instance
+        :type player_data: PlayerORM
+        :param rank_history: Pre-fetched rank history (newest first)
+        :type rank_history: Optional[List[PlayerRank]]
         :returns: DetectionFactor with rank progression analysis results
         :rtype: DetectionFactor
         """
         self._log_analysis_start(puuid)
 
         try:
-            # Get rank history from database
-            rank_history = await self._get_rank_history(puuid, db)
-
+            # Use pre-fetched rank history
             if not rank_history:
                 return self._create_factor(
                     value=0.0,
@@ -131,17 +128,6 @@ class RankProgressionFactorAnalyzer(BaseFactorAnalyzer):
 
         except Exception as e:
             return self._create_error_factor(e, puuid)
-
-    async def _get_rank_history(self, puuid: str, db: Any) -> List[PlayerRank]:
-        """Get player's rank history ordered by date (newest first)."""
-        query = (
-            select(PlayerRank)
-            .where(PlayerRank.puuid == puuid)
-            .order_by(desc(PlayerRank.created_at))
-        )
-
-        result = await db.execute(query)
-        return list(result.scalars().all())
 
     def _get_tier_level(self, tier_string: str) -> int:
         """Convert tier string to numeric level."""

@@ -33,14 +33,24 @@ The backend uses **feature-based organization** where related code is grouped by
 
 Each feature is self-contained with all related code:
 
-**`features/players/`** - Player management
+**`features/auth/`** - User authentication and authorization
+
+- JWT-based authentication system
+- User registration, login, and token management
+- Password hashing and validation
+- Rate limiting for auth endpoints
+
+**`features/players/`** - Player management (Enterprise Architecture)
 
 - `router.py` - Player API endpoints
-- `service.py` - PlayerService (search, tracking, rank)
-- `models.py` - Player, Rank SQLAlchemy models
+- `service.py` - PlayerService (orchestration layer)
+- `repository.py` - Repository pattern implementation with interface
+- `orm_models.py` - Rich domain models with business logic
+- `models.py` - Pydantic domain models (separate from ORM)
 - `schemas.py` - Pydantic request/response schemas
+- `transformers.py` - Data mapper between ORM and domain models
 - `dependencies.py` - Feature-specific dependency injection
-- `README.md` - Feature documentation
+- `README.md` - Comprehensive enterprise architecture documentation
 
 **`features/matches/`** - Match data and statistics
 
@@ -98,6 +108,8 @@ features/jobs/ ─────┘
 
 Every feature follows the same pattern:
 
+**Standard Feature Structure:**
+
 ```
 features/<feature_name>/
 ├── __init__.py          # Public API exports
@@ -108,6 +120,25 @@ features/<feature_name>/
 ├── dependencies.py      # Dependency injection
 ├── tests/               # Feature tests
 └── README.md            # Feature documentation
+```
+
+**Enterprise Feature Structure (players):**
+
+```
+features/players/
+├── __init__.py          # Public API exports
+├── router.py            # FastAPI routes
+├── service.py           # Business orchestration
+├── repository.py        # Repository pattern interface + implementation
+├── orm_models.py        # Rich domain models (SQLAlchemy)
+├── models.py            # Pydantic domain models
+├── schemas.py           # API request/response schemas
+├── transformers.py      # Data mapper between ORM and domain
+├── dependencies.py      # Dependency injection
+├── ranks.py             # Rank-related domain models
+├── ranks_schemas.py     # Rank API schemas
+├── tests/               # Feature tests
+└── README.md            # Enterprise architecture documentation
 ```
 
 ### 4. Public API Exports
@@ -138,13 +169,20 @@ from app.core.enums import Tier, Platform
 ### Importing from Features
 
 ```python
-# Import from feature's public API
-from app.features.players import PlayerService, Player, PlayerResponse
-from app.features.matches import MatchService, Match
-
-# Or import directly for internal use
+# Direct module imports (preferred to avoid circular dependencies)
 from app.features.players.service import PlayerService
 from app.features.players.models import Player
+from app.features.players.schemas import PlayerResponse
+
+# For enterprise features (players), you may also import:
+from app.features.players.repository import PlayerRepositoryInterface
+from app.features.players.orm_models import PlayerORM
+from app.features.players.transformers import PlayerTransformer
+
+# Some features have public API exports (jobs, settings, auth)
+from app.features.jobs import jobs_router, start_scheduler
+from app.features.settings import settings_router
+from app.features.auth import auth_router
 ```
 
 ### Dependency Injection
@@ -197,7 +235,8 @@ When creating a new feature, follow this structure:
    from app.features.my_feature import my_feature_router
    app.include_router(my_feature_router, prefix="/api/v1", tags=["my_feature"])
    ```
-4. **Create tests** in `features/my_feature/tests/`
+
+**Note**: The current `main.py` uses `@app.on_event("startup")` and `@app.on_event("shutdown")` lifecycle handlers instead of the newer `lifespan` context manager pattern. 4. **Create tests** in `features/my_feature/tests/`
 
 ## Adding Endpoints to Existing Features
 

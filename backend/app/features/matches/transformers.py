@@ -4,8 +4,11 @@ This module provides utility classes for transforming data from Riot API DTOs
 to formats suitable for database storage, validation, and processing.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import structlog
+
+if TYPE_CHECKING:
+    from .orm_models import MatchORM, MatchParticipantORM
 
 
 logger = structlog.get_logger(__name__)
@@ -40,7 +43,8 @@ class MatchDTOTransformer:
 
         # Handle direct list
         if isinstance(match_list_dto, list):
-            return list(match_list_dto)
+            # Cast to list of strings since we expect match IDs
+            return [str(item) for item in match_list_dto]  # type: ignore[arg-type]
 
         # Fallback to empty list
         logger.warning(
@@ -86,7 +90,7 @@ class MatchDTOTransformer:
         Returns:
             Dictionary with participant data ready for database storage
         """
-        data = {
+        data: Dict[str, Any] = {
             "puuid": participant_dto.puuid,
             "riot_id_name": participant_dto.riot_id_game_name or None,
             "riot_id_tagline": participant_dto.riot_id_tagline or None,
@@ -169,3 +173,122 @@ class PlayerDataSanitizer:
             player_data["platform"] = player_data["platform"].upper()
 
         return player_data
+
+
+class MatchTransformer:
+    """Data mapper for converting between ORM models and API response schemas.
+
+    Following the Data Mapper pattern to keep layers decoupled.
+    Transforms rich domain models with business logic into API response schemas.
+    """
+
+    @staticmethod
+    def match_orm_to_response(match_orm: "MatchORM"):
+        """Transform MatchORM domain model to MatchResponse API schema.
+
+        Applies business logic from domain model (e.g., game type detection,
+        duration calculations, patch version extraction) and converts to API response format.
+
+        This demonstrates the Data Mapper pattern where transformers bridge
+        the domain layer (with business logic) and the API layer (with DTOs).
+
+        :param match_orm: Match domain model from database
+        :returns: Match response schema for API
+        """
+        from .schemas import MatchResponse
+
+        # Use Pydantic's from_attributes to map most fields automatically
+        response = MatchResponse.model_validate(match_orm)
+
+        # Add computed fields from domain logic
+        # These values are calculated using the domain model's business methods
+        response.is_ranked = match_orm.is_ranked_game()
+        response.duration_minutes = match_orm.get_duration_minutes()
+        response.is_recent = match_orm.is_recent()
+        response.is_valid_game = match_orm.is_valid_game()
+        response.is_summoners_rift = match_orm.is_summoners_rift()
+        response.game_creation_datetime = match_orm.get_game_creation_datetime()
+        response.patch_version = match_orm.get_patch_version()
+        response.winning_team_id = match_orm.get_winning_team_id()
+
+        return response
+
+    @staticmethod
+    def match_participant_orm_to_response(participant_orm: "MatchParticipantORM"):
+        """Transform MatchParticipantORM to response schema.
+
+        Adds computed fields from domain logic (e.g., KDA calculation, performance metrics).
+
+        :param participant_orm: Match participant domain model from database
+        :returns: Match participant response schema for API
+        """
+        from .schemas import MatchParticipantResponse
+
+        # Use Pydantic's from_attributes to map most fields automatically
+        response = MatchParticipantResponse.model_validate(participant_orm)
+
+        # Add computed fields from domain logic
+        # These values are calculated using the domain model's business methods
+        response.calculated_kda = participant_orm.calculate_kda()
+        response.is_carry_performance = participant_orm.is_carry_performance()
+        response.cs_per_minute = participant_orm.get_cs_per_minute()
+        response.is_support_role = participant_orm.is_support_role()
+        response.is_high_vision = participant_orm.is_high_vision()
+        response.is_perfect_kda = participant_orm.is_perfect_kda()
+        response.is_good_cs = participant_orm.is_good_cs()
+        response.performance_grade = participant_orm.get_performance_grade()
+
+        return response
+
+    @staticmethod
+    def match_with_participants_to_response(
+        match_orm: "MatchORM", include_participants: bool = True
+    ):
+        """Transform MatchORM with participants to comprehensive response.
+
+        Includes match data and optionally participant data with all computed fields.
+
+        :param match_orm: Match domain model from database
+        :param include_participants: Whether to include participant data
+        :returns: Comprehensive match response with participants
+        """
+        from .schemas import MatchWithParticipantsResponse
+
+        # Transform match data
+        match_response = MatchTransformer.match_orm_to_response(match_orm)
+
+        if include_participants and match_orm.participants:
+            # Transform all participants
+            participants_response = [
+                MatchTransformer.match_participant_orm_to_response(participant)
+                for participant in match_orm.participants
+            ]
+
+            # Create comprehensive response
+            return MatchWithParticipantsResponse(
+                **match_response.model_dump(),
+                participants=participants_response,
+                participant_count=len(participants_response),
+            )
+
+        # Return basic match response if no participants
+        return match_response
+
+
+# Legacy transformation functions for backward compatibility
+def match_orm_to_response(match_orm: "MatchORM"):
+    """Transform MatchORM to MatchResponse schema.
+
+    :param match_orm: Match domain model
+    :returns: Match response schema
+    """
+    return MatchTransformer.match_orm_to_response(match_orm)
+
+
+def match_participant_orm_to_response(participant_orm: "MatchParticipantORM"):
+    """Transform MatchParticipantORM to response schema.
+
+    :param participant_orm: Match participant domain model
+    :returns: Match participant response schema
+    """
+    return MatchTransformer.match_participant_orm_to_response(participant_orm)

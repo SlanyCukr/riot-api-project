@@ -82,7 +82,7 @@ Analyzes players using 9 weighted factors:
 
 **Frontend**
 
-- Next.js 15 + React 19 + TypeScript
+- Next.js 16 + React 19 + TypeScript
 - shadcn/ui + Tailwind CSS
 - TanStack Query for data fetching
 
@@ -105,11 +105,13 @@ docker compose down                                 # Stop services
 ```
 
 **How hot reload works:**
+
 - **Backend**: `uvicorn --reload` watches Python files and auto-restarts on changes
 - **Frontend**: `next dev` watches TypeScript/JSX files and hot reloads on changes
 - **Two-way sync**: Volume mounts (`./backend:/app`, `./frontend:/app`) sync code changes to containers and generated files (like Alembic migrations) back to host
 
 **When to rebuild containers:**
+
 - Dependency changes (`pyproject.toml`, `package.json`)
 - Dockerfile modifications
 - System package changes
@@ -143,9 +145,9 @@ Monitor jobs at: http://localhost:3000/jobs
 
 - `GET /api/v1/matches/player/{puuid}` - Get match history
 - `POST /api/v1/player-analysis/analyze` - Run player analysis
-- `GET /api/v1/player-analysis/player/{puuid}/latest` - Get latest analysis
+- `GET /api/v1/player-analysis/{puuid}/latest` - Get latest analysis
 - `POST /api/v1/matchmaking-analysis/start` - Start matchmaking analysis
-- `GET /api/v1/matchmaking-analysis/{puuid}/latest` - Get latest matchmaking analysis
+- `GET /api/v1/matchmaking-analysis/player/{puuid}` - Get latest matchmaking analysis
 
 **Full API docs**: http://localhost:8000/docs
 
@@ -162,9 +164,10 @@ JWT_SECRET_KEY=<generate-64-char-hex> # JWT signing secret (run: python -c 'impo
 ```
 
 **Notes**:
+
 - **Riot API Key**: Stored in database only, not in `.env`. Set via web UI at http://localhost:3000/settings after first startup.
 - **Region/Platform**: Hardcoded to europe/eun1 in backend code
-- **Database URL**: Automatically constructed from POSTGRES_* variables
+- **Database URL**: Automatically constructed from POSTGRES\_\* variables
 
 **⚠️ Important**: Development API keys expire every 24 hours. Update your key via the settings page when expired.
 
@@ -175,6 +178,7 @@ riot-api-project/
 ├── backend/app/               # FastAPI application (feature-based)
 │   ├── core/                  # Infrastructure (database, config, Riot API client)
 │   └── features/              # Domain features
+│       ├── auth/              # User authentication and authorization
 │       ├── players/           # Player management (search, tracking, rank info)
 │       ├── matches/           # Match data and statistics
 │       ├── player_analysis/   # Player analysis algorithms
@@ -184,6 +188,7 @@ riot-api-project/
 ├── frontend/                  # Next.js application (feature-based)
 │   ├── app/                   # Pages (App Router)
 │   ├── features/              # Feature modules
+│   │   ├── auth/              # Authentication components and context
 │   │   ├── players/           # Player components, hooks, utilities
 │   │   ├── matches/           # Match components
 │   │   ├── player-analysis/   # Analysis components

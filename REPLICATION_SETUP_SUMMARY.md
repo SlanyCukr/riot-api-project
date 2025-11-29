@@ -5,10 +5,12 @@
 ### 1. Production Configuration (Automatic on Deployment)
 
 **Modified Files:**
+
 - `compose.prod.yaml` - Added logical replication parameters to PostgreSQL command
 - `docker/postgres/configure_replication.sh` - Auto-configures `pg_hba.conf` on fresh deployments
 
 **What's Configured:**
+
 - ✅ `wal_level = logical` (enables logical replication)
 - ✅ `max_replication_slots = 30` (supports multiple subscriptions)
 - ✅ `max_wal_senders = 30` (supports concurrent streams)
@@ -17,10 +19,12 @@
 ### 2. Development Setup (Automated Script)
 
 **Created Files:**
+
 - `scripts/setup-replication-dev.sh` - Automated replication setup for DEV
 - `scripts/README.md` - Documentation for setup script
 
 **What the Script Does:**
+
 - ✅ Reads credentials from `.env` (no hardcoded secrets)
 - ✅ Tests connection to production
 - ✅ Creates subscription automatically
@@ -29,10 +33,12 @@
 ### 3. Security Improvements
 
 **Modified Files:**
+
 - `.env.example` - Added replication variables (commented, no actual credentials)
 - `docs/postgresql-replication.md` - Removed all hardcoded credentials
 
 **Security Measures:**
+
 - ✅ All credentials moved to `.env` (already in `.gitignore`)
 - ✅ No hardcoded passwords in code or documentation
 - ✅ Script validates credentials before use
@@ -40,6 +46,7 @@
 ### 4. Documentation
 
 **Created/Modified Files:**
+
 - `docs/postgresql-replication.md` - Complete replication guide
   - Architecture overview
   - Setup instructions
@@ -51,12 +58,14 @@
 ## Current Status
 
 ### Production (Already Configured)
+
 - ✅ Logical replication enabled (`wal_level = logical`)
 - ✅ Replication slots configured (30 max)
 - ✅ `pg_hba.conf` allows replication connections
 - ✅ Publication created: `prod_to_dev_pub`
 
 ### Development (Active Replication)
+
 - ✅ Subscription created: `dev_from_prod_sub`
 - ✅ Real-time replication working
 - ✅ Tested: INSERT, UPDATE, DELETE operations
@@ -70,6 +79,7 @@
 1. **Get production credentials** (securely, not from git)
 
 2. **Add to `.env`:**
+
    ```bash
    # Edit your local .env file
    nano .env
@@ -83,6 +93,7 @@
    ```
 
 3. **Run setup script:**
+
    ```bash
    docker compose up -d postgres
    ./scripts/setup-replication-dev.sh
@@ -95,11 +106,13 @@
 ## Files Modified/Created
 
 ### Modified
+
 - `compose.prod.yaml` - Added replication config to PostgreSQL
 - `.env.example` - Added replication variables (template)
 - `docs/postgresql-replication.md` - Removed hardcoded credentials
 
 ### Created
+
 - `docker/postgres/configure_replication.sh` - Auto-setup script (new deployments)
 - `scripts/setup-replication-dev.sh` - DEV setup automation
 - `scripts/README.md` - Scripts documentation
@@ -110,9 +123,11 @@
 ## Next Steps
 
 ### Immediate
+
 - ✅ Nothing! Replication is fully configured and working
 
 ### Future Production Deployment
+
 When you redeploy production:
 
 1. **Automatic:** Replication settings will be applied via `compose.prod.yaml`
@@ -129,11 +144,13 @@ When you redeploy production:
 ## Security Reminders
 
 ⚠️ **NEVER:**
+
 - Commit `.env` to git
 - Share credentials in chat/email (use password manager)
 - Hardcode credentials in code or docs
 
 ✅ **ALWAYS:**
+
 - Use `.env` for credentials
 - Share credentials securely (encrypted)
 - Review changes before committing
@@ -161,7 +178,7 @@ docker compose exec postgres psql -U $POSTGRES_USER -d $POSTGRES_DB \
 
 - **Setup Guide:** `docs/postgresql-replication.md`
 - **Script Docs:** `scripts/README.md`
-- **Production Docs:** `docs/production-rpi.md`
+- **Production Docs:** `docs/production.md`
 - **Docker Commands:** `docker/AGENTS.md`
 
 ---
@@ -170,11 +187,11 @@ docker compose exec postgres psql -U $POSTGRES_USER -d $POSTGRES_DB \
 
 All replication operations verified:
 
-| Operation | Production | DEV | Status |
-|-----------|-----------|-----|--------|
-| INSERT | ✅ | ✅ | Working |
-| UPDATE | ✅ | ✅ | Working |
-| DELETE | ✅ | ✅ | Working |
+| Operation | Production | DEV | Status  |
+| --------- | ---------- | --- | ------- |
+| INSERT    | ✅         | ✅  | Working |
+| UPDATE    | ✅         | ✅  | Working |
+| DELETE    | ✅         | ✅  | Working |
 
 **Replication Lag:** <1 second (real-time)
 
