@@ -33,7 +33,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('matches_analyzed', sa.Integer(), nullable=False, default=0),
+    sa.Column('matches_analyzed', sa.Integer(), nullable=False, server_default='0'),
     sa.Column('winrate', sa.Float(), nullable=True),
     sa.Column('avg_rank_difference', sa.Float(), nullable=True),
     sa.Column('fairness_score', sa.Float(), nullable=True),

@@ -97,6 +97,15 @@ class MatchDataProcessor:
         if not participants:
             return None
 
+        # Collect all PUUIDs first (excluding target player)
+        puuids_to_fetch = [
+            p.get("puuid") for p in participants
+            if p and isinstance(p, dict) and p.get("puuid") and p.get("puuid") != player_puuid
+        ]
+
+        # Batch fetch all player rank data in one query
+        rank_data_map = await self._batch_fetch_rank_data(puuids_to_fetch, db)
+
         team_winrates: List[float] = []
         enemy_winrates: List[float] = []
         team_ranks: List[int] = []
@@ -112,8 +121,10 @@ class MatchDataProcessor:
             if not participant_puuid:
                 continue
 
-            participant_winrate = await self._extract_participant_winrate(participant_puuid, db)
-            participant_rank = await self._extract_participant_rank(participant_puuid, db)
+            # Use batch-fetched data instead of individual queries
+            rank_info = rank_data_map.get(participant_puuid)
+            participant_winrate = rank_info.get("winrate") if rank_info else None
+            participant_rank = rank_info.get("numeric_rank") if rank_info else None
             participant_team_id = participant.get("teamId")
 
             if participant_winrate is not None:
@@ -132,6 +143,93 @@ class MatchDataProcessor:
             "team_ranks": team_ranks,
             "enemy_ranks": enemy_ranks,
         }
+
+    async def _batch_fetch_rank_data(
+        self, puuids: List[str], db: AsyncSession
+    ) -> Dict[str, Dict[str, Any]]:
+        """Batch fetch rank data for multiple players in one query.
+
+        Args:
+            puuids: List of player PUUIDs
+            db: Database session
+
+        Returns:
+            Dict mapping PUUID to rank info (winrate, numeric_rank)
+        """
+        if not puuids:
+            return {}
+
+        try:
+            # Single query for all players
+            stmt = select(PlayerRank).where(
+                PlayerRank.puuid.in_(puuids),
+                PlayerRank.queue_type == "RANKED_SOLO_5x5",
+                PlayerRank.is_current == True
+            )
+            result = await db.execute(stmt)
+            rank_records = result.scalars().all()
+
+            # Build lookup dictionary
+            rank_data_map: Dict[str, Dict[str, Any]] = {}
+            for rank_data in rank_records:
+                puuid = rank_data.puuid
+
+                # Calculate winrate
+                wins = rank_data.wins
+                losses = rank_data.losses
+                total_games = wins + losses
+                winrate = wins / total_games if total_games > 0 else None
+
+                # Calculate numeric rank
+                numeric_rank = self._calculate_numeric_rank(
+                    rank_data.tier, rank_data.rank, rank_data.league_points
+                )
+
+                rank_data_map[puuid] = {
+                    "winrate": winrate,
+                    "numeric_rank": numeric_rank,
+                }
+
+            logger.debug(
+                "batch_rank_data_fetched",
+                requested=len(puuids),
+                found=len(rank_data_map),
+            )
+            return rank_data_map
+
+        except Exception as e:
+            logger.error("batch_rank_fetch_failed", error=str(e))
+            return {}
+
+    def _calculate_numeric_rank(
+        self, tier: str, division: Optional[str], lp: int
+    ) -> Optional[int]:
+        """Calculate numeric rank value from tier, division, and LP.
+
+        Args:
+            tier: Rank tier (IRON, BRONZE, etc.)
+            division: Division (I, II, III, IV) or None for Master+
+            lp: League points
+
+        Returns:
+            Numeric rank value or None
+        """
+        tier_values = {
+            "IRON": 0, "BRONZE": 400, "SILVER": 800, "GOLD": 1200,
+            "PLATINUM": 1600, "EMERALD": 2000, "DIAMOND": 2400,
+            "MASTER": 2800, "GRANDMASTER": 3000, "CHALLENGER": 3200,
+        }
+
+        tier_upper = tier.upper() if tier else ""
+        base_rank = tier_values.get(tier_upper, 0)
+
+        if tier_upper in ("MASTER", "GRANDMASTER", "CHALLENGER"):
+            return base_rank + lp
+
+        division_values = {"IV": 0, "III": 100, "II": 200, "I": 300}
+        division_offset = division_values.get(division, 0) if division else 0
+
+        return base_rank + division_offset + lp
 
     def _calculate_team_rank_difference(
         self, team_ranks: List[int], enemy_ranks: List[int]
